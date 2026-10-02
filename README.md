@@ -6,7 +6,7 @@ FoodMap aims to help users easily discover restaurants and dishes worth trying i
 ## Core Features
 
 ## Team Members
--Linda Zhang (NetID: yzhan949)
+- Linda Zhang (NetID: yzhan949)
 -
 
 ## Project Status
