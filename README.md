@@ -1,2 +1,2 @@
 # FoodMap
-A food discovery app that helps users explore restaurants and review individual dishes based on location.
+FoodMap aims to help users easily discover restaurants and dishes worth trying in their area. Users can search for restaurants by location and view photos, ratings, and authentic reviews of specific dishes, enabling them to quickly find the food that interests them.
