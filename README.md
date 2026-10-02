@@ -10,5 +10,6 @@ FoodMap aims to help users easily discover restaurants and dishes worth trying i
 - Linda Zhang (NetID: yzhan949)
 - Qing Sun (NetID: qsun036)
 - Suhyun Kim (NetID: skim1108)
+- Steve Zang (NetID: szang005)
 
 ## Project Status
