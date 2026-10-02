@@ -6,10 +6,10 @@ FoodMap aims to help users easily discover restaurants and dishes worth trying i
 
 ## APP Features
 
-### Recommend restaurants based on current location
+### 1. Recommend restaurants based on current location
 The system automatically detects the user's current location and recommends nearby restaurants based on that location.
 
-### Restaurant Search Sorting
+### 2. Restaurant Search Sorting
 When searching for restaurants, users can sort results based on various criteria—such as higher ratings, higher visitor numbers, or closer proximity—or according to their personal preferences.
 
 - Rating
@@ -19,7 +19,7 @@ When searching for restaurants, users can sort results based on various criteria
 - Price Range
 - Cuisine Type
 
-### Review Classification and Integration System
+### 3. Review Classification and Integration System
 - Users can choose to view only the overall reviews of the restaurant.
 - Users can choose to view reviews for a specific dish only.
 - Dish reviews will be sorted by the number of reviews.
