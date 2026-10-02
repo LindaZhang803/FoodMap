@@ -26,6 +26,10 @@ When searching for restaurants, users can sort results based on various criteria
 - Dishes with a higher number of reviews are displayed first.
 - Comments with high numbers of likes are displayed first.
 
+### 4. User Accounts and Authentication
+- Users can create an account and log in.
+- Each user can manage their own reviews, ratings, uploaded photos, and favorite restaurants or dishes.
+
 ### 
 
 ## Team Members
