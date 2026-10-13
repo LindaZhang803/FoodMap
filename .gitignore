@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.*
+
+# Allow environment template files
+!.env.example
+
+# macOS files
+.DS_Store
+
+# Logs
+*.log
+
+# Build files
+dist/
+build/
+
+/data/

@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>FoodMap Admin - Photo Review</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f6f8;
+      color: #222;
+    }
+
+    header {
+      background: #ffffff;
+      padding: 24px 40px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 26px;
+    }
+
+    header p {
+      margin-bottom: 0;
+      color: #777;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .login {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      max-width: 500px;
+      margin: 70px auto;
+    }
+
+    input {
+      padding: 12px;
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      margin: 12px 0;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 18px;
+      font-size: 14px;
+    }
+
+    .primary {
+      background: #2563eb;
+      color: white;
+    }
+
+    .approve {
+      background: #16a34a;
+      color: white;
+    }
+
+    .reject {
+      background: #dc2626;
+      color: white;
+    }
+
+    .cover {
+      background: #f59e0b;
+      color: white;
+    }
+
+    .secondary {
+      background: #e5e7eb;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 25px;
+      flex-wrap: wrap;
+    }
+
+    .tab.active {
+      background: #2563eb;
+      color: white;
+    }
+
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(
+        auto-fill,
+        minmax(280px, 1fr)
+      );
+      gap: 24px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .card img {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+      background: #eee;
+    }
+
+    .card-content {
+      padding: 18px;
+    }
+
+    .card h3 {
+      margin-top: 0;
+    }
+
+    .card p {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 15px;
+    }
+
+    .message {
+      margin: 16px 0;
+      color: #444;
+    }
+
+    .error {
+      color: #dc2626;
+    }
+
+    .badge {
+      font-size: 12px;
+      color: #777;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <h1>FoodMap Admin</h1>
+    <p>Restaurant Photo Review Dashboard</p>
+  </header>
+
+  <main>
+
+    <!-- Administrator authentication -->
+    <section id="loginSection" class="login">
+
+      <h2>Administrator Access</h2>
+
+      <p>Enter your administrator API key.</p>
+
+      <input
+        type="password"
+        id="adminKey"
+        placeholder="Administrator API Key"
+        autocomplete="off"
+      />
+
+      <button class="primary" id="loginButton">
+        Continue
+      </button>
+
+      <p id="loginMessage" class="message"></p>
+
+    </section>
+
+    <!-- Review dashboard -->
+    <section id="dashboard" hidden>
+
+      <div class="tabs">
+
+        <button class="tab active" data-status="pending">
+          Pending
+        </button>
+
+        <button class="tab" data-status="approved">
+          Approved
+        </button>
+
+        <button class="tab" data-status="rejected">
+          Rejected
+        </button>
+
+        <button class="secondary" id="refreshButton">
+          Refresh
+        </button>
+
+        <button class="secondary" id="logoutButton">
+          Log Out
+        </button>
+
+      </div>
+
+      <p id="statusMessage" class="message"></p>
+
+      <div id="photoGrid" class="photo-grid"></div>
+
+    </section>
+
+  </main>
+
+  <script>
+    const API_BASE = "/api/admin/photos";
+
+    // Keep the key only in memory for this page session.
+    let adminKey = "";
+
+    let currentStatus = "pending";
+
+    const photoGrid = document.getElementById("photoGrid");
+    const statusMessage = document.getElementById("statusMessage");
+
+    const loginSection = document.getElementById("loginSection");
+    const dashboard = document.getElementById("dashboard");
+
+    const objectUrls = [];
+
+    // ===================================================
+    // 1. Authenticated API request
+    // ===================================================
+
+    async function apiRequest(path, options = {}) {
+
+      const response = await fetch(API_BASE + path, {
+        ...options,
+
+        headers: {
+          ...(options.headers || {}),
+          "x-admin-key": adminKey
+        }
+      });
+
+      if (!response.ok) {
+        let message = `Request failed: ${response.status}`;
+
+        try {
+          const data = await response.json();
+          message = data.message || message;
+        } catch (_) {}
+
+        throw new Error(message);
+      }
+
+      return response;
+    }
+
+    // ===================================================
+    // 2. Administrator login
+    // ===================================================
+
+    async function login() {
+
+      const key = document.getElementById("adminKey").value.trim();
+
+      const message = document.getElementById("loginMessage");
+
+      if (!key) {
+        message.textContent = "Please enter your API key.";
+        return;
+      }
+
+      adminKey = key;
+      message.textContent = "Checking access...";
+
+      try {
+
+        await apiRequest("?status=pending");
+
+        document.getElementById("adminKey").value = "";
+
+        loginSection.hidden = true;
+        dashboard.hidden = false;
+
+        await loadPhotos();
+
+      } catch (error) {
+
+        adminKey = "";
+        message.textContent = error.message;
+        message.classList.add("error");
+
+      }
+    }
+
+    // ===================================================
+    // 3. Get protected photo data
+    // ===================================================
+
+    async function loadPhotos() {
+
+      statusMessage.textContent = "Loading photos...";
+      statusMessage.classList.remove("error");
+
+      clearPhotoGrid();
+
+      try {
+
+        const response = await apiRequest(
+          `?status=${encodeURIComponent(currentStatus)}`
+        );
+
+        const photos = await response.json();
+
+        if (!photos.length) {
+          statusMessage.textContent = "No photos found.";
+          return;
+        }
+
+        statusMessage.textContent =
+          `${photos.length} photo(s) found.`;
+
+        for (const photo of photos) {
+          await renderPhoto(photo);
+        }
+
+      } catch (error) {
+
+        statusMessage.textContent = error.message;
+        statusMessage.classList.add("error");
+
+      }
+    }
+
+    // ===================================================
+    // 4. Load protected image
+    // ===================================================
+
+    async function loadImage(photoId) {
+
+      const response = await apiRequest(
+        `/${encodeURIComponent(photoId)}/image`
+      );
+
+      const blob = await response.blob();
+
+      const url = URL.createObjectURL(blob);
+
+      objectUrls.push(url);
+
+      return url;
+    }
+
+    function clearPhotoGrid() {
+
+      photoGrid.replaceChildren();
+
+      for (const url of objectUrls) {
+        URL.revokeObjectURL(url);
+      }
+
+      objectUrls.length = 0;
+    }
+
+    // ===================================================
+    // 5. Render photo card
+    // ===================================================
+
+    function makeButton(text, className, handler) {
+
+      const button = document.createElement("button");
+
+      button.textContent = text;
+      button.className = className;
+
+      button.addEventListener("click", handler);
+
+      return button;
+    }
+
+    async function renderPhoto(photo) {
+
+      const card = document.createElement("div");
+      card.className = "card";
+
+      const img = document.createElement("img");
+      img.alt = "Uploaded restaurant photo";
+
+      try {
+        img.src = await loadImage(photo._id);
+      } catch (error) {
+        img.alt = "Photo preview unavailable";
+      }
+
+      const content = document.createElement("div");
+      content.className = "card-content";
+
+      const title = document.createElement("h3");
+
+      title.textContent =
+        photo.restaurantId?.name || "Unknown Restaurant";
+
+      const status = document.createElement("p");
+
+      status.textContent = `Status: ${photo.status}`;
+
+      const date = document.createElement("p");
+
+      date.textContent =
+        `Uploaded: ${new Date(photo.createdAt).toLocaleString()}`;
+
+      const badge = document.createElement("p");
+      badge.className = "badge";
+
+      badge.textContent = photo.isCover
+        ? "Current Cover"
+        : "";
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+
+      // Pending photo actions
+      if (photo.status === "pending") {
+
+        actions.appendChild(
+          makeButton("Approve", "approve", () => {
+            performAction(photo._id, "approve");
+          })
+        );
+
+        actions.appendChild(
+          makeButton("Reject", "reject", () => {
+            rejectPhoto(photo._id);
+          })
+        );
+
+      }
+
+      // Approved photo actions
+      if (photo.status === "approved" && !photo.isCover) {
+
+        actions.appendChild(
+          makeButton("Set as Cover", "cover", () => {
+            performAction(photo._id, "set-cover");
+          })
+        );
+
+      }
+
+      content.appendChild(title);
+      content.appendChild(status);
+      content.appendChild(date);
+      content.appendChild(badge);
+      content.appendChild(actions);
+
+      card.appendChild(img);
+      card.appendChild(content);
+
+      photoGrid.appendChild(card);
+    }
+
+    // ===================================================
+    // 6. Approve / Set Cover
+    // ===================================================
+
+    async function performAction(photoId, action) {
+
+      try {
+
+        await apiRequest(
+          `/${encodeURIComponent(photoId)}/${action}`,
+          {
+            method: "PATCH"
+          }
+        );
+
+        await loadPhotos();
+
+      } catch (error) {
+
+        alert(error.message);
+
+      }
+    }
+
+    // ===================================================
+    // 7. Reject
+    // ===================================================
+
+    async function rejectPhoto(photoId) {
+
+      const reason = prompt(
+        "Reason for rejection (optional):"
+      );
+
+      if (reason === null) {
+        return;
+      }
+
+      try {
+
+        await apiRequest(
+          `/${encodeURIComponent(photoId)}/reject`,
+          {
+            method: "PATCH",
+
+            headers: {
+              "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+              reason
+            })
+          }
+        );
+
+        await loadPhotos();
+
+      } catch (error) {
+
+        alert(error.message);
+
+      }
+    }
+
+    // ===================================================
+    // 8. Status tabs
+    // ===================================================
+
+    function changeStatus(status) {
+
+      currentStatus = status;
+
+      document.querySelectorAll(".tab").forEach(tab => {
+        tab.classList.toggle(
+          "active",
+          tab.dataset.status === status
+        );
+      });
+
+      loadPhotos();
+    }
+
+    // ===================================================
+    // 9. Logout
+    // ===================================================
+
+    function logout() {
+
+      adminKey = "";
+
+      clearPhotoGrid();
+
+      dashboard.hidden = true;
+      loginSection.hidden = false;
+
+      document.getElementById("adminKey").value = "";
+      document.getElementById("loginMessage").textContent = "";
+
+    }
+
+    // ===================================================
+    // 10. Event listeners
+    // ===================================================
+
+    document.getElementById("loginButton")
+      .addEventListener("click", login);
+
+    document.getElementById("refreshButton")
+      .addEventListener("click", loadPhotos);
+
+    document.getElementById("logoutButton")
+      .addEventListener("click", logout);
+
+    document.querySelectorAll(".tab").forEach(tab => {
+
+      tab.addEventListener("click", () => {
+        changeStatus(tab.dataset.status);
+      });
+
+    });
+
+    document.getElementById("adminKey")
+      .addEventListener("keydown", event => {
+
+        if (event.key === "Enter") {
+          login();
+        }
+
+      });
+
+  </script>
+
+</body>
+</html>
