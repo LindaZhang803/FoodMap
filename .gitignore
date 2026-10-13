@@ -1,21 +1,76 @@
+# ==================================
 # Dependencies
+# ==================================
 node_modules/
+**/node_modules/
 
+# ==================================
 # Environment variables
+# ==================================
 .env
 .env.*
-
-# Allow environment template files
 !.env.example
 
-# macOS files
+# ==================================
+# macOS
+# ==================================
 .DS_Store
 
+# ==================================
 # Logs
+# ==================================
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
+# ==================================
 # Build files
+# ==================================
 dist/
 build/
+coverage/
 
+# ==================================
+# Expo / React Native
+# ==================================
+.expo/
+.expo-shared/
+web-build/
+
+# Native build files
+android/.gradle/
+android/app/build/
+ios/Pods/
+ios/build/
+
+# ==================================
+# Temporary files
+# ==================================
+*.tmp
+*.temp
+.cache/
+.tmp/
+
+# ==================================
+# IDE
+# ==================================
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# ==================================
+# Local data
+# ==================================
 /data/
+
+# ==================================
+# User uploaded files
+# ==================================
+backend/uploads/
+
+# ==================================
+# Secrets
+# ==================================
+*.pem
+*.key
