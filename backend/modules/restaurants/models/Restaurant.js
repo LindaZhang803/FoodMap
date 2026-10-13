@@ -14,7 +14,7 @@ const restaurantSchema = new mongoose.Schema({
 
     address: {
         type: String,
-        required: true
+        default: ""
     },
 
     latitude: {
@@ -33,16 +33,17 @@ const restaurantSchema = new mongoose.Schema({
 
     cuisineType: {
         type: String,
-        required: true
+        default: "Unknown"
     },
 
     priceRange: {
-        type: String
+        type: String,
+        default: null
     },
 
     rating: {
         type: Number,
-        default: 0,
+        default: null,
         min: 0,
         max: 5
     },
@@ -54,14 +55,66 @@ const restaurantSchema = new mongoose.Schema({
     },
 
     imageUrl: {
-        type: String
+        type: String,
+        default: null
+    },
+
+    imageSource: {
+        type: String,
+        default: null
+    },
+
+    imageAuthor: {
+        type: String,
+        default: null
+    },
+
+    imageLicense: {
+        type: String,
+        default: null
+    },
+
+    imageLicenseUrl: {
+        type: String,
+        default: null
     },
 
     openingHours: {
+        type: String,
+        default: ""
+    },
+
+    // OpenStreetMap information
+    osmId: {
         type: String
+    },
+
+    osmType: {
+        type: String,
+        enum: ["node", "way", "relation"]
+    },
+
+    dataSource: {
+        type: String,
+        enum: ["manual", "osm"],
+        default: "manual"
     }
+
 }, {
     timestamps: true
 });
+
+// Prevent duplicate OSM restaurants
+restaurantSchema.index(
+    { osmType: 1, osmId: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            dataSource: "osm",
+            osmType: { $type: "string" },
+            osmId: { $type: "string" }
+        }
+    }
+);
 
 module.exports = mongoose.model("Restaurant", restaurantSchema);
