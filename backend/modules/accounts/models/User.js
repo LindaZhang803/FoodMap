@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
@@ -19,5 +20,23 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true,
         select: false
+    },
+
+    profileImage: {
+        type: String,
+        default: ""
+    },
+
+    bio: {
+        type: String,
+        default: ""
+    },
+
+    foodPreferences: {
+        type: [String],
+        default: []
     }
-});
+
+}, { timestamps: true });
+
+module.exports = mongoose.model("User", userSchema);
