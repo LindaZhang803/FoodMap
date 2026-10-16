@@ -1,6 +1,6 @@
 import { File } from "expo-file-system";
 
-const API_ORIGIN = "http://10.13.168.63:3000";
+import { API_ORIGIN } from "../../../config/api";
 
 export async function uploadRestaurantPhoto(restaurantId, asset) {
   if (!restaurantId) {

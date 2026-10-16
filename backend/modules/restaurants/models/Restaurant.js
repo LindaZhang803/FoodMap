@@ -84,6 +84,38 @@ const restaurantSchema = new mongoose.Schema({
         default: ""
     },
 
+    minPrice: {
+        type: Number,
+        default: null,
+        min: 0,
+    },
+
+    maxPrice: {
+        type: Number,
+        default: null,
+        min: 0,
+    },
+
+    priceCurrency: {
+        type: String,
+        default: "USD",
+    },
+
+    priceSource: {
+        type: String,
+        default: null,
+    },
+
+    priceSourceUrl: {
+        type: String,
+        default: null,
+    },
+
+    priceLastChecked: {
+        type: Date,
+        default: null,
+    },
+
     // OpenStreetMap information
     osmId: {
         type: String

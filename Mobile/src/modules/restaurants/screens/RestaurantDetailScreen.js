@@ -14,7 +14,7 @@ import getRestaurantImage from "../utils/getRestaurantImage";
 import PhotoUploadButton from "../components/PhotoUploadButton";
 
 // Use the same backend address as restaurantApi.js
-const API_ORIGIN = "http://10.13.168.63:3000";
+import { API_ORIGIN } from "../../../config/api";
 
 export default function RestaurantDetailScreen({
   restaurantId,

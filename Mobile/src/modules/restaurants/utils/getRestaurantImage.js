@@ -1,5 +1,5 @@
 import cuisineImageMap from "./cuisineImageMap";
-
+import { API_ORIGIN } from "../../../config/api";
 // =====================================================
 // 1. Cuisine Keywords
 // =====================================================
@@ -158,22 +158,19 @@ function getStableIndex(restaurant, count) {
 
 export default function getRestaurantImage(restaurant) {
 
-  // Priority 1: Real restaurant image
   if (
-      typeof restaurant.imageUrl === "string" &&
-      restaurant.imageUrl.trim() !== ""
+    typeof restaurant.imageUrl === "string" &&
+    restaurant.imageUrl.trim() !== ""
   ) {
-      const imageUrl = restaurant.imageUrl.trim();
+    const imageUrl = restaurant.imageUrl.trim();
 
-      const API_ORIGIN = "http://10.13.168.63:3000";
+    const fullUrl = /^https?:\/\//i.test(imageUrl)
+      ? imageUrl
+      : `${API_ORIGIN}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
 
-      const fullUrl = /^https?:\/\//i.test(imageUrl)
-          ? imageUrl
-          : `${API_ORIGIN}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
-
-      return {
-          uri: fullUrl
-      };
+    return {
+      uri: fullUrl,
+    };
   }
 
   // Priority 2: Cuisine image
