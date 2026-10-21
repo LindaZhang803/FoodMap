@@ -1,0 +1,2464 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>FoodMap Batch Image Review</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 30px;
+            background: #f5f5f5;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+        }
+
+        .summary {
+            text-align: center;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+
+        .toolbar {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .save-button {
+            background: #1677d2;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .restaurant-section {
+            max-width: 1300px;
+            margin: 30px auto;
+            padding: 25px;
+            background: #fff;
+            border-radius: 14px;
+        }
+
+        .restaurant-header {
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+        }
+
+        .restaurant-header h2 {
+            margin-top: 0;
+        }
+
+        .restaurant-header p {
+            color: #555;
+            font-size: 14px;
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(auto-fill, minmax(250px, 1fr));
+            gap: 18px;
+        }
+
+        .card {
+            border: 2px solid #eee;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .card h3 {
+            padding: 0 14px;
+        }
+
+        .card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #eee;
+        }
+
+        .placeholder {
+            height: 200px;
+            background: #e5e5e5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #888;
+        }
+
+        .card-info {
+            padding: 14px;
+        }
+
+        .card-info p {
+            overflow-wrap: anywhere;
+        }
+
+        .warning {
+            color: #777;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 15px;
+        }
+
+        .actions button {
+            border: none;
+            border-radius: 6px;
+            padding: 9px 12px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .approve {
+            background: #2e7d32;
+            color: white;
+        }
+
+        .reject {
+            background: #c62828;
+            color: white;
+        }
+
+        .pending {
+            background: #ddd;
+            color: #333;
+        }
+
+        .status {
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .card.approved {
+            border-color: #2e7d32;
+        }
+
+        .card.rejected {
+            border-color: #c62828;
+            opacity: 0.65;
+        }
+
+        .empty {
+            padding: 25px;
+            color: #888;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <h1>FoodMap — Batch Restaurant Image Review</h1>
+
+    <p class="subtitle">
+        5 restaurants
+    </p>
+
+    <p id="summary" class="summary"></p>
+
+    <div class="toolbar">
+
+        <button
+            class="save-button"
+            id="save-review"
+        >
+            Save Review
+        </button>
+
+        <p id="storage-status"></p>
+
+    </div>
+
+    
+                <section class="restaurant-section">
+
+                    <div class="restaurant-header">
+
+                        <h2>
+                            1.
+                            Soho Ramen
+                        </h2>
+
+                        <p>
+                            <strong>Address:</strong>
+                            3605 Market Street Riverside CA
+                        </p>
+
+                        <p>
+                            <strong>OSM:</strong>
+                            node
+                            /
+                            10131204886
+                        </p>
+
+                        <p>
+                            <strong>Coordinates:</strong>
+                            33.9844931,
+                            -117.3747901
+                        </p>
+
+                        <p>
+                            <strong>Candidates:</strong>
+                            0
+                        </p>
+
+                    </div>
+
+                    <div class="image-grid">
+
+                        
+                                    <p class="empty">
+                                        No candidate images found.
+                                    </p>
+                                  
+
+                    </div>
+
+                </section>
+            
+                <section class="restaurant-section">
+
+                    <div class="restaurant-header">
+
+                        <h2>
+                            2.
+                            El Patrón Downtown Riverside
+                        </h2>
+
+                        <p>
+                            <strong>Address:</strong>
+                            Unavailable
+                        </p>
+
+                        <p>
+                            <strong>OSM:</strong>
+                            node
+                            /
+                            10148770796
+                        </p>
+
+                        <p>
+                            <strong>Coordinates:</strong>
+                            33.9799634,
+                            -117.3684946
+                        </p>
+
+                        <p>
+                            <strong>Candidates:</strong>
+                            10
+                        </p>
+
+                    </div>
+
+                    <div class="image-grid">
+
+                        
+                    <div
+                        class="card"
+                        id="card-1-0"
+                    >
+
+                        <h3>Candidate 1</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/4/48/Payne%27s_garden_guide_-_seeds%2C_plants_and_trees_-_Theodore_Payne._%28IA_CAT31313568%29.pdf/page1-500px-Payne%27s_garden_guide_-_seeds%2C_plants_and_trees_-_Theodore_Payne._%28IA_CAT31313568%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:Payne&#39;s garden guide - seeds, plants and trees - Theodore Payne. (IA CAT31313568).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3APayne&#39;s_garden_guide_-_seeds%2C_plants_and_trees_-_Theodore_Payne._(IA_CAT31313568).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="1"
+                                    data-image="0"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="1"
+                                    data-image="0"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="1"
+                                    data-image="0"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-1-0"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-1-1"
+                    >
+
+                        <h3>Candidate 2</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/5/58/Report_of_the_Vice_Commission_of_Minneapolis_to_His_Honor%2C_James_C._Haynes%2C_mayor_%28IA_reportofvicecomm00minn%29.pdf/page1-500px-Report_of_the_Vice_Commission_of_Minneapolis_to_His_Honor%2C_James_C._Haynes%2C_mayor_%28IA_reportofvicecomm00minn%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:Report of the Vice Commission of Minneapolis to His Honor, James C. Haynes, mayor (IA reportofvicecomm00minn).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3AReport_of_the_Vice_Commission_of_Minneapolis_to_His_Honor%2C_James_C._Haynes%2C_mayor_(IA_reportofvicecomm00minn).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="1"
+                                    data-image="1"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="1"
+                                    data-image="1"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="1"
+                                    data-image="1"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-1-1"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-1-2"
+                    >
+
+                        <h3>Candidate 3</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0c/The_Billboard_1918-03-16-_Vol_30_Iss_11_%28IA_sim_billboard_1918-03-16_30_11%29.pdf/page1-500px-The_Billboard_1918-03-16-_Vol_30_Iss_11_%28IA_sim_billboard_1918-03-16_30_11%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:The Billboard 1918-03-16- Vol 30 Iss 11 (IA sim billboard 1918-03-16 30 11).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3AThe_Billboard_1918-03-16-_Vol_30_Iss_11_(IA_sim_billboard_1918-03-16_30_11).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="1"
+                                    data-image="2"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="1"
+                                    data-image="2"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="1"
+                                    data-image="2"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-1-2"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-1-3"
+                    >
+
+                        <h3>Candidate 4</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/9/96/The_Tropico_Sentinel_1915-06-23_%28IA_cgl_001247%29.pdf/page1-500px-The_Tropico_Sentinel_1915-06-23_%28IA_cgl_001247%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:The Tropico Sentinel 1915-06-23 (IA cgl 001247).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3AThe_Tropico_Sentinel_1915-06-23_(IA_cgl_001247).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="1"
+                                    data-image="3"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="1"
+                                    data-image="3"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="1"
+                                    data-image="3"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-1-3"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-1-4"
+                    >
+
+                        <h3>Candidate 5</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c2/Glendale_Daily_Press_1923-10-25_%28IA_cgl_002246%29.pdf/page1-500px-Glendale_Daily_Press_1923-10-25_%28IA_cgl_002246%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:Glendale Daily Press 1923-10-25 (IA cgl 002246).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3AGlendale_Daily_Press_1923-10-25_(IA_cgl_002246).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="1"
+                                    data-image="4"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="1"
+                                    data-image="4"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="1"
+                                    data-image="4"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-1-4"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-1-5"
+                    >
+
+                        <h3>Candidate 6</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/1/11/The_Glendale_Evening_News_1917-03-01_%28IA_cgl_003096%29.pdf/page1-500px-The_Glendale_Evening_News_1917-03-01_%28IA_cgl_003096%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:The Glendale Evening News 1917-03-01 (IA cgl 003096).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3AThe_Glendale_Evening_News_1917-03-01_(IA_cgl_003096).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="1"
+                                    data-image="5"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="1"
+                                    data-image="5"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="1"
+                                    data-image="5"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-1-5"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-1-6"
+                    >
+
+                        <h3>Candidate 7</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/1/17/The_Glendale_Evening_News_1919-12-19_%28IA_cgl_003953%29.pdf/page1-500px-The_Glendale_Evening_News_1919-12-19_%28IA_cgl_003953%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:The Glendale Evening News 1919-12-19 (IA cgl 003953).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3AThe_Glendale_Evening_News_1919-12-19_(IA_cgl_003953).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="1"
+                                    data-image="6"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="1"
+                                    data-image="6"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="1"
+                                    data-image="6"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-1-6"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-1-7"
+                    >
+
+                        <h3>Candidate 8</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d3/The_Glendale_Evening_News_1924-01-25_%28IA_cgl_005214%29.pdf/page1-500px-The_Glendale_Evening_News_1924-01-25_%28IA_cgl_005214%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:The Glendale Evening News 1924-01-25 (IA cgl 005214).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3AThe_Glendale_Evening_News_1924-01-25_(IA_cgl_005214).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="1"
+                                    data-image="7"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="1"
+                                    data-image="7"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="1"
+                                    data-image="7"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-1-7"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-1-8"
+                    >
+
+                        <h3>Candidate 9</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/2/29/Liberator_-_1911-04-21_%28IA_cl_000064%29.pdf/page1-500px-Liberator_-_1911-04-21_%28IA_cl_000064%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:Liberator - 1911-04-21 (IA cl 000064).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3ALiberator_-_1911-04-21_(IA_cl_000064).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="1"
+                                    data-image="8"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="1"
+                                    data-image="8"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="1"
+                                    data-image="8"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-1-8"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-1-9"
+                    >
+
+                        <h3>Candidate 10</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/8/80/The_Californian_and_overland_monthly_%28IA_californianoverl65sanfrich%29.pdf/page1-500px-The_Californian_and_overland_monthly_%28IA_californianoverl65sanfrich%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:The Californian and overland monthly (IA californianoverl65sanfrich).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3AThe_Californian_and_overland_monthly_(IA_californianoverl65sanfrich).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="1"
+                                    data-image="9"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="1"
+                                    data-image="9"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="1"
+                                    data-image="9"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-1-9"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+
+                    </div>
+
+                </section>
+            
+                <section class="restaurant-section">
+
+                    <div class="restaurant-header">
+
+                        <h2>
+                            3.
+                            Lake Alice Trading Co.
+                        </h2>
+
+                        <p>
+                            <strong>Address:</strong>
+                            University Avenue
+                        </p>
+
+                        <p>
+                            <strong>OSM:</strong>
+                            node
+                            /
+                            10148815291
+                        </p>
+
+                        <p>
+                            <strong>Coordinates:</strong>
+                            33.9813424,
+                            -117.3736766
+                        </p>
+
+                        <p>
+                            <strong>Candidates:</strong>
+                            10
+                        </p>
+
+                    </div>
+
+                    <div class="image-grid">
+
+                        
+                    <div
+                        class="card"
+                        id="card-2-0"
+                    >
+
+                        <h3>Candidate 1</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f2/An_illustrated_history_of_Los_Angeles_County%2C_California_%28IA_illustratedhisto01lewi%29.pdf/page1-500px-An_illustrated_history_of_Los_Angeles_County%2C_California_%28IA_illustratedhisto01lewi%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:An illustrated history of Los Angeles County, California (IA illustratedhisto01lewi).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3AAn_illustrated_history_of_Los_Angeles_County%2C_California_(IA_illustratedhisto01lewi).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="2"
+                                    data-image="0"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="2"
+                                    data-image="0"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="2"
+                                    data-image="0"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-2-0"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-2-1"
+                    >
+
+                        <h3>Candidate 2</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/9/99/Price_list_-_1926_-_Comstock%2C_Ferre_%26_Co.%2C_growers%2C_importers%2C_and_wholesale_dealers_in_seeds._%28IA_CAT31321420%29.pdf/page1-500px-Price_list_-_1926_-_Comstock%2C_Ferre_%26_Co.%2C_growers%2C_importers%2C_and_wholesale_dealers_in_seeds._%28IA_CAT31321420%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:Price list - 1926 - Comstock, Ferre &amp; Co., growers, importers, and wholesale dealers in seeds. (IA CAT31321420).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3APrice_list_-_1926_-_Comstock%2C_Ferre_%26_Co.%2C_growers%2C_importers%2C_and_wholesale_dealers_in_seeds._(IA_CAT31321420).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="2"
+                                    data-image="1"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="2"
+                                    data-image="1"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="2"
+                                    data-image="1"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-2-1"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-2-2"
+                    >
+
+                        <h3>Candidate 3</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e6/Garden_book_-_spring%2C_1933_-_Riverside_Gardens._%28IA_CAT31341599%29.pdf/page1-500px-Garden_book_-_spring%2C_1933_-_Riverside_Gardens._%28IA_CAT31341599%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:Garden book - spring, 1933 - Riverside Gardens. (IA CAT31341599).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3AGarden_book_-_spring%2C_1933_-_Riverside_Gardens._(IA_CAT31341599).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="2"
+                                    data-image="2"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="2"
+                                    data-image="2"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="2"
+                                    data-image="2"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-2-2"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-2-3"
+                    >
+
+                        <h3>Candidate 4</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/d/da/Hill_Floral_Products_Co.%2C_1936_-_distributors_for_E.G._Hill_Co.%2C_Joseph_H._Hill_Co.%2C_Fred_H._Lemon_Co._%28IA_CAT31347434%29.pdf/page1-500px-Hill_Floral_Products_Co.%2C_1936_-_distributors_for_E.G._Hill_Co.%2C_Joseph_H._Hill_Co.%2C_Fred_H._Lemon_Co._%28IA_CAT31347434%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:Hill Floral Products Co., 1936 - distributors for E.G. Hill Co., Joseph H. Hill Co., Fred H. Lemon Co. (IA CAT31347434).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3AHill_Floral_Products_Co.%2C_1936_-_distributors_for_E.G._Hill_Co.%2C_Joseph_H._Hill_Co.%2C_Fred_H._Lemon_Co._(IA_CAT31347434).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="2"
+                                    data-image="3"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="2"
+                                    data-image="3"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="2"
+                                    data-image="3"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-2-3"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-2-4"
+                    >
+
+                        <h3>Candidate 5</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/0/06/Report%2C_Women%27s_committee_of_the_State_council_of_defense_of_California_to_Governor_William_D._Stephens%2C_chairman_of_the_State_council_of_defense_of_California_%28IA_reportwomenscomm00cali%29.pdf/page1-500px-thumbnail.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:Report, Women&#39;s committee of the State council of defense of California to Governor William D. Stephens, chairman of the State council of defense of California (IA reportwomenscomm00cali).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3AReport%2C_Women&#39;s_committee_of_the_State_council_of_defense_of_California_to_Governor_William_D._Stephens%2C_chairman_of_the_State_council_of_defense_of_California_(IA_reportwomenscomm00cali).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="2"
+                                    data-image="4"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="2"
+                                    data-image="4"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="2"
+                                    data-image="4"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-2-4"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-2-5"
+                    >
+
+                        <h3>Candidate 6</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/9/90/Arguments_against_the_California_Alien_Land_Law%2C_and_the_committee_memorial_to_Congress_%28IA_argumentsagainst00amer%29.pdf/page1-500px-Arguments_against_the_California_Alien_Land_Law%2C_and_the_committee_memorial_to_Congress_%28IA_argumentsagainst00amer%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:Arguments against the California Alien Land Law, and the committee memorial to Congress (IA argumentsagainst00amer).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3AArguments_against_the_California_Alien_Land_Law%2C_and_the_committee_memorial_to_Congress_(IA_argumentsagainst00amer).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="2"
+                                    data-image="5"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="2"
+                                    data-image="5"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="2"
+                                    data-image="5"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-2-5"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-2-6"
+                    >
+
+                        <h3>Candidate 7</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/1/17/Catalogue_of_the_library_of_the_California_State_Mining_Bureau%2C_San_Francisco%2C_Cal._September_1%2C_1892_%28IA_catalogueoflibra00calirich%29.pdf/page1-500px-Catalogue_of_the_library_of_the_California_State_Mining_Bureau%2C_San_Francisco%2C_Cal._September_1%2C_1892_%28IA_catalogueoflibra00calirich%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:Catalogue of the library of the California State Mining Bureau, San Francisco, Cal. September 1, 1892 (IA catalogueoflibra00calirich).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3ACatalogue_of_the_library_of_the_California_State_Mining_Bureau%2C_San_Francisco%2C_Cal._September_1%2C_1892_(IA_catalogueoflibra00calirich).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="2"
+                                    data-image="6"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="2"
+                                    data-image="6"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="2"
+                                    data-image="6"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-2-6"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-2-7"
+                    >
+
+                        <h3>Candidate 8</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/3/30/California_Digital_Library_%28IA_jeffersoncyclo00folerich%29.pdf/page1-500px-California_Digital_Library_%28IA_jeffersoncyclo00folerich%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:California Digital Library (IA jeffersoncyclo00folerich).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3ACalifornia_Digital_Library_(IA_jeffersoncyclo00folerich).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="2"
+                                    data-image="7"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="2"
+                                    data-image="7"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="2"
+                                    data-image="7"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-2-7"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-2-8"
+                    >
+
+                        <h3>Candidate 9</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b0/Two_years_in_California_%28IA_twoyearsincalifo00cone%29.pdf/page1-500px-Two_years_in_California_%28IA_twoyearsincalifo00cone%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:Two years in California (IA twoyearsincalifo00cone).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3ATwo_years_in_California_(IA_twoyearsincalifo00cone).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="2"
+                                    data-image="8"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="2"
+                                    data-image="8"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="2"
+                                    data-image="8"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-2-8"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+                    <div
+                        class="card"
+                        id="card-2-9"
+                    >
+
+                        <h3>Candidate 10</h3>
+
+                        
+                                    <img
+                                        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/0/01/California_and_her_Indian_children_%28IA_cu31924097763795%29.pdf/page1-500px-California_and_her_Indian_children_%28IA_cu31924097763795%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                        alt="Candidate image"
+                                        loading="lazy"
+                                    >
+                                  
+
+                        <div class="card-info">
+
+                            <p>
+                                <strong>Title:</strong>
+                                File:California and her Indian children (IA cu31924097763795).pdf
+                            </p>
+
+                            <p>
+                                <strong>License:</strong>
+                                Public domain
+                            </p>
+
+                            
+                                        <p>
+                                            <a
+                                                href="https://commons.wikimedia.org/wiki/File%3ACalifornia_and_her_Indian_children_(IA_cu31924097763795).pdf"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                View Original Image
+                                            </a>
+                                        </p>
+                                      
+
+                            
+
+                            <p class="warning">
+                                Confirm restaurant identity,
+                                photo content, and license
+                                before approving.
+                            </p>
+
+                            <div class="actions">
+
+                                <button
+                                    class="approve"
+                                    data-restaurant="2"
+                                    data-image="9"
+                                    data-status="approved"
+                                >
+                                    Approve
+                                </button>
+
+                                <button
+                                    class="reject"
+                                    data-restaurant="2"
+                                    data-image="9"
+                                    data-status="rejected"
+                                >
+                                    Reject
+                                </button>
+
+                                <button
+                                    class="pending"
+                                    data-restaurant="2"
+                                    data-image="9"
+                                    data-status="pending"
+                                >
+                                    Pending
+                                </button>
+
+                            </div>
+
+                            <p
+                                class="status"
+                                id="status-2-9"
+                            >
+                                PENDING
+                            </p>
+
+                        </div>
+
+                    </div>
+                
+
+                    </div>
+
+                </section>
+            
+                <section class="restaurant-section">
+
+                    <div class="restaurant-header">
+
+                        <h2>
+                            4.
+                            Palenque Kitchen by Mezcal
+                        </h2>
+
+                        <p>
+                            <strong>Address:</strong>
+                            3737 STE 101 Main Street
+                        </p>
+
+                        <p>
+                            <strong>OSM:</strong>
+                            node
+                            /
+                            10148815292
+                        </p>
+
+                        <p>
+                            <strong>Coordinates:</strong>
+                            33.9822609,
+                            -117.3745188
+                        </p>
+
+                        <p>
+                            <strong>Candidates:</strong>
+                            0
+                        </p>
+
+                    </div>
+
+                    <div class="image-grid">
+
+                        
+                                    <p class="empty">
+                                        No candidate images found.
+                                    </p>
+                                  
+
+                    </div>
+
+                </section>
+            
+                <section class="restaurant-section">
+
+                    <div class="restaurant-header">
+
+                        <h2>
+                            5.
+                            Taqueria Fuentes
+                        </h2>
+
+                        <p>
+                            <strong>Address:</strong>
+                            22574 Alessandro Boulevard
+                        </p>
+
+                        <p>
+                            <strong>OSM:</strong>
+                            node
+                            /
+                            10738770424
+                        </p>
+
+                        <p>
+                            <strong>Coordinates:</strong>
+                            33.9174442,
+                            -117.269022
+                        </p>
+
+                        <p>
+                            <strong>Candidates:</strong>
+                            0
+                        </p>
+
+                    </div>
+
+                    <div class="image-grid">
+
+                        
+                                    <p class="empty">
+                                        No candidate images found.
+                                    </p>
+                                  
+
+                    </div>
+
+                </section>
+            
+
+    <script>
+
+        // =============================================
+        // Review Data
+        // =============================================
+
+        const restaurants = [{"restaurant":{"mongoId":"6acdc867c836d11163c74abd","osmId":"10131204886","osmType":"node","name":"Soho Ramen","address":"3605 Market Street Riverside CA","latitude":33.9844931,"longitude":-117.3747901},"images":[]},{"restaurant":{"mongoId":"6acdc867c836d11163c74abe","osmId":"10148770796","osmType":"node","name":"El Patrón Downtown Riverside","address":"","latitude":33.9799634,"longitude":-117.3684946},"images":[{"title":"File:Payne's garden guide - seeds, plants and trees - Theodore Payne. (IA CAT31313568).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/4/48/Payne%27s_garden_guide_-_seeds%2C_plants_and_trees_-_Theodore_Payne._%28IA_CAT31313568%29.pdf/page1-500px-Payne%27s_garden_guide_-_seeds%2C_plants_and_trees_-_Theodore_Payne._%28IA_CAT31313568%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3APayne's_garden_guide_-_seeds%2C_plants_and_trees_-_Theodore_Payne._(IA_CAT31313568).pdf","author":"\u003cdiv class=\"fn value\"\u003e\n\u003cdl\u003e\u003cdd\u003eTheodore Payne (Firm)\u003c/dd\u003e\n\u003cdd\u003ePayne, Theodore, 1872-1963\u003c/dd\u003e\n\u003cdd\u003eHenry G. Gilbert Nursery and Seed Trade Catalog Collection\u003c/dd\u003e\u003c/dl\u003e\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:Report of the Vice Commission of Minneapolis to His Honor, James C. Haynes, mayor (IA reportofvicecomm00minn).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/5/58/Report_of_the_Vice_Commission_of_Minneapolis_to_His_Honor%2C_James_C._Haynes%2C_mayor_%28IA_reportofvicecomm00minn%29.pdf/page1-500px-Report_of_the_Vice_Commission_of_Minneapolis_to_His_Honor%2C_James_C._Haynes%2C_mayor_%28IA_reportofvicecomm00minn%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AReport_of_the_Vice_Commission_of_Minneapolis_to_His_Honor%2C_James_C._Haynes%2C_mayor_(IA_reportofvicecomm00minn).pdf","author":"\u003cdiv class=\"fn value\"\u003e\nMinneapolis (Minn.). Vice Commission\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:The Billboard 1918-03-16- Vol 30 Iss 11 (IA sim billboard 1918-03-16 30 11).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0c/The_Billboard_1918-03-16-_Vol_30_Iss_11_%28IA_sim_billboard_1918-03-16_30_11%29.pdf/page1-500px-The_Billboard_1918-03-16-_Vol_30_Iss_11_%28IA_sim_billboard_1918-03-16_30_11%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AThe_Billboard_1918-03-16-_Vol_30_Iss_11_(IA_sim_billboard_1918-03-16_30_11).pdf","author":"Unknown","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:The Tropico Sentinel 1915-06-23 (IA cgl 001247).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/9/96/The_Tropico_Sentinel_1915-06-23_%28IA_cgl_001247%29.pdf/page1-500px-The_Tropico_Sentinel_1915-06-23_%28IA_cgl_001247%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AThe_Tropico_Sentinel_1915-06-23_(IA_cgl_001247).pdf","author":"\u003cdiv class=\"fn value\"\u003e\nVan Wie, A.J.\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:Glendale Daily Press 1923-10-25 (IA cgl 002246).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c2/Glendale_Daily_Press_1923-10-25_%28IA_cgl_002246%29.pdf/page1-500px-Glendale_Daily_Press_1923-10-25_%28IA_cgl_002246%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AGlendale_Daily_Press_1923-10-25_(IA_cgl_002246).pdf","author":"\u003cdiv class=\"fn value\"\u003e\nGlendale Pub. and Print. Co.\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:The Glendale Evening News 1917-03-01 (IA cgl 003096).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/1/11/The_Glendale_Evening_News_1917-03-01_%28IA_cgl_003096%29.pdf/page1-500px-The_Glendale_Evening_News_1917-03-01_%28IA_cgl_003096%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AThe_Glendale_Evening_News_1917-03-01_(IA_cgl_003096).pdf","author":"\u003cdiv class=\"fn value\"\u003e\nCowan, A.T.\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:The Glendale Evening News 1919-12-19 (IA cgl 003953).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/1/17/The_Glendale_Evening_News_1919-12-19_%28IA_cgl_003953%29.pdf/page1-500px-The_Glendale_Evening_News_1919-12-19_%28IA_cgl_003953%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AThe_Glendale_Evening_News_1919-12-19_(IA_cgl_003953).pdf","author":"\u003cdiv class=\"fn value\"\u003e\nCowan, A.T.\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:The Glendale Evening News 1924-01-25 (IA cgl 005214).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d3/The_Glendale_Evening_News_1924-01-25_%28IA_cgl_005214%29.pdf/page1-500px-The_Glendale_Evening_News_1924-01-25_%28IA_cgl_005214%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AThe_Glendale_Evening_News_1924-01-25_(IA_cgl_005214).pdf","author":"\u003cdiv class=\"fn value\"\u003e\nCowan, A.T.\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:Liberator - 1911-04-21 (IA cl 000064).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/2/29/Liberator_-_1911-04-21_%28IA_cl_000064%29.pdf/page1-500px-Liberator_-_1911-04-21_%28IA_cl_000064%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3ALiberator_-_1911-04-21_(IA_cl_000064).pdf","author":"\u003cdiv class=\"fn value\"\u003e\nEdmonds, Jefferson Lewis\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:The Californian and overland monthly (IA californianoverl65sanfrich).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/8/80/The_Californian_and_overland_monthly_%28IA_californianoverl65sanfrich%29.pdf/page1-500px-The_Californian_and_overland_monthly_%28IA_californianoverl65sanfrich%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AThe_Californian_and_overland_monthly_(IA_californianoverl65sanfrich).pdf","author":"Unknown","license":"Public domain","licenseUrl":null,"status":"pending"}]},{"restaurant":{"mongoId":"6acdc867c836d11163c74abf","osmId":"10148815291","osmType":"node","name":"Lake Alice Trading Co.","address":"University Avenue","latitude":33.9813424,"longitude":-117.3736766},"images":[{"title":"File:An illustrated history of Los Angeles County, California (IA illustratedhisto01lewi).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f2/An_illustrated_history_of_Los_Angeles_County%2C_California_%28IA_illustratedhisto01lewi%29.pdf/page1-500px-An_illustrated_history_of_Los_Angeles_County%2C_California_%28IA_illustratedhisto01lewi%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AAn_illustrated_history_of_Los_Angeles_County%2C_California_(IA_illustratedhisto01lewi).pdf","author":"\u003cdiv class=\"fn value\"\u003e\nLewis publishing company, Chicago. [from old catalog]\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:Price list - 1926 - Comstock, Ferre \u0026 Co., growers, importers, and wholesale dealers in seeds. (IA CAT31321420).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/9/99/Price_list_-_1926_-_Comstock%2C_Ferre_%26_Co.%2C_growers%2C_importers%2C_and_wholesale_dealers_in_seeds._%28IA_CAT31321420%29.pdf/page1-500px-Price_list_-_1926_-_Comstock%2C_Ferre_%26_Co.%2C_growers%2C_importers%2C_and_wholesale_dealers_in_seeds._%28IA_CAT31321420%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3APrice_list_-_1926_-_Comstock%2C_Ferre_%26_Co.%2C_growers%2C_importers%2C_and_wholesale_dealers_in_seeds._(IA_CAT31321420).pdf","author":"\u003cdiv class=\"fn value\"\u003e\n\u003cdl\u003e\u003cdd\u003eComstock, Ferre \u0026amp; Co\u003c/dd\u003e\n\u003cdd\u003eHenry G. Gilbert Nursery and Seed Trade Catalog Collection\u003c/dd\u003e\u003c/dl\u003e\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:Garden book - spring, 1933 - Riverside Gardens. (IA CAT31341599).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e6/Garden_book_-_spring%2C_1933_-_Riverside_Gardens._%28IA_CAT31341599%29.pdf/page1-500px-Garden_book_-_spring%2C_1933_-_Riverside_Gardens._%28IA_CAT31341599%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AGarden_book_-_spring%2C_1933_-_Riverside_Gardens._(IA_CAT31341599).pdf","author":"\u003cdiv class=\"fn value\"\u003e\nRiverside Gardens (St. Louis, Mich.)\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:Hill Floral Products Co., 1936 - distributors for E.G. Hill Co., Joseph H. Hill Co., Fred H. Lemon Co. (IA CAT31347434).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/d/da/Hill_Floral_Products_Co.%2C_1936_-_distributors_for_E.G._Hill_Co.%2C_Joseph_H._Hill_Co.%2C_Fred_H._Lemon_Co._%28IA_CAT31347434%29.pdf/page1-500px-Hill_Floral_Products_Co.%2C_1936_-_distributors_for_E.G._Hill_Co.%2C_Joseph_H._Hill_Co.%2C_Fred_H._Lemon_Co._%28IA_CAT31347434%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AHill_Floral_Products_Co.%2C_1936_-_distributors_for_E.G._Hill_Co.%2C_Joseph_H._Hill_Co.%2C_Fred_H._Lemon_Co._(IA_CAT31347434).pdf","author":"\u003cdiv class=\"fn value\"\u003e\nHill Floral Products Co\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:Report, Women's committee of the State council of defense of California to Governor William D. Stephens, chairman of the State council of defense of California (IA reportwomenscomm00cali).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/0/06/Report%2C_Women%27s_committee_of_the_State_council_of_defense_of_California_to_Governor_William_D._Stephens%2C_chairman_of_the_State_council_of_defense_of_California_%28IA_reportwomenscomm00cali%29.pdf/page1-500px-thumbnail.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AReport%2C_Women's_committee_of_the_State_council_of_defense_of_California_to_Governor_William_D._Stephens%2C_chairman_of_the_State_council_of_defense_of_California_(IA_reportwomenscomm00cali).pdf","author":"\u003cdiv class=\"fn value\"\u003e\nCalifornia. State council of defense, 1917-1919. [from old catalog]\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:Arguments against the California Alien Land Law, and the committee memorial to Congress (IA argumentsagainst00amer).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/9/90/Arguments_against_the_California_Alien_Land_Law%2C_and_the_committee_memorial_to_Congress_%28IA_argumentsagainst00amer%29.pdf/page1-500px-Arguments_against_the_California_Alien_Land_Law%2C_and_the_committee_memorial_to_Congress_%28IA_argumentsagainst00amer%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AArguments_against_the_California_Alien_Land_Law%2C_and_the_committee_memorial_to_Congress_(IA_argumentsagainst00amer).pdf","author":"\u003cdiv class=\"fn value\"\u003e\nAmerican Committee of Justice\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:Catalogue of the library of the California State Mining Bureau, San Francisco, Cal. September 1, 1892 (IA catalogueoflibra00calirich).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/1/17/Catalogue_of_the_library_of_the_California_State_Mining_Bureau%2C_San_Francisco%2C_Cal._September_1%2C_1892_%28IA_catalogueoflibra00calirich%29.pdf/page1-500px-Catalogue_of_the_library_of_the_California_State_Mining_Bureau%2C_San_Francisco%2C_Cal._September_1%2C_1892_%28IA_catalogueoflibra00calirich%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3ACatalogue_of_the_library_of_the_California_State_Mining_Bureau%2C_San_Francisco%2C_Cal._September_1%2C_1892_(IA_catalogueoflibra00calirich).pdf","author":"\u003cdiv class=\"fn value\"\u003e\nCalifornia State Mining Bureau. Library\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:California Digital Library (IA jeffersoncyclo00folerich).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/3/30/California_Digital_Library_%28IA_jeffersoncyclo00folerich%29.pdf/page1-500px-California_Digital_Library_%28IA_jeffersoncyclo00folerich%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3ACalifornia_Digital_Library_(IA_jeffersoncyclo00folerich).pdf","author":"\u003cdiv class=\"fn value\"\u003e\n\u003cdl\u003e\u003cdd\u003eJefferson, Thomas, 1743-1826\u003c/dd\u003e\n\u003cdd\u003eFoley, John P\u003c/dd\u003e\u003c/dl\u003e\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:Two years in California (IA twoyearsincalifo00cone).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b0/Two_years_in_California_%28IA_twoyearsincalifo00cone%29.pdf/page1-500px-Two_years_in_California_%28IA_twoyearsincalifo00cone%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3ATwo_years_in_California_(IA_twoyearsincalifo00cone).pdf","author":"\u003cdiv class=\"fn value\"\u003e\nCone, Mary\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"},{"title":"File:California and her Indian children (IA cu31924097763795).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/0/01/California_and_her_Indian_children_%28IA_cu31924097763795%29.pdf/page1-500px-California_and_her_Indian_children_%28IA_cu31924097763795%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3ACalifornia_and_her_Indian_children_(IA_cu31924097763795).pdf","author":"\u003cdiv class=\"fn value\"\u003e\n\u003cdl\u003e\u003cdd\u003eTaber, Cornelia\u003c/dd\u003e\n\u003cdd\u003eNorthern California Indian Association\u003c/dd\u003e\u003c/dl\u003e\u003c/div\u003e","license":"Public domain","licenseUrl":null,"status":"pending"}]},{"restaurant":{"mongoId":"6acdc867c836d11163c74ac0","osmId":"10148815292","osmType":"node","name":"Palenque Kitchen by Mezcal","address":"3737 STE 101 Main Street","latitude":33.9822609,"longitude":-117.3745188},"images":[]},{"restaurant":{"mongoId":"6acdc867c836d11163c74ac1","osmId":"10738770424","osmType":"node","name":"Taqueria Fuentes","address":"22574 Alessandro Boulevard","latitude":33.9174442,"longitude":-117.269022},"images":[]}];
+
+        // Key includes the candidate batch timestamp.
+        // This prevents an old review from being applied
+        // to a newly generated candidate batch.
+        const storageKey = "foodmap-review-2026-10-13T17:05:53.248Z";
+
+        const validStatuses = [
+            "approved",
+            "rejected",
+            "pending"
+        ];
+
+        // =============================================
+        // Local Storage
+        // =============================================
+
+        function saveProgress() {
+
+            try {
+
+                const statuses = restaurants.map(item => ({
+                    osmType: item.restaurant.osmType,
+                    osmId: item.restaurant.osmId,
+                    statuses: item.images.map(image => image.status)
+                }));
+
+                localStorage.setItem(
+                    storageKey,
+                    JSON.stringify(statuses)
+                );
+
+                document.getElementById(
+                    "storage-status"
+                ).textContent = "Progress saved locally.";
+
+            } catch (error) {
+
+                document.getElementById(
+                    "storage-status"
+                ).textContent =
+                    "Local storage unavailable. Export JSON to save.";
+
+            }
+        }
+
+        function loadProgress() {
+
+            try {
+
+                const saved = JSON.parse(
+                    localStorage.getItem(storageKey) || "null"
+                );
+
+                if (!Array.isArray(saved)) {
+                    return;
+                }
+
+                restaurants.forEach(item => {
+
+                    const matching = saved.find(entry =>
+                        entry.osmType === item.restaurant.osmType &&
+                        entry.osmId === item.restaurant.osmId
+                    );
+
+                    if (!matching ||
+                        !Array.isArray(matching.statuses) ||
+                        matching.statuses.length !== item.images.length) {
+                        return;
+                    }
+
+                    matching.statuses.forEach((status, index) => {
+                        if (validStatuses.includes(status)) {
+                            item.images[index].status = status;
+                        }
+                    });
+
+                    // Restore at most one approval per restaurant
+                    let approvedSeen = false;
+
+                    item.images.forEach(image => {
+                        if (image.status === "approved") {
+                            if (approvedSeen) {
+                                image.status = "pending";
+                            }
+                            approvedSeen = true;
+                        }
+                    });
+                });
+
+            } catch (error) {
+                console.warn("Could not restore progress.");
+            }
+        }
+
+        // =============================================
+        // Review Actions
+        // =============================================
+
+        function updateStatus(restaurantIndex, imageIndex, status) {
+
+            const item = restaurants[restaurantIndex];
+
+            if (!item ||
+                !item.images[imageIndex] ||
+                !validStatuses.includes(status)) {
+                return;
+            }
+
+            // Each restaurant has at most one approved cover
+            if (status === "approved") {
+
+                item.images.forEach((image, index) => {
+
+                    if (index !== imageIndex &&
+                        image.status === "approved") {
+                        image.status = "pending";
+                    }
+                });
+            }
+
+            item.images[imageIndex].status = status;
+
+            renderStatuses();
+            saveProgress();
+        }
+
+        // =============================================
+        // Render Current Status
+        // =============================================
+
+        function renderStatuses() {
+
+            let approved = 0;
+            let rejected = 0;
+            let pending = 0;
+
+            restaurants.forEach((item, rIndex) => {
+
+                item.images.forEach((image, iIndex) => {
+
+                    const card = document.getElementById(
+                        "card-" + rIndex + "-" + iIndex
+                    );
+
+                    const label = document.getElementById(
+                        "status-" + rIndex + "-" + iIndex
+                    );
+
+                    card.classList.remove(
+                        "approved",
+                        "rejected"
+                    );
+
+                    card.classList.add(image.status);
+
+                    label.textContent =
+                        image.status.toUpperCase();
+
+                    if (image.status === "approved") {
+                        approved++;
+                    } else if (image.status === "rejected") {
+                        rejected++;
+                    } else {
+                        pending++;
+                    }
+                });
+            });
+
+            document.getElementById(
+                "summary"
+            ).textContent =
+                "Approved: " + approved +
+                " | Rejected: " + rejected +
+                " | Pending: " + pending;
+        }
+
+        // =============================================
+        // Export Review JSON
+        // =============================================
+
+        function saveReview() {
+
+            const result = {
+                generatedAt: new Date().toISOString(),
+                sourceGeneratedAt: "2026-10-13T17:05:53.248Z",
+                totalRestaurants: restaurants.length,
+                restaurants: restaurants
+            };
+
+            const blob = new Blob(
+                [JSON.stringify(result, null, 2)],
+                { type: "application/json" }
+            );
+
+            const url = URL.createObjectURL(blob);
+
+            const link = document.createElement("a");
+
+            link.href = url;
+            link.download = "batch-image-review.json";
+
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 1000);
+        }
+
+        // =============================================
+        // Event Listeners
+        // =============================================
+
+        document.addEventListener("click", event => {
+
+            const button = event.target.closest(
+                "button[data-status]"
+            );
+
+            if (!button) {
+                return;
+            }
+
+            updateStatus(
+                Number(button.dataset.restaurant),
+                Number(button.dataset.image),
+                button.dataset.status
+            );
+        });
+
+        document.getElementById(
+            "save-review"
+        ).addEventListener("click", saveReview);
+
+        // =============================================
+        // Initialize
+        // =============================================
+
+        loadProgress();
+        renderStatuses();
+
+    </script>
+
+</body>
+</html>
+        
