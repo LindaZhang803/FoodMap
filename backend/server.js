@@ -32,6 +32,9 @@ app.get("/admin/photos", (req, res) => {
     );
 });
 
+// Dish API (Member 2)
+app.use("/api/dishes", require("./modules/reviews/routes/dish.routes"));
+
 // Restaurant API
 app.use("/api/restaurants", restaurantRoutes);
 

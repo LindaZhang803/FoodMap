@@ -19,6 +19,8 @@ import { API_ORIGIN } from "../../../config/api";
 export default function RestaurantDetailScreen({
   restaurantId,
   onBack,
+  onViewDishes,
+  onPreviewDishes,
 }) {
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -168,6 +170,12 @@ export default function RestaurantDetailScreen({
           <Text style={styles.rating}>
             {rating}
           </Text>
+
+          <View style={styles.section}>
+            <Text style={styles.heading}>Dishes</Text>
+            <Pressable accessibilityRole="button" onPress={onViewDishes} style={styles.headerBackButton}><Text style={styles.headerBackText}>Browse dishes</Text></Pressable>
+            <Pressable accessibilityRole="button" onPress={onPreviewDishes} style={styles.headerBackButton}><Text style={styles.headerBackText}>Preview synthetic dish demo</Text></Pressable>
+          </View>
 
           <View style={styles.section}>
             <Text style={styles.heading}>
