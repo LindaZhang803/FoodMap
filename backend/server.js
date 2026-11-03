@@ -56,4 +56,12 @@ async function startServer() {
     }
 }
 
-startServer();
+//startServer();
+
+// Only start the server when this file is executed directly.
+if (require.main === module) {
+    startServer();
+}
+
+// Export Express app for API testing.
+module.exports = app;
