@@ -35,6 +35,16 @@ app.get("/admin/photos", (req, res) => {
 // Dish API (Member 2)
 app.use("/api/dishes", require("./modules/reviews/routes/dish.routes"));
 
+// Review API (Member 2): shared Accounts authentication, no separate login flow.
+const mongoose = require('mongoose');
+const { createModels } = require('./modules/reviews/models');
+const { createReviewService } = require('./modules/reviews/services/review.service');
+const { createReviewRouter } = require('./modules/reviews/routes/review.routes');
+app.use('/api/reviews', createReviewRouter({
+    service: createReviewService({ mongoose, ...createModels(mongoose), Restaurant: require('./modules/restaurants/models/Restaurant') }),
+    authenticate: require('./modules/accounts/middleware/authMiddleware')
+}));
+
 // Restaurant API
 app.use("/api/restaurants", restaurantRoutes);
 

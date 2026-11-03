@@ -173,7 +173,7 @@ export default function RestaurantDetailScreen({
 
           <View style={styles.section}>
             <Text style={styles.heading}>Dishes</Text>
-            <Pressable accessibilityRole="button" onPress={onViewDishes} style={styles.headerBackButton}><Text style={styles.headerBackText}>Browse dishes</Text></Pressable>
+            <Pressable accessibilityRole="button" onPress={onViewDishes} style={styles.headerBackButton}><Text style={styles.headerBackText}>Browse dishes &amp; reviews</Text></Pressable>
             <Pressable accessibilityRole="button" onPress={onPreviewDishes} style={styles.headerBackButton}><Text style={styles.headerBackText}>Preview synthetic dish demo</Text></Pressable>
           </View>
 

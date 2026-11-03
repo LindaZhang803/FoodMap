@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Image, ActivityIndicator, StyleSheet } from 'react-native';
 import { API_ORIGIN } from '../../../config/api';
 import { createDishRepository } from '../services/dishRepository';
 import fixtures from '../mocks/fixtures.json';
+import { createReviewRepository } from '../services/reviewRepository';
+import ReviewPanel from '../components/ReviewPanel';
 
 const liveRepository = createDishRepository({ origin: API_ORIGIN });
-const demoRepository = createDishRepository({ fixtures });
 const ratingText = dish => dish.averageRating == null ? 'No ratings yet' : `${dish.averageRating.toFixed(1)} / 5 · ${dish.reviewCount} reviews`;
 
 function DishImage({ uri }) {
@@ -14,11 +15,15 @@ function DishImage({ uri }) {
   return uri && !failed ? <Image source={{ uri }} style={styles.image} onError={() => setFailed(true)} accessibilityLabel="Dish photo" /> : <Text style={styles.placeholder}>Photo unavailable</Text>;
 }
 
-export default function DishBrowserScreen({ restaurantId, onBack, demo = false }) {
+export default function DishBrowserScreen({ restaurantId, onBack, demo = false, token = null }) {
   const [dishId, setDishId] = useState(null);
   const [resource, setResource] = useState(null);
   const [scenario, setScenario] = useState('normal');
   const [retry, setRetry] = useState(0);
+  const demoFixtures = useMemo(() => JSON.parse(JSON.stringify(fixtures)), []);
+  const demoRepository = useMemo(() => createDishRepository({ fixtures: demoFixtures }), [demoFixtures]);
+  const reviewRepository = useMemo(() => createReviewRepository({ origin: API_ORIGIN, fixtures: demo ? demoFixtures : null }), [demo, demoFixtures]);
+  const [ratingUpdate, setRatingUpdate] = useState(null);
   const repository = demo ? demoRepository : liveRepository;
   const targetRestaurant = demo && scenario === 'unrated' ? '100000000000000000000002' : restaurantId;
   const requestKey = `${targetRestaurant}:${dishId || 'list'}:${scenario}:${retry}:${demo}`;
@@ -45,19 +50,17 @@ export default function DishBrowserScreen({ restaurantId, onBack, demo = false }
       {['normal', 'unrated', 'empty', 'error'].map(value => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: scenario === value }} style={styles.button} onPress={() => { setDishId(null); setScenario(value); }}><Text>{value === scenario ? '● ' : ''}{value}</Text></Pressable>)}
     </View>}
     {error ? <View><Text accessibilityRole="alert">{error}</Text><Pressable accessibilityRole="button" style={styles.button} onPress={() => setRetry(n => n + 1)}><Text>Retry</Text></Pressable></View> : data === null ? <ActivityIndicator accessibilityLabel="Loading dishes" /> :
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
         {dishId ? <>
           <DishImage uri={data.imageUrl} />
           <Text style={styles.title}>{data.name}</Text>
           <Text>{data.description || 'Description unavailable'}</Text>
-          <Text>{ratingText(data)}</Text>
-          <Text style={styles.heading}>Dish reviews (latest 50)</Text>
-          {data.reviews.length === 0 && <Text>No reviews yet.</Text>}
-          {data.reviews.map(review => <View key={review.id} style={styles.card}><Text>{review.rating} / 5</Text><Text>{review.comment}</Text></View>)}
+          <Text>{ratingText(ratingUpdate?.dishId === data.id ? { ...data, ...ratingUpdate.statistics } : data)}</Text>
         </> : data.length === 0 ? <Text>No dishes have been added for this restaurant yet.</Text> : data.map(dish =>
           <Pressable key={dish.id} accessibilityRole="button" accessibilityLabel={`View ${dish.name}`} onPress={() => setDishId(dish.id)} style={styles.card}>
             <DishImage uri={dish.imageUrl} /><Text style={styles.heading}>{dish.name}</Text><Text>{ratingText(dish)}</Text>
           </Pressable>)}
+        <ReviewPanel key={`${targetRestaurant}:${dishId || 'restaurant'}`} restaurantId={targetRestaurant} dishId={dishId} repository={reviewRepository} token={token} demo={demo} onCreated={(target, statistics) => { if (target.dishId) setRatingUpdate({ dishId: target.dishId, statistics }); }} />
       </ScrollView>}
   </View>;
 }
