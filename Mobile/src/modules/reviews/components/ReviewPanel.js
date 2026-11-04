@@ -2,8 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, StyleSheet, Image } from 'react-native';
 
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import syntheticPhoto from '../mocks/syntheticPhoto';
 
-export default function ReviewPanel({ restaurantId, dishId, repository, token, demo, origin, onCreated }) {
+export default function ReviewPanel({ restaurantId, dishId, repository, token, demo, origin, syntheticSession, onCreated }) {
   const [photos, setPhotos] = useState([]);
   const [sort, setSort] = useState('mostRecent');
   const [editingId, setEditingId] = useState(null);
@@ -42,6 +44,17 @@ export default function ReviewPanel({ restaurantId, dishId, repository, token, d
       setRating(0); setComment(''); setPhotos([]); setEditingId(null); setPage(1); setRefresh(n => n + 1);
       setNotice(demo ? 'Demo review saved in memory. Not saved to MongoDB.' : 'Review saved.');
       onCreated?.(target, created.statistics);
+    } catch (err) { if (mounted.current) setFormError(err.message); }
+    finally { busy.current = false; if (mounted.current) setSaving(false); }
+  }
+  async function attachSyntheticPhoto() {
+    if (busy.current || photos.length >= 5) return;
+    busy.current = true; setSaving(true); setFormError(null);
+    try {
+      const uri = `${FileSystem.cacheDirectory}foodmap-synthetic-review.png`;
+      await FileSystem.writeAsStringAsync(uri, syntheticPhoto, { encoding: FileSystem.EncodingType.Base64 });
+      const uploaded = await repository.uploadPhoto({ uri, fileName: 'synthetic.png', mimeType: 'image/png' }, token);
+      if (mounted.current) setPhotos(current => [...current, { url: uploaded.photoUrl, preview: uri }]);
     } catch (err) { if (mounted.current) setFormError(err.message); }
     finally { busy.current = false; if (mounted.current) setSaving(false); }
   }
@@ -115,6 +128,7 @@ export default function ReviewPanel({ restaurantId, dishId, repository, token, d
       <Text>{comment.length}/2000</Text>
       <View style={styles.row}>{photos.map((photo, index) => <View key={`${photo.url}-${index}`}><Image source={{ uri: photo.preview }} style={styles.photo} accessibilityLabel="Selected review photo" /><Pressable accessibilityRole="button" disabled={saving} style={styles.button} onPress={() => setPhotos(current => current.filter((_, i) => i !== index))}><Text>Remove photo {index + 1}</Text></Pressable></View>)}</View>
       <Pressable accessibilityRole="button" disabled={saving || photos.length >= 5} style={styles.button} onPress={selectPhoto}><Text>Add photo ({photos.length}/5)</Text></Pressable>
+      {__DEV__ && syntheticSession && <Pressable accessibilityRole="button" disabled={saving || photos.length >= 5} style={styles.button} onPress={attachSyntheticPhoto}><Text>Add synthetic test photo</Text></Pressable>}
       {formError && <Text accessibilityRole="alert">{formError}</Text>}
       <Pressable accessibilityRole="button" accessibilityLabel={editingId ? 'Save changes' : 'Submit review'} disabled={saving} style={styles.button} onPress={submit}><Text>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Submit review'}</Text></Pressable>
       {editingId && <Pressable accessibilityRole="button" disabled={saving} style={styles.button} onPress={resetForm}><Text>Cancel edit</Text></Pressable>}

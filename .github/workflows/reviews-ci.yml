@@ -12,7 +12,7 @@ concurrency:
 jobs:
   backend:
     name: Review backend and MongoDB integration
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
@@ -48,7 +48,7 @@ jobs:
         run: docker logs reviews-mongo
   mobile:
     name: Review mobile contracts and iOS bundle
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 15
     env:
       CI: '1'

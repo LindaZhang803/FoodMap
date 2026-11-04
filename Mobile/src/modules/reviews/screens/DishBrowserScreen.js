@@ -63,7 +63,7 @@ export default function DishBrowserScreen({ restaurantId, onBack, demo = false, 
           <Pressable key={dish.id} accessibilityRole="button" accessibilityLabel={`View ${dish.name}`} onPress={() => setDishId(dish.id)} style={styles.card}>
             <DishImage uri={dish.imageUrl} /><Text style={styles.heading}>{dish.name}</Text><Text>{ratingText(dish)}</Text>
           </Pressable>)}
-        <ReviewPanel key={`${targetRestaurant}:${dishId || 'restaurant'}`} restaurantId={targetRestaurant} dishId={dishId} repository={reviewRepository} token={token} demo={demo} origin={apiOrigin} onCreated={(target, statistics) => { if (target.dishId) setRatingUpdate({ dishId: target.dishId, statistics }); }} />
+        <ReviewPanel key={`${targetRestaurant}:${dishId || 'restaurant'}`} restaurantId={targetRestaurant} dishId={dishId} repository={reviewRepository} token={token} demo={demo} origin={apiOrigin} syntheticSession={syntheticSession} onCreated={(target, statistics) => { if (target.dishId) setRatingUpdate({ dishId: target.dishId, statistics }); }} />
       </ScrollView>}
   </View>;
 }
