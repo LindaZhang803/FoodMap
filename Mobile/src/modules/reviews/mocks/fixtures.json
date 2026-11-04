@@ -1,0 +1,78 @@
+{
+  "dishes": [
+    {
+      "id": "200000000000000000000001",
+      "restaurantId": "100000000000000000000001",
+      "name": "Ramen",
+      "description": "Demo dish; synthetic data.",
+      "imageUrl": null,
+      "averageRating": 4,
+      "reviewCount": 1,
+      "createdAt": "2026-10-13T12:00:00.000Z",
+      "updatedAt": "2026-10-13T12:00:00.000Z"
+    },
+    {
+      "id": "200000000000000000000002",
+      "restaurantId": "100000000000000000000001",
+      "name": "Gyoza",
+      "description": "Demo dish; synthetic data.",
+      "imageUrl": null,
+      "averageRating": 5,
+      "reviewCount": 1,
+      "createdAt": "2026-10-13T12:00:00.000Z",
+      "updatedAt": "2026-10-13T12:00:00.000Z"
+    },
+    {
+      "id": "200000000000000000000003",
+      "restaurantId": "100000000000000000000002",
+      "name": "Bibimbap",
+      "description": "Demo dish; synthetic data.",
+      "imageUrl": null,
+      "averageRating": null,
+      "reviewCount": 0,
+      "createdAt": "2026-10-13T12:00:00.000Z",
+      "updatedAt": "2026-10-13T12:00:00.000Z"
+    }
+  ],
+  "reviews": [
+    {
+      "id": "300000000000000000000001",
+      "userId": "400000000000000000000001",
+      "restaurantId": "100000000000000000000001",
+      "dishId": "200000000000000000000001",
+      "reviewType": "dish",
+      "rating": 4,
+      "comment": "Good ramen.",
+      "photoUrls": [],
+      "likeCount": 0,
+      "createdAt": "2026-10-13T12:00:00.000Z",
+      "updatedAt": "2026-10-13T12:00:00.000Z"
+    },
+    {
+      "id": "300000000000000000000002",
+      "userId": "400000000000000000000002",
+      "restaurantId": "100000000000000000000001",
+      "dishId": "200000000000000000000002",
+      "reviewType": "dish",
+      "rating": 5,
+      "comment": "Great gyoza.",
+      "photoUrls": [],
+      "likeCount": 0,
+      "createdAt": "2026-10-13T12:00:00.000Z",
+      "updatedAt": "2026-10-13T12:00:00.000Z"
+    },
+    {
+      "id": "300000000000000000000003",
+      "userId": "400000000000000000000003",
+      "restaurantId": "100000000000000000000001",
+      "dishId": null,
+      "reviewType": "restaurant",
+      "rating": 3,
+      "comment": "Friendly service.",
+      "photoUrls": [],
+      "likeCount": 0,
+      "createdAt": "2026-10-13T12:00:00.000Z",
+      "updatedAt": "2026-10-13T12:00:00.000Z"
+    }
+  ]
+}

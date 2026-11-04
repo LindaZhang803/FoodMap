@@ -32,6 +32,13 @@ app.get("/admin/photos", (req, res) => {
     );
 });
 
+// Independent review module, using the shared Accounts authentication.
+require('./modules/reviews/app').mountReviewModule(app, {
+    mongoose: require('mongoose'),
+    Restaurant: require('./modules/restaurants/models/Restaurant'),
+    authenticate: require('./modules/accounts/middleware/authMiddleware')
+});
+
 // Restaurant API
 app.use("/api/restaurants", restaurantRoutes);
 
