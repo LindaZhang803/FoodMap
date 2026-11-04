@@ -7,10 +7,10 @@ export default function FeedSection({ title, subtitle, data, renderItem, keyExtr
   return <FlatList testID="feed-list" style={styles.list} contentContainerStyle={styles.content}
     data={data} renderItem={renderItem} keyExtractor={keyExtractor}
     refreshing={refreshing} onRefresh={onRefresh} initialNumToRender={5} windowSize={7}
-    ListHeaderComponent={<View>{header}<View style={styles.heading}>
-      <Text accessibilityRole="header" style={styles.title}>{title}</Text>
+    ListHeaderComponent={<View>{header}{(title || subtitle) && <View style={styles.heading}>
+      {title && <Text accessibilityRole="header" style={styles.title}>{title}</Text>}
       {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-    </View>{status}</View>}
+    </View>}{status}</View>}
     ListEmptyComponent={showEmpty ? <View style={styles.empty}>
       <Text style={styles.emptyTitle}>No places here yet</Text>
       <Text style={styles.subtitle}>Check back soon or refresh to try again.</Text>
