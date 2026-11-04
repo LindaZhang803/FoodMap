@@ -1,28 +1,40 @@
-// receives 1 entry containing restaurant, dish & score to render resturant card
+// pass one ranked entry to a discovery row, pass data to restaurant card defaultly
 
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import RecommendedDishPreview from './RecommendedDishPreview';
+import RestaurantCard from './RestaurantCard';
 
-/** RestaurantCardComponent is the host's imported Member 1 card, without copied JSX. */
-export default function FeedRestaurantItem({ entry, RestaurantCardComponent, onRestaurantPress, onDishPress, dishPhotoOnly = false, renderRestaurantActions }) {
+export default function FeedRestaurantItem({
+  entry,
+  RestaurantCardComponent = RestaurantCard,
+  onRestaurantPress,
+  renderRestaurantActions,
+}) {
   return (
-    <View style={[styles.item, dishPhotoOnly && styles.card]} testID={`feed-item:${entry.restaurantId}`}>
-      <RestaurantCardComponent restaurant={entry.restaurant}
-        {...(dishPhotoOnly ? { recommendedDish: entry.recommendedDish, preferenceScore: entry.preferenceScore } : {})}
-        onPress={onRestaurantPress ? () => onRestaurantPress(entry.restaurantId) : undefined} />
-      {!dishPhotoOnly && <RecommendedDishPreview dish={entry.recommendedDish} rankingMode={entry.rankingMode}
+    <View style={styles.item} testID={`feed-item:${entry.restaurantId}`}>
+      <RestaurantCardComponent
+        restaurant={entry.restaurant}
+        recommendedDish={entry.recommendedDish}
         preferenceScore={entry.preferenceScore}
-        onPress={entry.recommendedDish && onDishPress
-          ? () => onDishPress(entry.recommendedDish.dishId, entry.restaurantId) : undefined} />}
-      {renderRestaurantActions && <View style={styles.actions}>
-        {renderRestaurantActions(entry.restaurant)}
-      </View>}
+        onPress={onRestaurantPress ? () => onRestaurantPress(entry.restaurantId) : undefined}
+      />
+      {renderRestaurantActions && (
+        <View style={styles.actions}>
+          {renderRestaurantActions(entry.restaurant)}
+        </View>
+      )}
     </View>
   );
 }
+
 const styles = StyleSheet.create({
-  item: { marginBottom: 24 },
+  item: {
+    marginBottom: 24,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e5e9e3',
+  },
   actions: { paddingHorizontal: 16, paddingBottom: 14 },
-  card: { backgroundColor: '#ffffff', borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#e5e9e3' },
 });
