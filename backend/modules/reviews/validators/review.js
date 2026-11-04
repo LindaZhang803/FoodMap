@@ -7,9 +7,7 @@ function validateReview(input) {
   if (input.reviewType === 'restaurant' && input.dishId != null) errors.push('Restaurant reviews cannot include dishId');
   if (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5) errors.push('rating must be an integer from 1 to 5');
   if (typeof input.comment !== 'string' || !input.comment.trim() || input.comment.length > 2000) errors.push('comment must contain 1–2000 characters');
-  if (!Array.isArray(input.photoUrls) || input.photoUrls.length > 5 || input.photoUrls.some(url => {
-    try { return new URL(url).protocol !== 'https:'; } catch { return true; }
-  })) errors.push('photoUrls must contain at most 5 HTTPS URLs');
+  if (!Array.isArray(input.photoUrls) || input.photoUrls.length > 5 || new Set(input.photoUrls).size !== input.photoUrls.length || input.photoUrls.some(url => typeof url !== 'string' || !/^\/api\/review-photos\/[a-f0-9]{24}\/image$/i.test(url))) errors.push('photoUrls must contain at most 5 distinct uploaded review photo URLs');
   return errors;
 }
 module.exports = { validateReview };

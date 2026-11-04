@@ -92,3 +92,22 @@ test('repository rejects malformed display data and supports all-dish queries', 
   const badReviews = createDishRepository({ fetchImpl: async () => ({ ok: true, json: async () => ({ ...fixtures.dishes[0], reviews: [null] }) }) });
   await assert.rejects(badReviews.getDish(id), /Invalid dish response/);
 });
+
+test('dish repository sorts rated/unrated dishes and review counts deterministically', async () => {
+  const local = JSON.parse(JSON.stringify(fixtures));
+  local.dishes[0].reviewCount = 3;
+  const repo = createDishRepository({ fixtures: local });
+  assert.deepEqual((await repo.getDishes(null, 'highestRated')).map(d => d.name), ['Gyoza', 'Ramen', 'Bibimbap']);
+  assert.equal((await repo.getDishes(null, 'mostReviewed'))[0].name, 'Ramen');
+  await assert.rejects(repo.getDishes(null, 'invalid'), /sort/);
+});
+test('dish controller applies only supported sort orders', async () => {
+  let ordering;
+  const controller = createDishController({ Dish: { find: () => ({ sort(value) { ordering = value; return { lean: async () => [] }; } }) } });
+  await controller.list({ query: { sort: 'highestRated' } }, response());
+  assert.deepEqual(ordering, { averageRating: -1, reviewCount: -1, _id: 1 });
+  await controller.list({ query: { sort: 'mostReviewed' } }, response());
+  assert.deepEqual(ordering, { reviewCount: -1, averageRating: -1, _id: 1 });
+  const invalid = response(); await controller.list({ query: { sort: '__proto__' } }, invalid);
+  assert.equal(invalid.statusCode, 400);
+});

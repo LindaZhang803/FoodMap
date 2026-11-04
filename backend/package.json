@@ -8,7 +8,9 @@
   },
   "scripts": {
     "test": "node --test modules/*/tests/*.test.js",
-    "test:reviews": "node --test modules/reviews/tests/*.test.js"
+    "test:reviews": "node --test modules/reviews/tests/*.test.js",
+    "demo:reviews": "node modules/reviews/scripts/startDemo.js",
+    "test:reviews:db": "RUN_REVIEW_DB_TESTS=1 node --test modules/reviews/tests/database.integration.test.js"
   },
   "keywords": [],
   "author": "",

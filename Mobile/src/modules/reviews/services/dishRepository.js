@@ -17,9 +17,17 @@ function createDishRepository({ origin = '', fetchImpl = globalThis.fetch, fixtu
     Number.isInteger(dish.reviewCount) && dish.reviewCount >= 0 &&
     (dish.imageUrl == null || typeof dish.imageUrl === 'string');
   return {
-    async getDishes(restaurantId) {
-      if (fixtures) return fixtures.dishes.filter(d => !restaurantId || d.restaurantId === restaurantId).map(d => ({ ...d }));
-      const data = await request(`/api/dishes${restaurantId ? `?restaurantId=${encodeURIComponent(restaurantId)}` : ''}`);
+    async getDishes(restaurantId, sort = 'name') {
+      if (!['name', 'highestRated', 'mostReviewed'].includes(sort)) throw new Error('Invalid dish sort');
+      if (fixtures) return fixtures.dishes.filter(d => !restaurantId || d.restaurantId === restaurantId).map(d => ({ ...d })).sort((a, b) => {
+        if (sort === 'highestRated') return (b.averageRating ?? -1) - (a.averageRating ?? -1) || b.reviewCount - a.reviewCount || a.id.localeCompare(b.id);
+        if (sort === 'mostReviewed') return b.reviewCount - a.reviewCount || (b.averageRating ?? -1) - (a.averageRating ?? -1) || a.id.localeCompare(b.id);
+        return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+      });
+      const params = [];
+      if (restaurantId) params.push(`restaurantId=${encodeURIComponent(restaurantId)}`);
+      if (sort !== 'name') params.push(`sort=${sort}`);
+      const data = await request(`/api/dishes${params.length ? '?' + params.join('&') : ''}`);
       if (!Array.isArray(data) || !data.every(validDish)) throw new Error('Invalid dish list response');
       return data;
     },

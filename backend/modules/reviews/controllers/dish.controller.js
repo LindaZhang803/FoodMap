@@ -8,8 +8,11 @@ function createDishController({ Dish, Review }) {
     async list(req, res) {
       const { restaurantId } = req.query;
       if (restaurantId !== undefined && !isId(restaurantId)) return res.status(400).json({ message: 'Invalid restaurantId' });
+      const orders = { name: { name: 1, _id: 1 }, highestRated: { averageRating: -1, reviewCount: -1, _id: 1 }, mostReviewed: { reviewCount: -1, averageRating: -1, _id: 1 } };
+      const sort = req.query.sort || 'name';
+      if (!Object.hasOwn(orders, sort)) return res.status(400).json({ message: 'Invalid dish sort' });
       try {
-        const dishes = await Dish.find(restaurantId ? { restaurantId } : {}).sort({ name: 1, _id: 1 }).lean();
+        const dishes = await Dish.find(restaurantId ? { restaurantId } : {}).sort(orders[sort]).lean();
         return res.json(dishes.map(serialize));
       } catch {
         return res.status(500).json({ message: 'Failed to load dishes' });

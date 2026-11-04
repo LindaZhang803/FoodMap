@@ -1,0 +1,68 @@
+name: Dish and Review CI
+on:
+  push:
+    branches: [skim1108, main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: reviews-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  backend:
+    name: Review backend and MongoDB integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: backend
+      - run: npm run test:reviews
+        working-directory: backend
+      - name: Start isolated MongoDB replica set
+        run: |
+          docker run -d --name reviews-mongo -p 27017:27017 mongo:8.0 --replSet rs0 --bind_ip_all
+          for attempt in $(seq 1 40); do
+            if docker exec reviews-mongo mongosh --quiet --eval 'db.adminCommand({ping:1})' >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          docker exec reviews-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]})'
+          for attempt in $(seq 1 40); do
+            if docker exec reviews-mongo mongosh --quiet --eval 'if(!db.hello().isWritablePrimary)quit(1)' >/dev/null 2>&1; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Real MongoDB review and photo lifecycle
+        run: npm run test:reviews:db
+        working-directory: backend
+        env:
+          MONGO_URI: mongodb://127.0.0.1:27017/foodmap_reviews_ci?replicaSet=rs0
+      - name: MongoDB logs on failure
+        if: failure()
+        run: docker logs reviews-mongo
+  mobile:
+    name: Review mobile contracts and iOS bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: Mobile/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: Mobile
+      - run: npm run test:reviews
+        working-directory: Mobile
+      - run: npx --no-install expo export --platform ios --output-dir /tmp/foodmap-review-ios
+        working-directory: Mobile

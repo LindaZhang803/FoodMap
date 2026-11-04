@@ -15,31 +15,54 @@ const payload = { restaurantId, dishId, reviewType: 'dish', rating: 5, comment: 
 
 // Isolated transaction-aware store: never connects to or changes the team database.
 function harness() {
-  const state = { reviews: [], dishes: fixtures.dishes.map(d => ({ ...d, _id: d.id })), failUpdate: false };
+  const state = { reviews: [], likes: [], dishes: fixtures.dishes.map(d => ({ ...d, _id: d.id })), failUpdate: false };
   const session = { testSession: true };
   let sequence = 10;
   const query = getter => ({
     session(value) { assert.ok(value === session || value === null); return this; },
-    lean: async () => getter()
+    lean: async () => { const row = getter(); return row ? { ...row } : row; }
   });
-  const match = (row, filter) => Object.entries(filter).every(([key, value]) => String(row[key]) === String(value));
+  const match = (row, filter) => Object.entries(filter).every(([key, value]) => value && value.$in ? value.$in.some(id => String(row[key]) === String(id)) : String(row[key]) === String(value));
+  const apply = (record, update) => {
+    if (update.$set) Object.assign(record, update.$set);
+    for (const [key, value] of Object.entries(update.$inc || {})) record[key] = (record[key] || 0) + value;
+  };
+  const count = getter => ({ session: async () => getter(), then(resolve, reject) { return Promise.resolve(getter()).then(resolve, reject); } });
   const Review = {
     async create([input], options) {
       assert.equal(options.session, session);
       const doc = new (createModels(mongoose).Review)(input);
       await doc.validate();
-      const record = { ...input, _id: new mongoose.Types.ObjectId((sequence++).toString(16).padStart(24, '0')), createdAt: new Date() };
+      const record = { ...input, likeCount: 0, _id: new mongoose.Types.ObjectId((sequence++).toString(16).padStart(24, '0')), createdAt: new Date() };
       state.reviews.push(record);
       return [record];
     },
+    findById(id) { return query(() => state.reviews.find(r => String(r._id) === String(id)) || null); },
+    async updateOne(filter, update) { const record = state.reviews.find(r => match(r, filter)); if (record) apply(record, update); },
+    async deleteOne(filter) { state.reviews = state.reviews.filter(r => !match(r, filter)); },
+    countDocuments(filter) { return count(() => state.reviews.filter(r => match(r, filter)).length); },
     aggregate(pipeline) { return { session: async () => {
       const rows = state.reviews.filter(r => match(r, pipeline[0].$match));
       return rows.length ? [{ averageRating: rows.reduce((sum, r) => sum + r.rating, 0) / rows.length, reviewCount: rows.length }] : [];
     } }; },
     find(filter) {
-      let offset = 0, limit = 20;
-      return { sort() { return this; }, skip(n) { offset = n; return this; }, limit(n) { limit = n; return this; }, lean: async () => state.reviews.filter(r => match(r, filter)).slice().reverse().slice(offset, offset + limit) };
+      let offset = 0, limit = 20, ordering = {};
+      return { sort(value) { ordering = value; return this; }, skip(n) { offset = n; return this; }, limit(n) { limit = n; return this; }, lean: async () => state.reviews.filter(r => match(r, filter)).slice().sort((a, b) => {
+        for (const [key, direction] of Object.entries(ordering)) {
+          const av = a[key] ?? 0, bv = b[key] ?? 0;
+          const diff = typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv));
+          if (diff) return diff * direction;
+        }
+        return 0;
+      }).slice(offset, offset + limit).map(r => ({ ...r })) };
     }
+  };
+  const ReviewLike = {
+    find(filter) { return { lean: async () => state.likes.filter(like => match(like, filter)).map(like => ({ ...like })) }; },
+    async updateOne(filter, update, options) { assert.equal(options.session, session); if (!state.likes.some(like => match(like, filter))) state.likes.push({ ...update.$setOnInsert }); },
+    async deleteOne(filter) { state.likes = state.likes.filter(like => !match(like, filter)); },
+    async deleteMany(filter) { state.likes = state.likes.filter(like => !match(like, filter)); },
+    countDocuments(filter) { return count(() => state.likes.filter(like => match(like, filter)).length); }
   };
   const Dish = {
     findById(id) { return query(() => state.dishes.find(d => d.id === id) || null); },
@@ -51,12 +74,13 @@ function harness() {
   };
   const Restaurant = { findById(id) { return query(() => id === restaurantId || id === fixtures.dishes[2].restaurantId ? { _id: id } : null); } };
   const fakeMongoose = { Types: mongoose.Types, connection: { async transaction(callback) {
-    const originalReviews = state.reviews.slice();
+    const originalReviews = state.reviews.map(r => ({ ...r }));
     const originalDishes = state.dishes.map(d => ({ ...d }));
+    const originalLikes = state.likes.map(like => ({ ...like }));
     try { return await callback(session); }
-    catch (error) { state.reviews = originalReviews; state.dishes = originalDishes; throw error; }
+    catch (error) { state.reviews = originalReviews; state.dishes = originalDishes; state.likes = originalLikes; throw error; }
   } } };
-  return { state, service: createReviewService({ mongoose: fakeMongoose, Review, Dish, Restaurant }) };
+  return { state, service: createReviewService({ mongoose: fakeMongoose, Review, ReviewLike, Dish, Restaurant }) };
 }
 
 test('create review uses authenticated identity and updates dish statistics', async () => {
@@ -150,6 +174,22 @@ test('HTTP routes use actual Accounts JWT middleware and protect review writes',
     assert.equal(list.status, 200); assert.equal((await list.json()).reviews.length, 1);
     const invalid = await fetch(`${url}?restaurantId=bad&reviewType=dish`);
     assert.equal(invalid.status, 400);
+    const reviewId = String(state.reviews[0]._id);
+    const authenticated = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+    assert.equal((await fetch(`${url}/${reviewId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rating: 2 }) })).status, 401);
+    assert.equal((await fetch(`${url}/${reviewId}`, { method: 'DELETE' })).status, 401);
+    assert.equal((await fetch(`${url}/${reviewId}/like`, { method: 'POST' })).status, 401);
+    assert.equal((await fetch(`${url}/mine`)).status, 401);
+    const edited = await fetch(`${url}/${reviewId}`, { method: 'PUT', headers: authenticated, body: JSON.stringify({ rating: 2 }) });
+    assert.equal(edited.status, 200); assert.equal((await edited.json()).statistics.averageRating, 2);
+    const liked = await fetch(`${url}/${reviewId}/like`, { method: 'POST', headers: authenticated });
+    assert.deepEqual(await liked.json(), { likeCount: 1, likedByMe: true });
+    const mine = await fetch(`${url}/mine`, { headers: authenticated });
+    assert.equal((await mine.json()).reviews.length, 1);
+    const unlike = await fetch(`${url}/${reviewId}/like`, { method: 'DELETE', headers: authenticated });
+    assert.equal((await unlike.json()).likeCount, 0);
+    const deleted = await fetch(`${url}/${reviewId}`, { method: 'DELETE', headers: authenticated });
+    assert.equal((await deleted.json()).statistics.reviewCount, 0);
     state.failUpdate = true;
     const failed = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
     assert.equal(failed.status, 500); assert.deepEqual(await failed.json(), { message: 'Review service unavailable' });
@@ -158,4 +198,81 @@ test('HTTP routes use actual Accounts JWT middleware and protect review writes',
     if (originalSecret === undefined) delete process.env.JWT_SECRET; else process.env.JWT_SECRET = originalSecret;
     await new Promise(resolve => server.close(resolve));
   }
+});
+
+test('only owner can edit or delete; targets and author cannot be changed', async () => {
+  const { service, state } = harness();
+  const { review } = await service.create(payload, userId);
+  const other = '400000000000000000000099';
+  await assert.rejects(service.edit(review.id, { rating: 1 }, other), error => error.status === 403);
+  await assert.rejects(service.remove(review.id, other), error => error.status === 403);
+  for (const patch of [{ userId: other }, { restaurantId: other }, { dishId: other }, { rating: 0 }, { rating: null }, { comment: ' ' }, {}]) {
+    await assert.rejects(service.edit(review.id, patch, userId), error => error.status === 400);
+  }
+  assert.equal(state.reviews[0].rating, 5);
+  const edited = await service.edit(review.id, { rating: 2, comment: '  Revised  ' }, userId);
+  assert.equal(edited.statistics.averageRating, 2);
+  assert.equal(state.dishes[0].averageRating, 2);
+  assert.equal(edited.review.comment, 'Revised');
+  const removed = await service.remove(review.id, userId);
+  assert.deepEqual(removed.statistics, { averageRating: null, reviewCount: 0 });
+  assert.equal(state.reviews.length, 0);
+  assert.equal(state.dishes[0].averageRating, null);
+});
+test('edit and delete roll back when dish statistic update fails', async () => {
+  const { service, state } = harness();
+  const { review } = await service.create(payload, userId);
+  await service.like(review.id, userId, true);
+  state.failUpdate = true;
+  await assert.rejects(service.edit(review.id, { rating: 1 }, userId));
+  assert.equal(state.reviews[0].rating, 5);
+  await assert.rejects(service.remove(review.id, userId));
+  assert.equal(state.reviews.length, 1);
+  assert.equal(state.likes.length, 1);
+});
+test('likes and unlikes are idempotent; most-liked sorting and cleanup work', async () => {
+  const { service, state } = harness();
+  const first = (await service.create(payload, userId)).review;
+  await service.create(payload, userId);
+  assert.deepEqual(await service.like(first.id, userId, true), { likeCount: 1, likedByMe: true });
+  await service.like(first.id, userId, true);
+  assert.equal(state.likes.length, 1);
+  const list = await service.list({ restaurantId, dishId, reviewType: 'dish', sort: 'mostLiked' }, userId);
+  assert.equal(list.reviews[0].id, first.id);
+  assert.equal(list.reviews[0].likedByMe, true);
+  assert.equal(list.reviews[0].isOwner, true);
+  assert.equal((await service.list({ restaurantId, dishId, reviewType: 'dish' })).reviews[0].isOwner, false);
+  await service.like(first.id, userId, false);
+  assert.deepEqual(await service.like(first.id, userId, false), { likeCount: 0, likedByMe: false });
+  await service.like(first.id, userId, true);
+  await service.remove(first.id, userId);
+  assert.equal(state.likes.length, 0);
+  await assert.rejects(service.like(first.id, userId, true), error => error.status === 404);
+});
+test('my review history excludes other users and requires authentication', async () => {
+  const { service } = harness();
+  await service.create(payload, userId);
+  await service.create(payload, '400000000000000000000099');
+  const mine = await service.mine({}, userId);
+  assert.equal(mine.reviews.length, 1); assert.equal(mine.pagination.total, 1); assert.equal(mine.reviews[0].isOwner, true);
+  await assert.rejects(service.mine({}, null), error => error.status === 401);
+  await assert.rejects(service.list({ restaurantId, reviewType: 'restaurant', sort: 'invalid' }), error => error.status === 400);
+});
+test('demo editing, deletion, likes, sort and ownership match the API contract', async () => {
+  const copy = JSON.parse(JSON.stringify(fixtures));
+  const repo = createReviewRepository({ fixtures: copy });
+  await assert.rejects(repo.edit(fixtures.reviews[0].id, { rating: 2 }), /own/);
+  await assert.rejects(repo.remove(fixtures.reviews[0].id), /own/);
+  const created = await repo.create(payload);
+  const edited = await repo.edit(created.review.id, { rating: 2, comment: 'Changed' });
+  assert.equal(edited.statistics.averageRating, 3);
+  await repo.like(fixtures.reviews[0].id, true);
+  await repo.like(fixtures.reviews[0].id, true);
+  const list = await repo.list({ restaurantId, dishId, reviewType: 'dish' }, 1, 'mostLiked');
+  assert.equal(list.reviews[0].id, fixtures.reviews[0].id);
+  assert.equal(list.reviews[0].likeCount, 1);
+  assert.equal((await repo.mine()).reviews.length, 1);
+  await repo.remove(created.review.id);
+  assert.equal(copy.dishes[0].averageRating, 4);
+  assert.equal((await repo.mine()).reviews.length, 0);
 });
