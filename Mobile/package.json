@@ -18,6 +18,14 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test:reviews": "node --test src/modules/reviews/tests/*.test.js"
+    "test": "jest"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "jest": "~29.7.0",
+    "jest-expo": "~57.0.6"
+  },
+  "jest": {
+    "preset": "jest-expo"
+  }
 }
