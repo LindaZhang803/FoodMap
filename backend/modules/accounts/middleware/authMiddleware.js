@@ -55,6 +55,14 @@ async function authMiddleware(req, res, next) {
                 message: "User not found"
             });
         }
+        if (
+            typeof decoded.tokenVersion !== "number" ||
+            decoded.tokenVersion !== (user.tokenVersion ?? 0)
+        ) {
+            return res.status(401).json({
+                message: "Invalid or expired token"
+            });
+        }
 
         // 4. Provide user information to other routes
         req.user = {

@@ -35,7 +35,13 @@ const userSchema = new mongoose.Schema({
     foodPreferences: {
         type: [String],
         default: []
+    },
+
+    tokenVersion: {
+        type: Number,
+        default: 0
     }
+
 
 }, { timestamps: true });
 

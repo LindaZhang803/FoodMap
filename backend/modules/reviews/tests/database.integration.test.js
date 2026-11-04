@@ -26,7 +26,7 @@ test('MongoDB-backed review, photo, ownership and concurrent-like flow', { skip:
     for (let i = 0; i < 2; i++) await User.create({ _id: ids.users[i], username: 'Synthetic integration user', email: `review-test-${ids.users[i]}@example.invalid`, passwordHash: crypto.randomBytes(32).toString('hex') });
     server = await new Promise((resolve, reject) => { const listener = app.listen(0, '127.0.0.1', () => resolve(listener)); listener.once('error', reject); });
     const origin = `http://127.0.0.1:${server.address().port}`;
-    const tokens = ids.users.map(id => jwt.sign({ id: String(id) }, process.env.JWT_SECRET, { algorithm: 'HS256', expiresIn: '5m' }));
+    const tokens = ids.users.map(id => jwt.sign({ id: String(id), tokenVersion: 0 }, process.env.JWT_SECRET, { algorithm: 'HS256', expiresIn: '5m' }));
     const call = (path, method = 'GET', body, user = 0) => fetch(origin + path, {
       method, headers: { ...(user === null ? {} : { Authorization: `Bearer ${tokens[user]}` }), ...(body ? { 'Content-Type': 'application/json' } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {})

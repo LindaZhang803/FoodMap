@@ -162,11 +162,11 @@ test('HTTP routes use actual Accounts JWT middleware and protect review writes',
   const server = await new Promise((resolve, reject) => { const listener = app.listen(0, '127.0.0.1', () => resolve(listener)); listener.once('error', reject); });
   const url = `http://127.0.0.1:${server.address().port}/api/reviews`;
   try {
-    for (const token of [null, 'invalid', jwt.sign({ id: userId }, 'wrong-secret')]) {
+    for (const token of [null, 'invalid', jwt.sign({ id: userId }, process.env.JWT_SECRET, { algorithm: 'HS256' }), jwt.sign({ id: userId, tokenVersion: 0 }, 'wrong-secret')]) {
       const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(payload) });
       assert.equal(response.status, 401);
     }
-    const token = jwt.sign({ id: userId }, process.env.JWT_SECRET, { algorithm: 'HS256', expiresIn: '1m' });
+    const token = jwt.sign({ id: userId, tokenVersion: 0 }, process.env.JWT_SECRET, { algorithm: 'HS256', expiresIn: '1m' });
     const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ ...payload, userId: 'spoofed' }) });
     assert.equal(response.status, 201);
     assert.equal(String(state.reviews[0].userId), userId);
