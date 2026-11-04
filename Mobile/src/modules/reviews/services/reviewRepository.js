@@ -5,7 +5,7 @@ function validateInput(input) {
   if (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5) throw new Error('Select 1–5 stars.');
   if (typeof input.comment !== 'string' || !input.comment.trim() || input.comment.length > 2000) throw new Error('Enter a comment (up to 2,000 characters).');
 }
-function createReviewRepository({ origin = '', fetchImpl = globalThis.fetch, fixtures = null } = {}) {
+function createReviewRepository({ origin = '', fetchImpl = globalThis.fetch, fixtures = null, fileFromAsset = asset => { const { File } = require('expo-file-system'); return new File(asset.uri); } } = {}) {
   let sequence = 0;
   const matches = (review, target) => review.restaurantId === target.restaurantId && review.reviewType === target.reviewType &&
     (target.reviewType !== 'dish' || review.dishId === target.dishId);
@@ -104,7 +104,8 @@ function createReviewRepository({ origin = '', fetchImpl = globalThis.fetch, fix
       requireToken(token);
       if (fixtures) return { photoUrl: asset.uri };
       const form = new FormData();
-      form.append('photo', { uri: asset.uri, name: asset.fileName || 'review.jpg', type: asset.mimeType || 'image/jpeg' });
+      // Expo SDK 57 fetch accepts Blob/File parts, not legacy {uri,name,type} objects.
+      form.append('photo', fileFromAsset(asset), asset.fileName || 'review.jpg');
       return request('/api/review-photos', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
     },
     async mine(token, page = 1) {
