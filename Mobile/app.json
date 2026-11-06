@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "FoodMap",
+    "slug": "foodmap",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "plugins": [
+      "expo-secure-store"
+    ]
+  }
+}

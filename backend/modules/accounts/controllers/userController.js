@@ -1,33 +1,189 @@
 const User = require("../models/User");
 
+const PROFILE_FIELDS =
+    "username email profileImage bio favoriteCuisines foodPreferences createdAt";
+
+const EDITABLE_FIELDS = Object.freeze([
+    "username",
+    "bio",
+    "favoriteCuisines",
+    "foodPreferences"
+]);
+
+class ProfileInputError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = "ProfileInputError";
+    }
+}
+
+function authenticatedUserId(req) {
+    const id = req.user?.id;
+
+    return (
+        typeof id === "string" &&
+        id.length === 24 &&
+        /^[a-f0-9]{24}$/i.test(id)
+    ) ? id.toLowerCase() : null;
+}
+
+function publicProfile(user) {
+    return {
+        id: user._id.toString(),
+        username: user.username,
+        email: user.email,
+        profileImage: typeof user.profileImage === "string"
+            ? user.profileImage
+            : "",
+        bio: typeof user.bio === "string" ? user.bio : "",
+        favoriteCuisines: Array.isArray(user.favoriteCuisines)
+            ? [...user.favoriteCuisines]
+            : [],
+        foodPreferences: Array.isArray(user.foodPreferences)
+            ? [...user.foodPreferences]
+            : [],
+        createdAt: user.createdAt
+    };
+}
+
+function validateProfileData(data) {
+    if (
+        data === null ||
+        typeof data !== "object" ||
+        Array.isArray(data)
+    ) {
+        throw new ProfileInputError(
+            "Profile data must be an object."
+        );
+    }
+
+    if (Object.hasOwn(data, "profileImage")) {
+        throw new ProfileInputError(
+            "Please use avatar upload to change your profile image."
+        );
+    }
+
+    if (Object.keys(data).some(key => !EDITABLE_FIELDS.includes(key))) {
+        throw new ProfileInputError(
+            "Only username, bio, favorite cuisines and food preferences can be changed."
+        );
+    }
+
+    if (
+        Object.hasOwn(data, "username") &&
+        (typeof data.username !== "string" || !data.username.trim())
+    ) {
+        throw new ProfileInputError("Invalid username");
+    }
+
+    if (
+        Object.hasOwn(data, "bio") &&
+        typeof data.bio !== "string"
+    ) {
+        throw new ProfileInputError("Invalid bio");
+    }
+
+    if (
+        Object.hasOwn(data, "favoriteCuisines") &&
+        (
+            !Array.isArray(data.favoriteCuisines) ||
+            !data.favoriteCuisines.every(
+                item => typeof item === "string"
+            )
+        )
+    ) {
+        throw new ProfileInputError("Invalid favorite cuisines");
+    }
+
+    if (
+        Object.hasOwn(data, "foodPreferences") &&
+        (
+            !Array.isArray(data.foodPreferences) ||
+            !data.foodPreferences.every(
+                item => typeof item === "string"
+            )
+        )
+    ) {
+        throw new ProfileInputError("Invalid food preferences");
+    }
+}
+
+function readProfileChanges(data = {}) {
+    validateProfileData(data);
+
+    return {
+        ...(Object.hasOwn(data, "username")
+            ? { username: data.username.trim() }
+            : {}),
+        ...(Object.hasOwn(data, "bio")
+            ? { bio: data.bio }
+            : {}),
+        ...(Object.hasOwn(data, "favoriteCuisines")
+            ? { favoriteCuisines: [...data.favoriteCuisines] }
+            : {}),
+        ...(Object.hasOwn(data, "foodPreferences")
+            ? { foodPreferences: [...data.foodPreferences] }
+            : {})
+    };
+}
+
+function readProfileRecord(userId) {
+    return User.findById(userId)
+        .select(PROFILE_FIELDS)
+        .lean()
+        .exec();
+}
+
+function updateProfileRecord(userId, changes) {
+    if (Object.keys(changes).length === 0) {
+        return readProfileRecord(userId);
+    }
+
+    return User.findByIdAndUpdate(
+        userId,
+        { $set: changes },
+        {
+            returnDocument: "after",
+            runValidators: true,
+            upsert: false,
+            maxTimeMS: 5000
+        }
+    )
+        .select(PROFILE_FIELDS)
+        .lean()
+        .exec();
+}
+
+function sendProfile(res, user, message) {
+    if (!user) {
+        return res.status(404).json({
+            message: "User not found"
+        });
+    }
+
+    return res.status(200).json({
+        message,
+        user: publicProfile(user)
+    });
+}
 
 async function getMyProfile(req, res) {
-    try {
-      
-        const userId = req.user.id;
+    const userId = authenticatedUserId(req);
 
-        const user = await User.findById(userId)
-            .select("username email profileImage bio foodPreferences createdAt");
-
-        if (!user) {
-            return res.status(404).json({
-                message: "User not found"
-            });
-        }
-
-        return res.status(200).json({
-            message: "Profile retrieved successfully",
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                profileImage: user.profileImage,
-                bio: user.bio,
-                foodPreferences: user.foodPreferences,
-                createdAt: user.createdAt
-            }
+    if (!userId) {
+        return res.status(401).json({
+            message: "Authentication required"
         });
+    }
 
+    try {
+        const user = await readProfileRecord(userId);
+
+        return sendProfile(
+            res,
+            user,
+            "Profile retrieved successfully"
+        );
     } catch (error) {
         console.error("Get profile error:", error);
 
@@ -37,78 +193,31 @@ async function getMyProfile(req, res) {
     }
 }
 
-
 async function updateMyProfile(req, res) {
-    try {
-        const data = req.body || {};
-        const user = await User.findById(req.user.id);
+    const userId = authenticatedUserId(req);
 
-        if (!user) {
-            return res.status(404).json({
-                message: "User not found"
+    if (!userId) {
+        return res.status(401).json({
+            message: "Authentication required"
+        });
+    }
+
+    try {
+        const changes = readProfileChanges(req.body);
+        const user = await updateProfileRecord(userId, changes);
+
+        return sendProfile(
+            res,
+            user,
+            "Profile updated successfully"
+        );
+    } catch (error) {
+        if (error instanceof ProfileInputError) {
+            return res.status(400).json({
+                message: error.message
             });
         }
 
-        // Update username
-        if (data.username !== undefined) {
-            if (typeof data.username !== "string" ||
-                !data.username.trim()) {
-                return res.status(400).json({
-                    message: "Invalid username"
-                });
-            }
-            user.username = data.username.trim();
-        }
-
-        // Update bio
-        if (data.bio !== undefined) {
-            if (typeof data.bio !== "string") {
-                return res.status(400).json({
-                    message: "Invalid bio"
-                });
-            }
-            user.bio = data.bio;
-        }
-
-        // Update profile image URL
-        if (data.profileImage !== undefined) {
-            if (typeof data.profileImage !== "string") {
-                return res.status(400).json({
-                    message: "Invalid profile image"
-                });
-            }
-            user.profileImage = data.profileImage;
-        }
-
-        // Update food preferences
-        if (data.foodPreferences !== undefined) {
-            if (!Array.isArray(data.foodPreferences) ||
-                !data.foodPreferences.every(
-                    item => typeof item === "string"
-                )) {
-                return res.status(400).json({
-                    message: "Invalid food preferences"
-                });
-            }
-            user.foodPreferences = data.foodPreferences;
-        }
-
-        // Save changes to MongoDB
-        await user.save();
-
-        return res.status(200).json({
-            message: "Profile updated successfully",
-            user: {
-                id: user._id,
-                username: user.username,
-                email: user.email,
-                profileImage: user.profileImage,
-                bio: user.bio,
-                foodPreferences: user.foodPreferences
-            }
-        });
-
-    } catch (error) {
         console.error("Update profile error:", error);
 
         return res.status(500).json({
@@ -117,4 +226,7 @@ async function updateMyProfile(req, res) {
     }
 }
 
-module.exports = { getMyProfile, updateMyProfile };
+module.exports = {
+    getMyProfile,
+    updateMyProfile
+};
