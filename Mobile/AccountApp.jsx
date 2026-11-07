@@ -1,4 +1,8 @@
-import React, { useState } from "react";
+import React, {
+    useEffect,
+    useRef,
+    useState
+} from "react";
 
 import {
     View,
@@ -33,6 +37,7 @@ function StatusScreen({
 
             {onRetry && (
                 <Pressable
+                    accessibilityRole="button"
                     style={styles.button}
                     onPress={onRetry}
                 >
@@ -45,7 +50,10 @@ function StatusScreen({
     );
 }
 
-export default function App() {
+export default function AccountApp({
+    onUserChange,
+    onLoginSuccess
+}) {
     const {
         auth,
         login,
@@ -60,6 +68,35 @@ export default function App() {
 
     const [authPage, setAuthPage] = useState("login");
     const [loginEmail, setLoginEmail] = useState("");
+
+    const previousPhase = useRef(auth.phase);
+
+    useEffect(() => {
+        if (typeof onUserChange !== "function") {
+            return;
+        }
+
+        const isSignedIn =
+            auth.phase === "signedIn" ||
+            auth.phase === "signingOut";
+
+        onUserChange(isSignedIn ? auth.user : null);
+    }, [auth.phase, auth.user, onUserChange]);
+
+    useEffect(() => {
+        const justLoggedIn =
+            previousPhase.current === "signingIn" &&
+            auth.phase === "signedIn";
+
+        previousPhase.current = auth.phase;
+
+        if (
+            justLoggedIn &&
+            typeof onLoginSuccess === "function"
+        ) {
+            onLoginSuccess();
+        }
+    }, [auth.phase, onLoginSuccess]);
 
     function openRegister() {
         if (auth.phase === "signedOut") {
@@ -141,7 +178,10 @@ export default function App() {
         );
     }
 
-    if (auth.phase === "signedOut" && authPage === "register") {
+    if (
+        auth.phase === "signedOut" &&
+        authPage === "register"
+    ) {
         return (
             <RegisterScreen
                 onOpenLogin={openLogin}

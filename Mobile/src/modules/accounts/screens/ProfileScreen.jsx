@@ -443,10 +443,7 @@ export default function ProfileScreen({
                 contentContainerStyle={styles.container}
                 contentInsetAdjustmentBehavior="automatic"
                 keyboardShouldPersistTaps="handled"
-            >
-                <Text style={styles.title}>
-                    {isEditing ? "Edit Profile" : "My Profile"}
-                </Text>
+            >        
 
                 <View style={styles.avatarWrapper}>
                     {imageUri && failedImageUri !== imageUri ? (

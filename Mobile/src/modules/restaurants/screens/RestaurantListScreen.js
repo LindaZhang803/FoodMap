@@ -22,6 +22,7 @@ import RestaurantFilter from "../components/RestaurantFilter";
 import {
   DEFAULT_FILTERS,
   filterRestaurants,
+  getDistanceKm,
 } from "../utils/restaurantFilters";
 
 import {
@@ -32,28 +33,21 @@ import {
 export default function RestaurantListScreen({
   onSelectRestaurant,
 }) {
-  // Restaurant data
   const [restaurants, setRestaurants] = useState([]);
-
-  // Search
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Filters
   const [filters, setFilters] = useState({
     ...DEFAULT_FILTERS,
   });
 
   const [filterVisible, setFilterVisible] = useState(false);
 
-  // Sorting
   const [sortBy, setSortBy] = useState("default");
   const [sortVisible, setSortVisible] = useState(false);
 
-  // Location
   const [userLocation, setUserLocation] = useState(null);
   const [applyingFilters, setApplyingFilters] = useState(false);
 
-  // Loading and errors
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -86,7 +80,7 @@ export default function RestaurantListScreen({
   }
 
   // =====================================================
-  // 2. Validate numeric inputs
+  // 2. Validate filters
   // =====================================================
 
   function validateFilters(nextFilters) {
@@ -111,9 +105,7 @@ export default function RestaurantListScreen({
     for (const field of numericFields) {
       const text = String(field.value ?? "").trim();
 
-      if (text === "") {
-        continue;
-      }
+      if (text === "") continue;
 
       const number = Number(text);
 
@@ -158,37 +150,47 @@ export default function RestaurantListScreen({
   }
 
   // =====================================================
-  // 3. Get user location
+  // 3. Request user location
   // =====================================================
 
   async function requestUserLocation() {
-    const permission =
-      await Location.requestForegroundPermissionsAsync();
-
-    if (permission.status !== "granted") {
-      Alert.alert(
-        "Location Required",
-        "Please allow location access to use distance features."
-      );
-
-      return null;
-    }
-
     try {
+      const permission =
+        await Location.requestForegroundPermissionsAsync();
+
+      if (permission.status !== "granted") {
+        Alert.alert(
+          "Location Required",
+          "Please allow location access to use nearby restaurant features."
+        );
+
+        return null;
+      }
+
       const position = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
 
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+
+      if (
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude)
+      ) {
+        throw new Error("Invalid location coordinates");
+      }
+
       return {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
+        latitude,
+        longitude,
       };
     } catch (err) {
       console.error("Location error:", err);
 
       Alert.alert(
         "Location Unavailable",
-        "Unable to determine your location. Check your simulator location settings."
+        "Unable to determine your location. Please check your location settings."
       );
 
       return null;
@@ -218,9 +220,7 @@ export default function RestaurantListScreen({
       if (needsLocation) {
         const location = await requestUserLocation();
 
-        if (!location) {
-          return;
-        }
+        if (!location) return;
 
         setUserLocation(location);
       } else if (sortBy !== "nearest") {
@@ -251,16 +251,13 @@ export default function RestaurantListScreen({
   async function changeSorting(nextSort) {
     if (applyingFilters) return;
 
-    // Nearest sorting requires current location.
     if (nextSort === "nearest") {
       setApplyingFilters(true);
 
       try {
         const location = await requestUserLocation();
 
-        if (!location) {
-          return;
-        }
+        if (!location) return;
 
         setUserLocation(location);
       } finally {
@@ -273,7 +270,62 @@ export default function RestaurantListScreen({
   }
 
   // =====================================================
-  // 6. Search + Filter + Sort
+  // 6. Near Me
+  // =====================================================
+
+  async function findNearbyRestaurants() {
+    if (applyingFilters) return;
+
+    setApplyingFilters(true);
+
+    try {
+      const location = await requestUserLocation();
+
+      if (!location) return;
+
+      setUserLocation(location);
+
+      // Sort existing filtered results by distance.
+      setSortBy("nearest");
+
+      setSortVisible(false);
+    } finally {
+      setApplyingFilters(false);
+    }
+  }
+
+  // =====================================================
+  // 7. Calculate restaurant distance
+  // =====================================================
+
+  function calculateRestaurantDistance(restaurant) {
+    if (!userLocation) return null;
+
+    const lat = Number(restaurant.latitude);
+    const lon = Number(restaurant.longitude);
+
+    const validCoordinates =
+      restaurant.latitude != null &&
+      restaurant.longitude != null &&
+      Number.isFinite(lat) &&
+      Number.isFinite(lon) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lon >= -180 &&
+      lon <= 180;
+
+    if (!validCoordinates) return null;
+
+    return getDistanceKm(
+      userLocation.latitude,
+      userLocation.longitude,
+      lat,
+      lon
+    );
+  }
+
+  // =====================================================
+  // 8. Search + Filter + Sort
   // =====================================================
 
   const displayedRestaurants = useMemo(() => {
@@ -298,7 +350,7 @@ export default function RestaurantListScreen({
   ]);
 
   // =====================================================
-  // 7. Count active filters
+  // 9. Active filters
   // =====================================================
 
   const hasPriceFilter =
@@ -317,11 +369,12 @@ export default function RestaurantListScreen({
   ].filter(Boolean).length;
 
   const currentSortLabel =
-    SORT_OPTIONS.find((option) => option.value === sortBy)
-      ?.label || "Default";
+    SORT_OPTIONS.find(
+      (option) => option.value === sortBy
+    )?.label || "Default";
 
   // =====================================================
-  // 8. Render
+  // 10. Render
   // =====================================================
 
   return (
@@ -354,13 +407,17 @@ export default function RestaurantListScreen({
         </Pressable>
       </View>
 
-      {/* Sort button + result count */}
+      {/* Near Me + Sort */}
       <View style={styles.toolbar}>
-        <Text style={styles.resultCount}>
-          {!loading && !error
-            ? `${displayedRestaurants.length} restaurants found`
-            : ""}
-        </Text>
+        <Pressable
+          style={styles.nearMeButton}
+          onPress={findNearbyRestaurants}
+          disabled={applyingFilters}
+        >
+          <Text style={styles.nearMeText}>
+            Near Me
+          </Text>
+        </Pressable>
 
         <Pressable
           style={styles.sortButton}
@@ -371,6 +428,13 @@ export default function RestaurantListScreen({
           </Text>
         </Pressable>
       </View>
+
+      {/* Result count */}
+      {!loading && !error && (
+        <Text style={styles.resultCount}>
+          {displayedRestaurants.length} restaurants found
+        </Text>
+      )}
 
       {/* Restaurant list */}
       {loading ? (
@@ -383,37 +447,52 @@ export default function RestaurantListScreen({
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText}>
+            {error}
+          </Text>
 
           <Pressable
             style={styles.retryButton}
             onPress={fetchRestaurants}
           >
-            <Text style={styles.retryText}>Retry</Text>
+            <Text style={styles.retryText}>
+              Retry
+            </Text>
           </Pressable>
         </View>
       ) : (
         <FlatList
           data={displayedRestaurants}
           keyExtractor={(item) => item._id}
+
           renderItem={({ item }) => (
             <RestaurantCard
               restaurant={item}
-              onPress={() => onSelectRestaurant(item)}
+              distanceKm={
+                calculateRestaurantDistance(item)
+              }
+              onPress={() =>
+                onSelectRestaurant(item)
+              }
             />
           )}
+
           ListEmptyComponent={
             <View style={styles.center}>
               <Text style={styles.emptyText}>
-                No restaurants match your search or filters.
+                {hasDistanceFilter
+                  ? "No restaurants match your filters within the selected distance."
+                  : "No restaurants match your search or filters."}
               </Text>
             </View>
           }
+
           contentContainerStyle={
             displayedRestaurants.length === 0
               ? styles.emptyContainer
               : styles.list
           }
+
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         />
@@ -436,7 +515,9 @@ export default function RestaurantListScreen({
         visible={sortVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setSortVisible(false)}
+        onRequestClose={() =>
+          setSortVisible(false)
+        }
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -445,14 +526,16 @@ export default function RestaurantListScreen({
             </Text>
 
             {SORT_OPTIONS.map((option) => {
-              const selected = sortBy === option.value;
+              const selected =
+                sortBy === option.value;
 
               return (
                 <Pressable
                   key={option.value}
                   style={[
                     styles.sortOption,
-                    selected && styles.selectedOption,
+                    selected &&
+                      styles.selectedOption,
                   ]}
                   onPress={() =>
                     changeSorting(option.value)
@@ -462,14 +545,17 @@ export default function RestaurantListScreen({
                   <Text
                     style={[
                       styles.sortOptionText,
-                      selected && styles.selectedOptionText,
+                      selected &&
+                        styles.selectedOptionText,
                     ]}
                   >
                     {option.label}
                   </Text>
 
                   {selected && (
-                    <Text style={styles.checkmark}>✓</Text>
+                    <Text style={styles.checkmark}>
+                      ✓
+                    </Text>
                   )}
                 </Pressable>
               );
@@ -477,7 +563,9 @@ export default function RestaurantListScreen({
 
             <Pressable
               style={styles.closeButton}
-              onPress={() => setSortVisible(false)}
+              onPress={() =>
+                setSortVisible(false)
+              }
             >
               <Text style={styles.closeText}>
                 Cancel
@@ -554,10 +642,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 
-  resultCount: {
-    flexShrink: 1,
-    color: "#666",
-    fontSize: 13,
+  nearMeButton: {
+    backgroundColor: "#16a34a",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+
+  nearMeText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
   },
 
   sortButton: {
@@ -571,6 +666,13 @@ const styles = StyleSheet.create({
     color: "#2563eb",
     fontSize: 13,
     fontWeight: "600",
+  },
+
+  resultCount: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    color: "#666",
+    fontSize: 13,
   },
 
   list: {
