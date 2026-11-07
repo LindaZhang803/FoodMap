@@ -29,7 +29,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {__DEV__ && !dishBrowser && (
+      {__DEV__ && !dishBrowser && !selectedRestaurantId && (
         <View style={{ padding: 12 }}>
           <Pressable accessibilityRole="button" onPress={() => setDishBrowser({ restaurantId: "100000000000000000000001", demo: true })}>
             <Text style={{ color: "#2563eb", padding: 10 }}>Open dish demo (no backend required)</Text>
