@@ -1,5 +1,9 @@
 {
   "expo": {
+    "name": "FoodMap",
+    "slug": "foodmap",
+    "version": "1.0.0",
+    "orientation": "portrait",
     "icon": "./src/assets/images/icons/icon.png",
     "android": {
       "adaptiveIcon": {
@@ -12,6 +16,7 @@
       "favicon": "./src/assets/images/icons/favicon.png"
     },
     "plugins": [
+      "expo-secure-store",
       [
         "expo-splash-screen",
         {

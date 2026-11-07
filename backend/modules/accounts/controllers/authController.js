@@ -1,28 +1,26 @@
-
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+
 const User = require("../models/User");
 const validateRegisterInput = require("../vaildators/registerValidator");
+const { getPasswordError } = require("../services/passwordPolicy");
 
 async function register(req, res) {
     try {
-        // input
         const data = req.body || {};
         const errors = validateRegisterInput(data);
 
         if (errors.length > 0) {
             return res.status(400).json({
                 message: "Invalid registration input",
-                errors: errors
+                errors
             });
         }
 
-        //Get user information
         const username = data.username.trim();
         const email = data.email.trim().toLowerCase();
         const password = data.password;
 
-        //Check if email already exists
         const existingUser = await User.findOne({ email });
 
         if (existingUser) {
@@ -31,17 +29,14 @@ async function register(req, res) {
             });
         }
 
-        // 4. Hash password
         const passwordHash = await bcrypt.hash(password, 12);
 
-        // 5. Create new user
         const user = await User.create({
             username,
             email,
             passwordHash
         });
 
-        // 6. Return success response
         return res.status(201).json({
             message: "User registered successfully",
             user: {
@@ -50,10 +45,8 @@ async function register(req, res) {
                 email: user.email
             }
         });
-
     } catch (error) {
-        // Handle duplicate email errors
-        if (error.code === 11000) {
+        if (error?.code === 11000) {
             return res.status(409).json({
                 message: "Email already registered"
             });
@@ -67,10 +60,8 @@ async function register(req, res) {
     }
 }
 
-
 async function login(req, res) {
     try {
-        // 1. Get email and password
         const data = req.body || {};
 
         const email = typeof data.email === "string"
@@ -81,14 +72,22 @@ async function login(req, res) {
             ? data.password
             : "";
 
-        // 2. Check input
         if (!email || !password) {
             return res.status(400).json({
                 message: "Email and password are required"
             });
         }
 
-        // 3. Find user in MongoDB
+        const passwordError = getPasswordError(password, {
+            requireMinimum: false
+        });
+
+        if (passwordError) {
+            return res.status(400).json({
+                message: passwordError
+            });
+        }
+
         const user = await User.findOne({ email })
             .select("+passwordHash");
 
@@ -98,7 +97,6 @@ async function login(req, res) {
             });
         }
 
-        // 4. Check password
         const isMatch = await bcrypt.compare(
             password,
             user.passwordHash
@@ -110,7 +108,6 @@ async function login(req, res) {
             });
         }
 
-        // 5. Generate JWT token
         if (!process.env.JWT_SECRET) {
             throw new Error("JWT_SECRET is missing");
         }
@@ -124,7 +121,6 @@ async function login(req, res) {
             { expiresIn: "7d" }
         );
 
-        // 6. Return success response
         return res.status(200).json({
             message: "Login successful",
             token,
@@ -135,7 +131,6 @@ async function login(req, res) {
                 profileImage: user.profileImage
             }
         });
-
     } catch (error) {
         console.error("Login error:", error);
 
@@ -147,7 +142,6 @@ async function login(req, res) {
 
 async function logout(req, res) {
     try {
-        // Increase token version to invalidate old JWTs
         const user = await User.findByIdAndUpdate(
             req.user.id,
             { $inc: { tokenVersion: 1 } },
@@ -163,7 +157,6 @@ async function logout(req, res) {
         return res.status(200).json({
             message: "Logout successful"
         });
-
     } catch (error) {
         console.error("Logout error:", error);
 
@@ -173,4 +166,8 @@ async function logout(req, res) {
     }
 }
 
-module.exports = { register, login, logout };
+module.exports = {
+    register,
+    login,
+    logout
+};
