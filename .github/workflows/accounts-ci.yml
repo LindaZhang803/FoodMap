@@ -1,0 +1,47 @@
+name: Accounts CI
+
+on:
+  push:
+    branches:
+      - qsun036
+      - qsun036-test
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  accounts-tests:
+    name: Accounts backend tests and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check account coverage
+        run: >-
+          npm test --
+          --coverage
+          --collectCoverageFrom='modules/accounts/**/*.js'
+          --collectCoverageFrom='!modules/accounts/tests/**'
+          --coverageThreshold='{"global":{"statements":80,"branches":80,"functions":80,"lines":80}}'

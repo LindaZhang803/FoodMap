@@ -168,6 +168,7 @@ export default function AccountApp({
             <ProfileScreen
                 key={auth.user.id}
                 user={auth.user}
+                token={auth.token}
                 onLogout={logout}
                 onSave={updateProfile}
                 onChangeAvatar={updateAvatar}
