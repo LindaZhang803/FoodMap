@@ -1,40 +1,50 @@
+const {
+    getPasswordError
+} = require("../services/passwordPolicy");
+
+function getEmailError(email) {
+    if (!email) {
+        return "Email is required";
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return "Invalid email format";
+    }
+
+    return "";
+}
 
 function validateRegisterInput(data) {
-    const errors = [];
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+        return ["Registration data must be a JSON object"];
+    }
 
     const username = typeof data.username === "string"
-        ? data.username.trim() : "";
+        ? data.username.trim()
+        : "";
 
     const email = typeof data.email === "string"
-        ? data.email.trim() : "";
+        ? data.email.trim()
+        : "";
 
-    const password = typeof data.password === "string"
-        ? data.password : "";
+    const password = data.password;
 
     const confirmPassword = typeof data.confirmPassword === "string"
-        ? data.confirmPassword : "";
+        ? data.confirmPassword
+        : "";
 
-    if (!username) {
-        errors.push("Username is required");
-    }
+    const confirmationError = !confirmPassword
+        ? "Confirm password is required"
+        : password !== confirmPassword
+            ? "Passwords do not match"
+            : "";
 
-    if (!email) {
-        errors.push("Email is required");
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        errors.push("Invalid email format");
-    }
-
-    if (!password) {
-        errors.push("Password is required");
-    } else if (password.length < 8) {
-        errors.push("Password must be at least 8 characters");
-    }
-
-    if (password !== confirmPassword) {
-        errors.push("Passwords do not match");
-    }
-
-    return errors;
+    return [
+        username ? "" : "Username is required",
+        getEmailError(email),
+        getPasswordError(password),
+        confirmationError
+    ].filter(Boolean);
 }
 
 module.exports = validateRegisterInput;
