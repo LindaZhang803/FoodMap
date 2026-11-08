@@ -1,0 +1,109 @@
+name: FoodMap CI
+
+on:
+  push:
+    branches: [main, szang005, yzhan949, skim1108, qsun036, qsun036-test]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-feed:
+    name: Backend — Feed & Favorites (Node Test + MongoMemoryServer)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/modules/feed
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          cache-dependency-path: backend/modules/feed/package-lock.json
+
+      - name: Cache MongoDB Memory Server binary (7.0.24)
+        uses: actions/cache@v4
+        with:
+          path: /tmp/foodmap-member4-mongodb
+          key: ${{ runner.os }}-mongodb-memory-server-7.0.24
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit & Express route contract tests
+        run: npm run test:unit
+
+      - name: Run disposable MongoDB integration tests
+        run: npm run test:mongo
+
+  mobile-feed:
+    name: Mobile — Feed, Favorites & Wheel (Jest + Expo Web)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Mobile/src/modules/feed
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Cache local pnpm store (.pnpm-store)
+        uses: actions/cache@v4
+        with:
+          path: Mobile/src/modules/feed/.pnpm-store
+          key: ${{ runner.os }}-pnpm-feed-${{ hashFiles('Mobile/src/modules/feed/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-feed-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Jest test suites
+        run: pnpm test --ci
+
+      - name: Verify Expo Web bundle export
+        run: pnpm run export:web
+
+  backend-shared:
+    name: Backend — Shared Host & Root Dependencies
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Install and test root backend (when package-lock.json is present)
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+            npm test --if-present
+          else
+            echo "No root backend/package-lock.json tracked on this branch; skipping."
+          fi
