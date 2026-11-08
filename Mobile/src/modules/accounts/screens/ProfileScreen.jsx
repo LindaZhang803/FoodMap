@@ -22,7 +22,8 @@ import {
 
 import * as ImagePicker from "expo-image-picker";
 
-import { ApiError } from "../services/authApi";
+import { ApiError, getMyReviews } from "../services/authApi";
+import ReviewHistorySection from "./ReviewHistorySection";
 
 function listText(values) {
     return Array.isArray(values)
@@ -190,6 +191,7 @@ function ProfileEditor({
 
 export default function ProfileScreen({
     user,
+    token,
     onLogout,
     onSave,
     onChangeAvatar,
@@ -550,6 +552,12 @@ export default function ProfileScreen({
                         />
                     </View>
                 )}
+
+                <ReviewHistorySection
+                    key={user.id}
+                    token={token}
+                    loadReviews={getMyReviews}
+                />
 
                 <ProfileButton
                     title={isLoggingOut ? "Logging out..." : "Log out"}
