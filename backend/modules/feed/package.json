@@ -1,0 +1,20 @@
+{
+  "name": "foodmap-member4-feed",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Member 4 Favorites persistence and Discover integration contracts",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "test:unit": "node --test tests/discoverContract.test.js tests/favorites.routes.test.js",
+    "test:mongo": "node --test tests/favorites.mongo.test.js"
+  },
+  "engines": { "node": ">=20.19.0" },
+  "dependencies": { "express": "^5.3.0" },
+  "devDependencies": {
+    "mongodb-memory-server": "^10.1.4",
+    "mongoose": "^9.11.4",
+    "supertest": "^7.1.1"
+  }
+}

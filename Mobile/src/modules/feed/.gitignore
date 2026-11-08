@@ -1,0 +1,6 @@
+node_modules/
+.expo/
+dev/.export/
+dev/.metro-cache/
+coverage/
+.pnpm-store/
