@@ -105,12 +105,12 @@ export default function FoodMapFeed({
     return (
       <View style={styles.signIn}>
         <Text style={styles.message}>
-          Sign in to use FoodMap.
+          Sign in to load your feed.
         </Text>
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Sign in to use FoodMap"
+          accessibilityLabel="Sign in to load your feed"
           disabled={
             typeof onLoginRequired !==
             "function"
