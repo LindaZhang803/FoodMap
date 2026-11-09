@@ -1,110 +1,270 @@
-import { isRecord, isStableId, isValidFlavorVector } from '../contracts';
+import {
+  isRecord,
+  isStableId,
+  isValidFlavorVector,
+} from "../contracts";
 
-/** Resolve uploads only against the owning API origin, never a guessed host. */
+// =====================================================
+// Utilities
+// =====================================================
+
+const hasOwn = (object, key) =>
+  isRecord(object) &&
+  Object.prototype.hasOwnProperty.call(object, key);
+
+// =====================================================
+// 1. Resolve image URLs
+// =====================================================
+
+/**
+ * Resolve uploads only against the owning API origin.
+ * Never guess an unrelated host.
+ */
 export function resolveCatalogImageUrl(value, origin) {
-  if (typeof value !== 'string' || value.trim() === '') return null;
+  if (
+    typeof value !== "string" ||
+    value.trim() === ""
+  ) {
+    return null;
+  }
+
   try {
-    const url = origin ? new URL(value.trim(), origin) : new URL(value.trim());
-    return ['http:', 'https:'].includes(url.protocol) && url.hostname ? url.href : null;
+    const url = origin
+      ? new URL(value.trim(), origin)
+      : new URL(value.trim());
+
+    return (
+      ["http:", "https:"].includes(url.protocol) &&
+      url.hostname
+    )
+      ? url.href
+      : null;
   } catch {
     return null;
   }
 }
 
+// =====================================================
+// 2. Normalize dish records
+// =====================================================
+
 function normalizeDish(record, origin) {
-  if (!isRecord(record) || !isStableId(record.id) || !isStableId(record.restaurantId)) {
-    throw new TypeError('The dish API must supply id and restaurantId for every dish.');
+  if (
+    !isRecord(record) ||
+    !isStableId(record.id) ||
+    !isStableId(record.restaurantId)
+  ) {
+    throw new TypeError(
+      "The dish API must supply id and restaurantId for every dish."
+    );
   }
+
   const { id, ...fields } = record;
+
   return {
     ...fields,
     dishId: id,
     restaurantId: record.restaurantId,
-    imageUrl: resolveCatalogImageUrl(record.imageUrl, origin),
+    imageUrl: resolveCatalogImageUrl(
+      record.imageUrl,
+      origin
+    ),
   };
 }
 
-/**
- * The pinned unfiltered owner clients each return a bare array. Bind Member 2's
- * repository method before injecting it. No restaurant ID, fixtures, credentials,
- * or sort override is passed to either public reader.
- *
- * dishReadComplete=false declares a known partial bare-array source. A future
- * paged reader may supply an explicitly PARTIAL local envelope; it must collect
- * every page before supplying a complete bare array. Unknown envelopes fail
- * honestly, allowing FeedRepository to keep the restaurants and show degradation.
- */
+// =====================================================
+// 3. Public restaurant and dish sources
+// =====================================================
+
 export function createLiveCatalogSources({
   getRestaurants,
   getDishes,
   origin,
   dishReadComplete = true,
 } = {}) {
-  if (typeof dishReadComplete !== 'boolean') {
-    throw new TypeError('Dish completeness must be a boolean.');
+  if (typeof dishReadComplete !== "boolean") {
+    throw new TypeError(
+      "Dish completeness must be a boolean."
+    );
   }
+
   return {
     restaurantSource: {
       async getRestaurants() {
-        if (typeof getRestaurants !== 'function') {
-          throw new Error('Restaurant reader is not connected.');
+        if (
+          typeof getRestaurants !== "function"
+        ) {
+          throw new Error(
+            "Restaurant reader is not connected."
+          );
         }
-        const restaurants = await getRestaurants();
+
+        const restaurants =
+          await getRestaurants();
+
         if (!Array.isArray(restaurants)) {
-          throw new TypeError('The restaurant API must return a bare array.');
+          throw new TypeError(
+            "The restaurant API must return a bare array."
+          );
         }
-        // Retain the exact owner objects and all metadata. Restaurant-only image
-        // renderers use resolveCatalogImageUrl, leaving these records untouched.
+
         return restaurants;
       },
     },
+
     dishSource: {
       async getDishes() {
-        if (typeof getDishes !== 'function') {
-          throw new Error('Dish reader is not connected.');
+        if (
+          typeof getDishes !== "function"
+        ) {
+          throw new Error(
+            "Dish reader is not connected."
+          );
         }
-        const payload = await getDishes();
+
+        const payload =
+          await getDishes();
+
         let records = payload;
         let complete = dishReadComplete;
         let note;
+
         if (!Array.isArray(payload)) {
-          if (!isRecord(payload) || !Array.isArray(payload.dishes)
-              || payload.coverage?.scope !== 'candidate-pool'
-              || payload.coverage.complete !== false
-              || (payload.coverage.note !== undefined && typeof payload.coverage.note !== 'string')) {
-            throw new TypeError('The dish API must return a full bare array or an explicitly partial dish pool.');
+          if (
+            !isRecord(payload) ||
+            !Array.isArray(payload.dishes) ||
+            payload.coverage?.scope !==
+              "candidate-pool" ||
+            payload.coverage.complete !== false ||
+            (
+              payload.coverage.note !== undefined &&
+              typeof payload.coverage.note !== "string"
+            )
+          ) {
+            throw new TypeError(
+              "The dish API must return a full bare array or an explicitly partial dish pool."
+            );
           }
+
           records = payload.dishes;
           complete = false;
           note = payload.coverage.note;
         }
+
         return {
-          dishes: records.map(record => normalizeDish(record, origin)),
-          coverage: { scope: 'candidate-pool', complete, ...(note === undefined ? {} : { note }) },
+          dishes: records.map((record) =>
+            normalizeDish(record, origin)
+          ),
+
+          coverage: {
+            scope: "candidate-pool",
+            complete,
+
+            ...(note === undefined
+              ? {}
+              : { note }),
+          },
         };
       },
     },
   };
 }
 
+// =====================================================
+// 4. Cancelled preference read
+// =====================================================
+
 function cancelledRead() {
-  const error = new Error('Preference read was cancelled.');
-  error.name = 'AbortError';
+  const error = new Error(
+    "Preference read was cancelled."
+  );
+
+  error.name = "AbortError";
+
   return error;
 }
 
+// =====================================================
+// 5. Legacy account compatibility
+// =====================================================
+
 /**
- * An owner-supplied authenticated self-reader takes { token, origin, signal } and
- * returns JSON, throwing an error with status=401 for an expired Bearer token.
- * It must never put a user ID in the self-read URL, query, or body. The identity
- * here is solely a local response check, not an authorization mechanism.
+ * The existing Accounts module may return a legacy
+ * profile containing foodPreferences or
+ * favoriteCuisines, without numeric flavorTargets.
  *
- * Accept the agreed {userId, flavorTargets} shape or Accounts' {user:{id,...}}
- * envelope once its owner adds numeric flavorTargets. Legacy foodPreferences
- * tags, missing targets, and {} are unavailable. Only explicit null means empty.
- * The composition supplies isCurrentSession so stale 401s cannot log out a new
- * account. cancelPending aborts work without permanently disposing the source.
+ * Such a legacy profile has no numeric taste vector.
+ *
+ * Compatibility policy:
+ *
+ * 1. Explicit null -> no numeric preferences.
+ * 2. Valid six-dimensional vector -> personalized.
+ * 3. Known legacy profile without flavorTargets ->
+ *    no numeric preferences.
+ * 4. Explicit invalid flavorTargets -> error.
+ * 5. Other missing flavorTargets -> error.
+ *
+ * Never infer numeric values from text tags.
  */
+function normalizeFlavorTargets(profile, payload) {
+  // Prefer the profile's explicit field.
+  if (hasOwn(profile, "flavorTargets")) {
+    const targets = profile.flavorTargets;
+
+    if (targets === null) {
+      return null;
+    }
+
+    if (!isValidFlavorVector(targets)) {
+      throw new TypeError(
+        "Invalid flavorTargets: expected exactly six numeric values from 0 to 5."
+      );
+    }
+
+    return { ...targets };
+  }
+
+  // Support an explicitly supplied outer field.
+  if (
+    payload !== profile &&
+    hasOwn(payload, "flavorTargets")
+  ) {
+    const targets = payload.flavorTargets;
+
+    if (targets === null) {
+      return null;
+    }
+
+    if (!isValidFlavorVector(targets)) {
+      throw new TypeError(
+        "Invalid flavorTargets in account response."
+      );
+    }
+
+    return { ...targets };
+  }
+
+  // A known legacy Accounts profile has textual
+  // preferences but no numeric taste vector.
+  const isLegacyAccountProfile =
+    Array.isArray(profile.foodPreferences) ||
+    Array.isArray(profile.favoriteCuisines);
+
+  if (isLegacyAccountProfile) {
+    return null;
+  }
+
+  // Unknown or incomplete response formats
+  // must not silently become empty preferences.
+  throw new TypeError(
+    "Account profile is missing flavorTargets."
+  );
+}
+
+// =====================================================
+// 6. Authenticated account source
+// =====================================================
+
 export function createLiveAccountSource({
   readSelfProfile,
   userId,
@@ -114,44 +274,159 @@ export function createLiveAccountSource({
   onSessionExpired,
 } = {}) {
   const pending = new Set();
+
   return {
+    // =================================================
+    // Cancel pending requests
+    // =================================================
+
     cancelPending() {
-      pending.forEach(controller => controller.abort());
+      pending.forEach((controller) =>
+        controller.abort()
+      );
+
       pending.clear();
     },
-    async getPreferences({ userId: requestedUserId } = {}) {
-      if (!isStableId(userId) || requestedUserId !== userId
-          || typeof token !== 'string' || token.trim() === '') {
-        throw new Error('A matching signed-in session is required for preferences.');
+
+    // =================================================
+    // Read user preferences
+    // =================================================
+
+    async getPreferences({
+      userId: requestedUserId,
+    } = {}) {
+      // -----------------------------------------------
+      // Validate authenticated session
+      // -----------------------------------------------
+
+      if (
+        !isStableId(userId) ||
+        requestedUserId !== userId ||
+        typeof token !== "string" ||
+        token.trim() === ""
+      ) {
+        throw new Error(
+          "A matching signed-in session is required for preferences."
+        );
       }
-      if (typeof readSelfProfile !== 'function') {
-        throw new Error('Numeric self-profile reader is not connected.');
+
+      if (
+        typeof readSelfProfile !== "function"
+      ) {
+        throw new Error(
+          "Numeric self-profile reader is not connected."
+        );
       }
-      if (!isCurrentSession()) throw cancelledRead();
-      const controller = new AbortController();
+
+      if (!isCurrentSession()) {
+        throw cancelledRead();
+      }
+
+      // -----------------------------------------------
+      // Create cancellable request
+      // -----------------------------------------------
+
+      const controller =
+        new AbortController();
+
       pending.add(controller);
+
       try {
-        const payload = await readSelfProfile({ token, origin, signal: controller.signal });
-        if (controller.signal.aborted || !isCurrentSession()) throw cancelledRead();
-        const profile = isRecord(payload?.user) ? payload.user : payload;
-        const responseId = profile === payload ? profile?.userId : profile?.id;
-        if (!isRecord(profile) || responseId !== userId
-            || (payload?.userId !== undefined && payload.userId !== userId)
-            || (profile.id !== undefined && profile.id !== userId)
-            || (profile._id !== undefined && profile._id !== userId)) {
-          throw new Error('Self-profile identity does not match the current session.');
+        // ---------------------------------------------
+        // Fetch authenticated self-profile
+        // ---------------------------------------------
+
+        const payload =
+          await readSelfProfile({
+            token,
+            origin,
+            signal: controller.signal,
+          });
+
+        if (
+          controller.signal.aborted ||
+          !isCurrentSession()
+        ) {
+          throw cancelledRead();
         }
-        if (!Object.prototype.hasOwnProperty.call(profile, 'flavorTargets')
-            || (profile.flavorTargets !== null && !isValidFlavorVector(profile.flavorTargets))) {
-          throw new TypeError('Preferences require exactly six numeric targets from 0 to 5, or explicit null.');
+
+        // ---------------------------------------------
+        // Normalize response envelope
+        // ---------------------------------------------
+
+        const profile =
+          isRecord(payload?.user)
+            ? payload.user
+            : payload;
+
+        const responseId =
+          profile === payload
+            ? profile?.userId
+            : profile?.id;
+
+        // ---------------------------------------------
+        // Verify account identity
+        // ---------------------------------------------
+
+        if (
+          !isRecord(profile) ||
+          responseId !== userId ||
+          (
+            payload?.userId !== undefined &&
+            payload.userId !== userId
+          ) ||
+          (
+            profile.id !== undefined &&
+            profile.id !== userId
+          ) ||
+          (
+            profile._id !== undefined &&
+            profile._id !== userId
+          )
+        ) {
+          throw new Error(
+            "Self-profile identity does not match the current session."
+          );
         }
+
+        // ---------------------------------------------
+        // Normalize preferences
+        // ---------------------------------------------
+
+        const flavorTargets =
+          normalizeFlavorTargets(
+            profile,
+            payload
+          );
+
+        // ---------------------------------------------
+        // Return agreed repository contract
+        // ---------------------------------------------
+
         return {
           userId,
-          flavorTargets: profile.flavorTargets === null ? null : { ...profile.flavorTargets },
+          flavorTargets,
         };
       } catch (error) {
-        if (controller.signal.aborted || !isCurrentSession()) throw cancelledRead();
-        if (error?.status === 401) onSessionExpired?.();
+        // ---------------------------------------------
+        // Ignore cancelled or stale sessions
+        // ---------------------------------------------
+
+        if (
+          controller.signal.aborted ||
+          !isCurrentSession()
+        ) {
+          throw cancelledRead();
+        }
+
+        // ---------------------------------------------
+        // Handle expired authentication
+        // ---------------------------------------------
+
+        if (error?.status === 401) {
+          onSessionExpired?.();
+        }
+
         throw error;
       } finally {
         pending.delete(controller);

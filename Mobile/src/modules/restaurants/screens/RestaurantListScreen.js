@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import {
   View,
   Text,
-  TextInput,
   FlatList,
+  ScrollView,
   ActivityIndicator,
   Pressable,
   Alert,
@@ -15,7 +15,6 @@ import {
 import * as Location from "expo-location";
 
 import { getRestaurants } from "../services/restaurantApi";
-
 import RestaurantCard from "../components/RestaurantCard";
 import RestaurantFilter from "../components/RestaurantFilter";
 
@@ -30,31 +29,46 @@ import {
   sortRestaurants,
 } from "../utils/restaurantSorting";
 
+import {
+  colors,
+  spacing,
+  radius,
+  typography,
+} from "../../../shared/design/tokens";
+
+import {
+  AppInput,
+  LoadingState,
+  EmptyState,
+  ErrorState,
+} from "../../../shared/design/UIComponents";
+
+import AppIcon from "../../../shared/components/AppIcon";
+
+const CUISINE_TABS = [
+  { label: "All", value: "" },
+  { label: "American", value: "american" },
+  { label: "Chinese", value: "chinese" },
+  { label: "Italian", value: "italian" },
+  { label: "Japanese", value: "japanese" },
+  { label: "Mexican", value: "mexican" },
+  { label: "Other", value: "other" },
+];
+
 export default function RestaurantListScreen({
   onSelectRestaurant,
   toolbarAction,
 }) {
   const [restaurants, setRestaurants] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-
-  const [filters, setFilters] = useState({
-    ...DEFAULT_FILTERS,
-  });
-
+  const [filters, setFilters] = useState({ ...DEFAULT_FILTERS });
   const [filterVisible, setFilterVisible] = useState(false);
-
   const [sortBy, setSortBy] = useState("default");
   const [sortVisible, setSortVisible] = useState(false);
-
   const [userLocation, setUserLocation] = useState(null);
   const [applyingFilters, setApplyingFilters] = useState(false);
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // =====================================================
-  // 1. Load restaurants
-  // =====================================================
 
   useEffect(() => {
     fetchRestaurants();
@@ -73,16 +87,12 @@ export default function RestaurantListScreen({
 
       setRestaurants(data);
     } catch (err) {
-      console.error("Fetch restaurants error:", err);
+      console.warn("Fetch restaurants error:", err);
       setError("Failed to load restaurants.");
     } finally {
       setLoading(false);
     }
   }
-
-  // =====================================================
-  // 2. Validate filters
-  // =====================================================
 
   function validateFilters(nextFilters) {
     const numericFields = [
@@ -121,18 +131,12 @@ export default function RestaurantListScreen({
             ? `${field.label} must be zero or greater.`
             : `${field.label} must be greater than zero.`
         );
-
         return false;
       }
     }
 
-    const minText = String(
-      nextFilters.minPrice ?? ""
-    ).trim();
-
-    const maxText = String(
-      nextFilters.maxPrice ?? ""
-    ).trim();
+    const minText = String(nextFilters.minPrice ?? "").trim();
+    const maxText = String(nextFilters.maxPrice ?? "").trim();
 
     if (
       minText !== "" &&
@@ -143,16 +147,11 @@ export default function RestaurantListScreen({
         "Invalid Price Range",
         "Minimum price cannot exceed maximum price."
       );
-
       return false;
     }
 
     return true;
   }
-
-  // =====================================================
-  // 3. Request user location
-  // =====================================================
 
   async function requestUserLocation() {
     try {
@@ -164,7 +163,6 @@ export default function RestaurantListScreen({
           "Location Required",
           "Please allow location access to use nearby restaurant features."
         );
-
         return null;
       }
 
@@ -182,29 +180,19 @@ export default function RestaurantListScreen({
         throw new Error("Invalid location coordinates");
       }
 
-      return {
-        latitude,
-        longitude,
-      };
+      return { latitude, longitude };
     } catch (err) {
-      console.error("Location error:", err);
-
+      console.warn("Location error:", err);
       Alert.alert(
         "Location Unavailable",
         "Unable to determine your location. Please check your location settings."
       );
-
       return null;
     }
   }
 
-  // =====================================================
-  // 4. Apply filters
-  // =====================================================
-
   async function applyFilters(nextFilters) {
     if (applyingFilters) return;
-
     if (!validateFilters(nextFilters)) return;
 
     setApplyingFilters(true);
@@ -220,9 +208,7 @@ export default function RestaurantListScreen({
 
       if (needsLocation) {
         const location = await requestUserLocation();
-
         if (!location) return;
-
         setUserLocation(location);
       } else if (sortBy !== "nearest") {
         setUserLocation(null);
@@ -230,12 +216,8 @@ export default function RestaurantListScreen({
 
       setFilters({
         ...nextFilters,
-        minPrice: String(
-          nextFilters.minPrice ?? ""
-        ).trim(),
-        maxPrice: String(
-          nextFilters.maxPrice ?? ""
-        ).trim(),
+        minPrice: String(nextFilters.minPrice ?? "").trim(),
+        maxPrice: String(nextFilters.maxPrice ?? "").trim(),
         customDistance,
       });
 
@@ -245,9 +227,12 @@ export default function RestaurantListScreen({
     }
   }
 
-  // =====================================================
-  // 5. Change sorting
-  // =====================================================
+  function changeCuisine(cuisine) {
+    setFilters((previous) => ({
+      ...previous,
+      cuisine,
+    }));
+  }
 
   async function changeSorting(nextSort) {
     if (applyingFilters) return;
@@ -257,9 +242,7 @@ export default function RestaurantListScreen({
 
       try {
         const location = await requestUserLocation();
-
         if (!location) return;
-
         setUserLocation(location);
       } finally {
         setApplyingFilters(false);
@@ -270,10 +253,6 @@ export default function RestaurantListScreen({
     setSortVisible(false);
   }
 
-  // =====================================================
-  // 6. Near Me
-  // =====================================================
-
   async function findNearbyRestaurants() {
     if (applyingFilters) return;
 
@@ -281,23 +260,15 @@ export default function RestaurantListScreen({
 
     try {
       const location = await requestUserLocation();
-
       if (!location) return;
 
       setUserLocation(location);
-
-      // Sort existing filtered results by distance.
       setSortBy("nearest");
-
       setSortVisible(false);
     } finally {
       setApplyingFilters(false);
     }
   }
-
-  // =====================================================
-  // 7. Calculate restaurant distance
-  // =====================================================
 
   function calculateRestaurantDistance(restaurant) {
     if (!userLocation) return null;
@@ -325,10 +296,6 @@ export default function RestaurantListScreen({
     );
   }
 
-  // =====================================================
-  // 8. Search + Filter + Sort
-  // =====================================================
-
   const displayedRestaurants = useMemo(() => {
     const filtered = filterRestaurants(
       restaurants,
@@ -337,22 +304,8 @@ export default function RestaurantListScreen({
       userLocation
     );
 
-    return sortRestaurants(
-      filtered,
-      sortBy,
-      userLocation
-    );
-  }, [
-    restaurants,
-    searchQuery,
-    filters,
-    sortBy,
-    userLocation,
-  ]);
-
-  // =====================================================
-  // 9. Active filters
-  // =====================================================
+    return sortRestaurants(filtered, sortBy, userLocation);
+  }, [restaurants, searchQuery, filters, sortBy, userLocation]);
 
   const hasPriceFilter =
     String(filters.minPrice ?? "").trim() !== "" ||
@@ -370,139 +323,184 @@ export default function RestaurantListScreen({
   ].filter(Boolean).length;
 
   const currentSortLabel =
-    SORT_OPTIONS.find(
-      (option) => option.value === sortBy
-    )?.label || "Default";
+    SORT_OPTIONS.find((option) => option.value === sortBy)?.label ||
+    "Default";
 
-  // =====================================================
-  // 10. Render
-  // =====================================================
+  const listHeader = (
+    <View>
+      <View style={styles.discoverHeader}>
+        <Text style={styles.discoverTitle}>Discover</Text>
+        <Text style={styles.discoverSubtitle}>
+          Find your next favorite restaurant
+        </Text>
+      </View>
 
-  return (
-    <View style={styles.container}>
-
-      {/* Search */}
       <View style={styles.searchRow}>
-        <TextInput
+        <AppInput
+          containerStyle={styles.searchContainer}
           style={styles.searchInput}
-          placeholder="Search restaurants..."
-          placeholderTextColor="#999"
+          leftIcon="search"
+          placeholder="Search restaurants or cuisines..."
           value={searchQuery}
           onChangeText={setSearchQuery}
           autoCapitalize="none"
           autoCorrect={false}
           returnKeyType="search"
           clearButtonMode="while-editing"
+          accessibilityLabel="Search restaurants"
         />
 
         <Pressable
           style={styles.filterButton}
           onPress={() => setFilterVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Filter restaurants"
         >
+          <AppIcon
+            name="filter"
+            size={18}
+            color={colors.white}
+          />
+
           <Text style={styles.filterText}>
             Filter
-            {activeFilterCount > 0
-              ? ` (${activeFilterCount})`
-              : ""}
+            {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
           </Text>
         </Pressable>
       </View>
 
-      {/* Near Me + My Feed + Sort */}
+      <ScrollView
+        horizontal
+        nestedScrollEnabled
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.categoryContent}
+        style={styles.categoryScroll}
+      >
+        {CUISINE_TABS.map((category) => {
+          const selected = filters.cuisine === category.value;
+
+          return (
+            <Pressable
+              key={category.label}
+              style={[
+                styles.categoryChip,
+                selected && styles.categoryActive,
+              ]}
+              onPress={() => changeCuisine(category.value)}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+            >
+              <Text
+                style={[
+                  styles.categoryText,
+                  selected && styles.categoryTextActive,
+                ]}
+              >
+                {category.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       <View style={styles.toolbar}>
         <View style={styles.toolbarActions}>
           <Pressable
             style={styles.nearMeButton}
             onPress={findNearbyRestaurants}
             disabled={applyingFilters}
+            accessibilityRole="button"
           >
-            <Text style={styles.nearMeText}>
-              Near Me
-            </Text>
+            <AppIcon
+              name="nearby"
+              size={17}
+              color={colors.primary}
+            />
+            <Text style={styles.nearMeText}>Near Me</Text>
           </Pressable>
+
           {toolbarAction}
         </View>
 
         <Pressable
           style={styles.sortButton}
           onPress={() => setSortVisible(true)}
+          accessibilityRole="button"
         >
-          <Text style={styles.sortButtonText}>
-            Sort: {currentSortLabel} ▾
+          <AppIcon
+            name="sort"
+            size={16}
+            color={colors.text}
+          />
+          <Text style={styles.sortText} numberOfLines={1}>
+            {currentSortLabel}
           </Text>
+          <AppIcon
+            name="chevronDown"
+            size={14}
+            color={colors.textSecondary}
+          />
         </Pressable>
       </View>
 
-      {/* Result count */}
       {!loading && !error && (
         <Text style={styles.resultCount}>
           {displayedRestaurants.length} restaurants found
         </Text>
       )}
+    </View>
+  );
 
-      {/* Restaurant list */}
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" />
-
-          <Text style={styles.loadingText}>
-            Loading restaurants...
-          </Text>
-        </View>
-      ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>
-            {error}
-          </Text>
-
-          <Pressable
-            style={styles.retryButton}
-            onPress={fetchRestaurants}
-          >
-            <Text style={styles.retryText}>
-              Retry
-            </Text>
-          </Pressable>
-        </View>
-      ) : (
-        <FlatList
-          data={displayedRestaurants}
-          keyExtractor={(item) => item._id}
-
-          renderItem={({ item }) => (
-            <RestaurantCard
-              restaurant={item}
-              distanceKm={
-                calculateRestaurantDistance(item)
-              }
-              onPress={() =>
-                onSelectRestaurant(item)
-              }
+  return (
+    <View style={styles.container}>
+      <FlatList
+        style={styles.listView}
+        data={loading || error ? [] : displayedRestaurants}
+        keyExtractor={(item) => String(item._id)}
+        numColumns={2}
+        columnWrapperStyle={styles.columnWrapper}
+        ListHeaderComponent={listHeader}
+        renderItem={({ item }) => (
+          <RestaurantCard
+            restaurant={item}
+            distanceKm={calculateRestaurantDistance(item)}
+            compact
+            onPress={() => onSelectRestaurant(item)}
+          />
+        )}
+        ListEmptyComponent={
+          loading ? (
+            <LoadingState
+              message="Loading restaurants..."
+              style={styles.state}
             />
-          )}
-
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>
-                {hasDistanceFilter
+          ) : error ? (
+            <ErrorState
+              title="Unable to load restaurants"
+              message={error}
+              onRetry={fetchRestaurants}
+              style={styles.state}
+            />
+          ) : (
+            <EmptyState
+              title="No restaurants found"
+              description={
+                hasDistanceFilter
                   ? "No restaurants match your filters within the selected distance."
-                  : "No restaurants match your search or filters."}
-              </Text>
-            </View>
-          }
+                  : "Try adjusting your search or filters."
+              }
+              style={styles.state}
+            />
+          )
+        }
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      />
 
-          contentContainerStyle={
-            displayedRestaurants.length === 0
-              ? styles.emptyContainer
-              : styles.list
-          }
-
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-        />
-      )}
-
-      {/* Filter modal */}
       <RestaurantFilter
         visible={filterVisible}
         filters={filters}
@@ -514,14 +512,11 @@ export default function RestaurantListScreen({
         }}
       />
 
-      {/* Sorting modal */}
       <Modal
         visible={sortVisible}
         transparent
         animationType="fade"
-        onRequestClose={() =>
-          setSortVisible(false)
-        }
+        onRequestClose={() => setSortVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -530,48 +525,45 @@ export default function RestaurantListScreen({
             </Text>
 
             {SORT_OPTIONS.map((option) => {
-              const selected =
-                sortBy === option.value;
+              const selected = sortBy === option.value;
 
               return (
                 <Pressable
                   key={option.value}
                   style={[
                     styles.sortOption,
-                    selected &&
-                      styles.selectedOption,
+                    selected && styles.selectedOption,
                   ]}
-                  onPress={() =>
-                    changeSorting(option.value)
-                  }
+                  onPress={() => changeSorting(option.value)}
                   disabled={applyingFilters}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
                 >
                   <Text
                     style={[
                       styles.sortOptionText,
-                      selected &&
-                        styles.selectedOptionText,
+                      selected && styles.selectedOptionText,
                     ]}
                   >
                     {option.label}
                   </Text>
 
                   {selected && (
-                    <Text style={styles.checkmark}>
-                      ✓
-                    </Text>
+                    <AppIcon
+                      name="check"
+                      size={20}
+                      color={colors.primary}
+                    />
                   )}
                 </Pressable>
               );
             })}
 
             <Pressable
-              style={styles.closeButton}
-              onPress={() =>
-                setSortVisible(false)
-              }
+              style={styles.cancelButton}
+              onPress={() => setSortVisible(false)}
             >
-              <Text style={styles.closeText}>
+              <Text style={styles.cancelText}>
                 Cancel
               </Text>
             </Pressable>
@@ -579,12 +571,13 @@ export default function RestaurantListScreen({
         </View>
       </Modal>
 
-      {/* Location loading */}
       {applyingFilters && (
-        <View style={styles.locationLoading}>
-          <ActivityIndicator size="large" />
-
-          <Text style={styles.applyingText}>
+        <View style={styles.locationOverlay}>
+          <ActivityIndicator
+            size="large"
+            color={colors.primary}
+          />
+          <Text style={styles.locationText}>
             Getting location...
           </Text>
         </View>
@@ -593,218 +586,208 @@ export default function RestaurantListScreen({
   );
 }
 
-// =====================================================
-// Styles
-// =====================================================
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    minHeight: 0,
+    backgroundColor: colors.background,
   },
-
+  listView: {
+    flex: 1,
+    minHeight: 0,
+  },
+  listContent: {
+    flexGrow: 1,
+    paddingBottom: spacing.xxxl,
+  },
+  columnWrapper: {
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+  },
+  discoverHeader: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.md,
+  },
+  discoverTitle: {
+    ...typography.hero,
+    color: colors.text,
+  },
+  discoverSubtitle: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
   searchRow: {
     flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    gap: 10,
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
-
-  searchInput: {
+  searchContainer: {
     flex: 1,
     minWidth: 0,
-    height: 46,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    fontSize: 15,
+    marginBottom: 0,
   },
-
+  searchInput: {
+    fontSize: 14,
+  },
   filterButton: {
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    flexDirection: "row",
+    gap: spacing.xs,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#2563eb",
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    minHeight: 46,
+    backgroundColor: colors.primary,
   },
-
   filterText: {
-    color: "#fff",
-    fontWeight: "600",
+    ...typography.button,
+    color: colors.white,
+    fontSize: 13,
   },
-
+  categoryScroll: {
+    marginVertical: spacing.sm,
+  },
+  categoryContent: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  categoryChip: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+  },
+  categoryActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  categoryText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  categoryTextActive: {
+    color: colors.white,
+  },
   toolbar: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
   },
-
   toolbarActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    flexShrink: 1,
   },
-
   nearMeButton: {
-    backgroundColor: "#16a34a",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primaryLight,
   },
-
   nearMeText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.primary,
   },
-
   sortButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 8,
-    backgroundColor: "#e8eefc",
+    minHeight: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
   },
-
-  sortButtonText: {
-    color: "#2563eb",
-    fontSize: 13,
+  sortText: {
+    fontSize: 12,
     fontWeight: "600",
+    color: colors.text,
   },
-
   resultCount: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    color: "#666",
-    fontSize: 13,
+    ...typography.caption,
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
   },
-
-  list: {
-    padding: 16,
-    paddingBottom: 30,
+  state: {
+    minHeight: 240,
   },
-
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-
-  loadingText: {
-    marginTop: 12,
-    color: "#666",
-  },
-
-  errorText: {
-    color: "#dc2626",
-    textAlign: "center",
-    marginBottom: 16,
-  },
-
-  retryButton: {
-    backgroundColor: "#2563eb",
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-
-  retryText: {
-    color: "#fff",
-    fontWeight: "600",
-  },
-
-  emptyText: {
-    color: "#666",
-    textAlign: "center",
-  },
-
-  emptyContainer: {
-    flexGrow: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: colors.overlay,
+    padding: spacing.xxl,
     justifyContent: "center",
-    padding: 24,
   },
-
   modalContent: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: colors.surface,
+    padding: spacing.xl,
+    borderRadius: radius.lg,
   },
-
   modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 16,
+    ...typography.section,
+    color: colors.text,
+    marginBottom: spacing.lg,
   },
-
   sortOption: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.sm,
   },
-
   selectedOption: {
-    backgroundColor: "#eef3ff",
+    backgroundColor: colors.primaryLight,
   },
-
   sortOptionText: {
-    fontSize: 16,
-    color: "#333",
+    fontSize: 15,
+    color: colors.text,
   },
-
   selectedOptionText: {
-    color: "#2563eb",
-    fontWeight: "600",
+    fontWeight: "700",
+    color: colors.primary,
   },
-
-  checkmark: {
-    color: "#2563eb",
-    fontSize: 18,
-  },
-
-  closeButton: {
-    marginTop: 16,
-    padding: 14,
-    borderRadius: 10,
-    backgroundColor: "#eee",
+  cancelButton: {
     alignItems: "center",
+    paddingVertical: spacing.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceSecondary,
+    marginTop: spacing.lg,
   },
-
-  closeText: {
+  cancelText: {
+    color: colors.text,
     fontWeight: "600",
   },
-
-  locationLoading: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: "rgba(255,255,255,0.85)",
+  locationOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+    backgroundColor: "rgba(255,255,255,0.9)",
     justifyContent: "center",
     alignItems: "center",
-    gap: 12,
-    zIndex: 10,
+    gap: spacing.md,
   },
-
-  applyingText: {
-    color: "#555",
-    fontSize: 15,
+  locationText: {
+    ...typography.body,
+    color: colors.textSecondary,
   },
 });

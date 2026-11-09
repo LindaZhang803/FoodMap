@@ -1,148 +1,1049 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, Pressable, ActivityIndicator, StyleSheet, Image } from 'react-native';
+import React, { useEffect, useRef, useState } from "react";
 
-import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
-import syntheticPhoto from '../mocks/syntheticPhoto';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  Image,
+} from "react-native";
 
-export default function ReviewPanel({ restaurantId, dishId, repository, token, demo, origin, syntheticSession, onCreated }) {
+import * as ImagePicker from "expo-image-picker";
+
+import {
+  colors,
+  spacing,
+  radius,
+  typography,
+} from "../../../shared/design/tokens";
+
+import {
+  AppButton,
+  AppInput,
+  LoadingState,
+  EmptyState,
+  ErrorState,
+} from "../../../shared/design/UIComponents";
+
+import AppIcon from "../../../shared/components/AppIcon";
+
+function ReviewStars({ rating, size = 18 }) {
+  const value = Math.max(
+    0,
+    Math.min(5, Math.round(Number(rating) || 0))
+  );
+
+  return (
+    <View style={styles.stars}>
+      {[1, 2, 3, 4, 5].map((number) => (
+        <AppIcon
+          key={number}
+          name={number <= value ? "starFilled" : "star"}
+          size={size}
+          color={colors.primary}
+        />
+      ))}
+    </View>
+  );
+}
+
+export default function ReviewPanel({
+  restaurantId,
+  dishId,
+  repository,
+  token,
+  demo = false,
+  origin,
+  syntheticSession,
+  onCreated,
+  onLoginPress,
+}) {
   const [photos, setPhotos] = useState([]);
-  const [sort, setSort] = useState('mostRecent');
+  const [sort, setSort] = useState("mostRecent");
   const [editingId, setEditingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+
   const busy = useRef(false);
-  const [type, setType] = useState(dishId ? 'dish' : 'restaurant');
+  const mounted = useRef(true);
+
+  const [type, setType] = useState(
+    dishId ? "dish" : "restaurant"
+  );
+
   const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState('');
+  const [comment, setComment] = useState("");
   const [page, setPage] = useState(1);
   const [refresh, setRefresh] = useState(0);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState('');
-  const mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  const target = { restaurantId, reviewType: type, ...(type === 'dish' ? { dishId } : {}) };
-  const key = `${restaurantId}:${dishId || ''}:${type}:${page}:${refresh}:${sort}`;
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    mounted.current = true;
+
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  const target = {
+    restaurantId,
+    reviewType: type,
+    ...(type === "dish" ? { dishId } : {}),
+  };
+
+  const key = [
+    restaurantId,
+    dishId || "",
+    type,
+    page,
+    refresh,
+    sort,
+  ].join(":");
+
+  // Real review writes require a signed-in session.
+  // The demo flag alone must never grant write permissions.
+  const canWriteReview =
+    typeof token === "string" &&
+    token.trim().length > 0;
+
+  const effectiveToken = canWriteReview ? token : null;
+
+  // Preserve fixture reads for isolated development,
+  // without allowing demo-only review writes.
   useEffect(() => {
     let active = true;
     setError(null);
-    repository.list({ restaurantId, reviewType: type, ...(type === 'dish' ? { dishId } : {}) }, page, sort, token)
-      .then(data => { if (active) setResult({ key, token, data }); })
-      .catch(err => { if (active) setError(err.message); });
-    return () => { active = false; };
-  }, [repository, restaurantId, dishId, type, page, sort, token, key]);
-  const data = result?.key === key && result.token === token ? result.data : null;
+
+    repository
+      .list(
+        {
+          restaurantId,
+          reviewType: type,
+          ...(type === "dish" ? { dishId } : {}),
+        },
+        page,
+        sort,
+        effectiveToken
+      )
+      .then((data) => {
+        if (active) {
+          setResult({ key, token: effectiveToken, data });
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load reviews."
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    repository,
+    restaurantId,
+    dishId,
+    type,
+    page,
+    sort,
+    effectiveToken,
+    key,
+  ]);
+
+  const data =
+    result?.key === key &&
+    result.token === effectiveToken
+      ? result.data
+      : null;
+
+  function resetForm() {
+    setEditingId(null);
+    setDeleteId(null);
+    setRating(0);
+    setComment("");
+    setPhotos([]);
+    setFormError(null);
+    setNotice("");
+  }
+
   async function submit() {
-    if (busy.current) return;
+    if (busy.current || !canWriteReview) return;
+
     busy.current = true;
-    setSaving(true); setFormError(null); setNotice('');
+    setSaving(true);
+    setFormError(null);
+    setNotice("");
+
     try {
-      const created = editingId ? await repository.edit(editingId, { rating, comment, photoUrls: photos.map(photo => photo.url) }, token) : await repository.create({ ...target, rating, comment, photoUrls: photos.map(photo => photo.url) }, token);
+      const input = {
+        rating,
+        comment,
+        photoUrls: photos.map((photo) => photo.url),
+      };
+
+      const created = editingId
+        ? await repository.edit(editingId, input, effectiveToken)
+        : await repository.create(
+            { ...target, ...input },
+            effectiveToken
+          );
+
       if (!mounted.current) return;
-      setRating(0); setComment(''); setPhotos([]); setEditingId(null); setPage(1); setRefresh(n => n + 1);
-      setNotice(demo ? 'Demo review saved in memory. Not saved to MongoDB.' : 'Review saved.');
+
+      setRating(0);
+      setComment("");
+      setPhotos([]);
+      setEditingId(null);
+      setPage(1);
+      setRefresh((value) => value + 1);
+
+      setNotice(
+        demo
+          ? "Demo review saved in memory."
+          : "Review saved."
+      );
+
       onCreated?.(target, created.statistics);
-    } catch (err) { if (mounted.current) setFormError(err.message); }
-    finally { busy.current = false; if (mounted.current) setSaving(false); }
+    } catch (err) {
+      if (mounted.current) {
+        setFormError(err.message);
+      }
+    } finally {
+      busy.current = false;
+      if (mounted.current) setSaving(false);
+    }
   }
-  async function attachSyntheticPhoto() {
-    if (busy.current || photos.length >= 5) return;
-    busy.current = true; setSaving(true); setFormError(null);
-    try {
-      const uri = `${FileSystem.cacheDirectory}foodmap-synthetic-review.png`;
-      await FileSystem.writeAsStringAsync(uri, syntheticPhoto, { encoding: FileSystem.EncodingType.Base64 });
-      const uploaded = await repository.uploadPhoto({ uri, fileName: 'synthetic.png', mimeType: 'image/png' }, token);
-      if (mounted.current) setPhotos(current => [...current, { url: uploaded.photoUrl, preview: uri }]);
-    } catch (err) { if (mounted.current) setFormError(err.message); }
-    finally { busy.current = false; if (mounted.current) setSaving(false); }
-  }
+
   async function selectPhoto() {
-    if (busy.current || photos.length >= 5) return;
-    busy.current = true; setSaving(true); setFormError(null);
+    if (
+      busy.current ||
+      !canWriteReview ||
+      photos.length >= 5
+    ) {
+      return;
+    }
+
+    busy.current = true;
+    setSaving(true);
+    setFormError(null);
+
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) throw new Error('Photo access was declined. You can still post without a photo.');
-      const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
-      if (picked.canceled || !picked.assets?.length) return;
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        throw new Error(
+          "Photo access was declined. You can still post without a photo."
+        );
+      }
+
+      const picked =
+        await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          quality: 0.8,
+        });
+
+      if (picked.canceled || !picked.assets?.length) {
+        return;
+      }
+
       const asset = picked.assets[0];
-      if (asset.fileSize > 5 * 1024 * 1024) throw new Error('Photo must be 5 MB or smaller.');
-      const uploaded = await repository.uploadPhoto(asset, token);
-      if (mounted.current) setPhotos(current => [...current, { url: uploaded.photoUrl, preview: asset.uri }]);
-    } catch (err) { if (mounted.current) setFormError(err.message); }
-    finally { busy.current = false; if (mounted.current) setSaving(false); }
+
+      if (
+        asset.fileSize != null &&
+        asset.fileSize > 5 * 1024 * 1024
+      ) {
+        throw new Error("Photo must be 5 MB or smaller.");
+      }
+
+      const uploaded = await repository.uploadPhoto(
+        asset,
+        effectiveToken
+      );
+
+      if (mounted.current) {
+        setPhotos((current) => [
+          ...current,
+          {
+            url: uploaded.photoUrl,
+            preview: asset.uri,
+          },
+        ]);
+      }
+    } catch (err) {
+      if (mounted.current) {
+        setFormError(err.message);
+      }
+    } finally {
+      busy.current = false;
+      if (mounted.current) setSaving(false);
+    }
   }
+
   async function changeReview(review, action) {
-    if (busy.current) return;
-    busy.current = true; setSaving(true); setFormError(null); setNotice('');
+    if (busy.current || !canWriteReview) return;
+
+    busy.current = true;
+    setSaving(true);
+    setFormError(null);
+    setNotice("");
+
     try {
-      if (action === 'delete') {
-        const changed = await repository.remove(review.id, token);
+      if (action === "delete") {
+        const changed = await repository.remove(
+          review.id,
+          effectiveToken
+        );
+
         if (!mounted.current) return;
-        setDeleteId(null); setEditingId(null); setRating(0); setComment(''); setPhotos([]); setPage(1);
+
+        setDeleteId(null);
+        setEditingId(null);
+        setRating(0);
+        setComment("");
+        setPhotos([]);
+        setPage(1);
+
         onCreated?.(target, changed.statistics);
-        setNotice(demo ? 'Demo review deleted in memory.' : 'Review deleted.');
+        setNotice("Review deleted.");
       } else {
-        await repository.like(review.id, !review.likedByMe, token);
+        await repository.like(
+          review.id,
+          !review.likedByMe,
+          effectiveToken
+        );
+
         if (!mounted.current) return;
       }
-      setRefresh(n => n + 1);
-    } catch (err) { if (mounted.current) setFormError(err.message); }
-    finally { busy.current = false; if (mounted.current) setSaving(false); }
+
+      setRefresh((value) => value + 1);
+    } catch (err) {
+      if (mounted.current) {
+        setFormError(err.message);
+      }
+    } finally {
+      busy.current = false;
+      if (mounted.current) setSaving(false);
+    }
   }
-  function resetForm() { setEditingId(null); setDeleteId(null); setRating(0); setComment(''); setPhotos([]); setFormError(null); setNotice(''); }
-  return <View style={styles.panel}>
-    <Text style={styles.heading}>Reviews</Text>
-    <View style={styles.row}>
-      {['restaurant', ...(dishId ? ['dish'] : [])].map(value => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: type === value }} disabled={saving} style={styles.button} onPress={() => { setType(value); setPage(1); resetForm(); }}><Text>{type === value ? '● ' : ''}{value === 'dish' ? 'Dish reviews' : 'Restaurant reviews'}</Text></Pressable>)}
-    </View>
-    <View style={styles.row}>{[['mostRecent', 'Most recent'], ['mostLiked', 'Most liked']].map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: sort === value }} disabled={saving} style={styles.button} onPress={() => { setSort(value); setPage(1); }}><Text>{sort === value ? '● ' : ''}{label}</Text></Pressable>)}</View>
-    {error ? <View><Text accessibilityRole="alert">{error}</Text><Pressable accessibilityRole="button" style={styles.button} onPress={() => setRefresh(n => n + 1)}><Text>Retry reviews</Text></Pressable></View> : !data ? <ActivityIndicator accessibilityLabel="Loading reviews" /> : <>
-      <Text>{data.statistics.averageRating == null ? 'No ratings yet' : `${data.statistics.averageRating.toFixed(1)} / 5`} · {data.statistics.reviewCount} reviews</Text>
-      {data.reviews.length === 0 && <Text>No reviews yet.</Text>}
-      {data.reviews.map(review => <View key={review.id} style={styles.review}>
-        <Text>{review.rating} / 5{review.isOwner ? ' · Your review' : ''}</Text><Text>{review.comment}</Text>
-        <View style={styles.row}>{(review.photoUrls || []).map(url => <Image key={url} source={{ uri: url.startsWith('/') ? origin + url : url }} style={styles.photo} accessibilityLabel="Review photo" />)}</View>
-        <View style={styles.row}>
-          <Pressable accessibilityRole="button" accessibilityLabel={`${review.likedByMe ? 'Unlike' : 'Like'} review ${review.id}`} disabled={saving || (!demo && !token)} style={styles.button} onPress={() => changeReview(review, 'like')}><Text>{review.likedByMe ? 'Unlike' : 'Like'} ({review.likeCount || 0})</Text></Pressable>
-          {review.isOwner && <>
-            <Pressable accessibilityRole="button" disabled={saving} style={styles.button} onPress={() => { setEditingId(review.id); setDeleteId(null); setRating(review.rating); setComment(review.comment); setPhotos((review.photoUrls || []).map(url => ({ url, preview: url.startsWith('/') ? origin + url : url }))); setFormError(null); setNotice(''); }}><Text>Edit review</Text></Pressable>
-            <Pressable accessibilityRole="button" disabled={saving} style={styles.button} onPress={() => setDeleteId(review.id)}><Text>Delete review</Text></Pressable>
-          </>}
-        </View>
-        {deleteId === review.id && <View><Text>Delete this review?</Text><View style={styles.row}>
-          <Pressable accessibilityRole="button" disabled={saving} style={styles.button} onPress={() => changeReview(review, 'delete')}><Text>Confirm delete</Text></Pressable>
-          <Pressable accessibilityRole="button" disabled={saving} style={styles.button} onPress={() => setDeleteId(null)}><Text>Cancel delete</Text></Pressable>
-        </View></View>}
-      </View>)}
-      <View style={styles.row}>
-        {page > 1 && <Pressable accessibilityRole="button" style={styles.button} onPress={() => setPage(n => n - 1)}><Text>Previous reviews</Text></Pressable>}
-        {page * data.pagination.limit < data.pagination.total && <Pressable accessibilityRole="button" style={styles.button} onPress={() => setPage(n => n + 1)}><Text>Next reviews</Text></Pressable>}
+
+  function startEditing(review) {
+    setEditingId(review.id);
+    setDeleteId(null);
+    setRating(review.rating);
+    setComment(review.comment);
+
+    setPhotos(
+      (review.photoUrls || []).map((url) => ({
+        url,
+        preview: url.startsWith("/")
+          ? origin + url
+          : url,
+      }))
+    );
+
+    setFormError(null);
+    setNotice("");
+  }
+
+  return (
+    <View style={styles.panel}>
+      <View style={styles.sectionHeading}>
+        <AppIcon
+          name="reviews"
+          size={22}
+          color={colors.primary}
+        />
+        <Text style={styles.heading}>Reviews</Text>
       </View>
-    </>}
-    {demo || token ? <>
-      <Text style={styles.heading}>{editingId ? 'Edit your review' : `Write a ${type} review`}</Text>
-      <View style={styles.row}>{[1, 2, 3, 4, 5].map(value => <Pressable key={value} accessibilityRole="button" accessibilityLabel={`${value} stars`} accessibilityState={{ selected: rating === value }} disabled={saving} style={styles.star} onPress={() => setRating(value)}><Text style={{ fontSize: 26, color: '#854d0e' }}>{value <= rating ? '★' : '☆'}</Text></Pressable>)}</View>
-      <TextInput accessibilityLabel="Review comment" placeholder="Write your review" multiline maxLength={2000} editable={!saving} value={comment} onChangeText={setComment} style={styles.input} />
-      <Text>{comment.length}/2000</Text>
-      <View style={styles.row}>{photos.map((photo, index) => <View key={`${photo.url}-${index}`}><Image source={{ uri: photo.preview }} style={styles.photo} accessibilityLabel="Selected review photo" /><Pressable accessibilityRole="button" disabled={saving} style={styles.button} onPress={() => setPhotos(current => current.filter((_, i) => i !== index))}><Text>Remove photo {index + 1}</Text></Pressable></View>)}</View>
-      <Pressable accessibilityRole="button" disabled={saving || photos.length >= 5} style={styles.button} onPress={selectPhoto}><Text>Add photo ({photos.length}/5)</Text></Pressable>
-      {__DEV__ && syntheticSession && <Pressable accessibilityRole="button" disabled={saving || photos.length >= 5} style={styles.button} onPress={attachSyntheticPhoto}><Text>Add synthetic test photo</Text></Pressable>}
-      {formError && <Text accessibilityRole="alert">{formError}</Text>}
-      <Pressable accessibilityRole="button" accessibilityLabel={editingId ? 'Save changes' : 'Submit review'} disabled={saving} style={styles.button} onPress={submit}><Text>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Submit review'}</Text></Pressable>
-      {editingId && <Pressable accessibilityRole="button" disabled={saving} style={styles.button} onPress={resetForm}><Text>Cancel edit</Text></Pressable>}
-      {!!notice && <Text accessibilityLiveRegion="polite">{notice}</Text>}
-    </> : <Text style={styles.review}>Sign in to post a review. Login integration is pending.</Text>}
-  </View>;
+
+      <View style={styles.row}>
+        {[
+          "restaurant",
+          ...(dishId ? ["dish"] : []),
+        ].map((value) => {
+          const selected = type === value;
+
+          return (
+            <Pressable
+              key={value}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              disabled={saving}
+              style={[
+                styles.chip,
+                selected && styles.activeChip,
+              ]}
+              onPress={() => {
+                setType(value);
+                setPage(1);
+                resetForm();
+              }}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  selected && styles.activeChipText,
+                ]}
+              >
+                {value === "dish"
+                  ? "Dish Reviews"
+                  : "Restaurant Reviews"}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={styles.row}>
+        {[
+          ["mostRecent", "Most Recent"],
+          ["mostLiked", "Most Liked"],
+        ].map(([value, label]) => {
+          const selected = sort === value;
+
+          return (
+            <Pressable
+              key={value}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              disabled={saving}
+              style={[
+                styles.sortChip,
+                selected && styles.activeSortChip,
+              ]}
+              onPress={() => {
+                setSort(value);
+                setPage(1);
+              }}
+            >
+              <Text
+                style={[
+                  styles.sortText,
+                  selected && styles.activeSortText,
+                ]}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {error ? (
+        <ErrorState
+          title="Unable to load reviews"
+          message={error}
+          onRetry={() => setRefresh((value) => value + 1)}
+        />
+      ) : !data ? (
+        <LoadingState message="Loading reviews..." />
+      ) : (
+        <>
+          <View style={styles.summary}>
+            {data.statistics.averageRating != null && (
+              <AppIcon
+                name="starFilled"
+                size={20}
+                color={colors.primary}
+              />
+            )}
+
+            <Text style={styles.summaryRating}>
+              {data.statistics.averageRating == null
+                ? "No ratings yet"
+                : `${Number(
+                    data.statistics.averageRating
+                  ).toFixed(1)} / 5`}
+            </Text>
+
+            <Text style={styles.summaryCount}>
+              {data.statistics.reviewCount} reviews
+            </Text>
+          </View>
+
+          {data.reviews.length === 0 && (
+            <EmptyState
+              title="No reviews yet"
+              description="Be the first to share your experience."
+              style={styles.emptyState}
+            />
+          )}
+
+          {data.reviews.map((review) => (
+            <View key={review.id} style={styles.reviewCard}>
+              <View style={styles.reviewHeader}>
+                <ReviewStars rating={review.rating} />
+
+                {review.isOwner && (
+                  <Text style={styles.ownerBadge}>
+                    Your Review
+                  </Text>
+                )}
+              </View>
+
+              <Text style={styles.reviewComment}>
+                {review.comment}
+              </Text>
+
+              <View style={styles.photoRow}>
+                {(review.photoUrls || []).map((url) => (
+                  <Image
+                    key={url}
+                    source={{
+                      uri: url.startsWith("/")
+                        ? origin + url
+                        : url,
+                    }}
+                    style={styles.photo}
+                    accessibilityLabel="Review photo"
+                  />
+                ))}
+              </View>
+
+              <View style={styles.actionRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    `${review.likedByMe ? "Unlike" : "Like"} ` +
+                    `review ${review.id}`
+                  }
+                  disabled={saving || !canWriteReview}
+                  onPress={() => changeReview(review, "like")}
+                  style={[
+                    styles.actionButton,
+                    (saving || !canWriteReview) &&
+                      styles.disabled,
+                  ]}
+                >
+                  <AppIcon
+                    name={review.likedByMe ? "favoriteFilled" : "like"}
+                    size={19}
+                    color={
+                      review.likedByMe
+                        ? colors.primary
+                        : colors.textSecondary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.actionText,
+                      review.likedByMe && styles.likedText,
+                    ]}
+                  >
+                    {review.likeCount || 0}
+                  </Text>
+                </Pressable>
+
+                {review.isOwner && canWriteReview && (
+                  <>
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={saving}
+                      style={styles.actionButton}
+                      onPress={() => startEditing(review)}
+                    >
+                      <AppIcon
+                        name="edit"
+                        size={18}
+                        color={colors.textSecondary}
+                      />
+                      <Text style={styles.actionText}>Edit</Text>
+                    </Pressable>
+
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={saving}
+                      style={styles.actionButton}
+                      onPress={() => setDeleteId(review.id)}
+                    >
+                      <AppIcon
+                        name="delete"
+                        size={18}
+                        color={colors.error}
+                      />
+                      <Text style={styles.deleteText}>Delete</Text>
+                    </Pressable>
+                  </>
+                )}
+              </View>
+
+              {deleteId === review.id && (
+                <View style={styles.deleteConfirm}>
+                  <Text style={styles.confirmText}>
+                    Delete this review?
+                  </Text>
+
+                  <View style={styles.row}>
+                    <AppButton
+                      title="Confirm Delete"
+                      icon="delete"
+                      variant="danger"
+                      disabled={saving}
+                      onPress={() =>
+                        changeReview(review, "delete")
+                      }
+                      style={styles.confirmButton}
+                    />
+
+                    <AppButton
+                      title="Cancel"
+                      variant="secondary"
+                      disabled={saving}
+                      onPress={() => setDeleteId(null)}
+                      style={styles.confirmButton}
+                    />
+                  </View>
+                </View>
+              )}
+            </View>
+          ))}
+
+          <View style={styles.pagination}>
+            {page > 1 && (
+              <AppButton
+                title="Previous"
+                icon="chevronBack"
+                variant="outline"
+                onPress={() => setPage((value) => value - 1)}
+                style={styles.pageButton}
+              />
+            )}
+
+            {page * data.pagination.limit <
+              data.pagination.total && (
+              <AppButton
+                title="Next"
+                icon="chevronForward"
+                variant="outline"
+                onPress={() => setPage((value) => value + 1)}
+                style={styles.pageButton}
+              />
+            )}
+          </View>
+        </>
+      )}
+
+      {canWriteReview ? (
+        <View style={styles.formSection}>
+          <Text style={styles.heading}>
+            {editingId
+              ? "Edit Your Review"
+              : `Write a ${type} review`}
+          </Text>
+
+          <Text style={styles.fieldLabel}>Your Rating</Text>
+
+          <View style={styles.starRow}>
+            {[1, 2, 3, 4, 5].map((value) => (
+              <Pressable
+                key={value}
+                accessibilityRole="button"
+                accessibilityLabel={`${value} stars`}
+                accessibilityState={{ selected: rating === value }}
+                disabled={saving}
+                onPress={() => setRating(value)}
+                style={styles.starButton}
+              >
+                <AppIcon
+                  name={value <= rating ? "starFilled" : "star"}
+                  size={32}
+                  color={colors.primary}
+                />
+              </Pressable>
+            ))}
+          </View>
+
+          <AppInput
+            label="Your Review"
+            leftIcon="comment"
+            accessibilityLabel="Review comment"
+            placeholder="Share your dining experience..."
+            multiline
+            maxLength={2000}
+            editable={!saving}
+            value={comment}
+            onChangeText={setComment}
+            style={styles.commentInput}
+          />
+
+          <Text style={styles.characterCount}>
+            {comment.length}/2000
+          </Text>
+
+          <View style={styles.photoRow}>
+            {photos.map((photo, index) => (
+              <View
+                key={`${photo.url}-${index}`}
+                style={styles.selectedPhoto}
+              >
+                <Image
+                  source={{ uri: photo.preview }}
+                  style={styles.photo}
+                  accessibilityLabel="Selected review photo"
+                />
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove photo ${index + 1}`}
+                  disabled={saving}
+                  onPress={() =>
+                    setPhotos((current) =>
+                      current.filter((_, i) => i !== index)
+                    )
+                  }
+                  style={styles.removePhotoButton}
+                >
+                  <AppIcon
+                    name="delete"
+                    size={15}
+                    color={colors.error}
+                  />
+                  <Text style={styles.removePhoto}>Remove</Text>
+                </Pressable>
+              </View>
+            ))}
+          </View>
+
+          <AppButton
+            title={`Add Photo (${photos.length}/5)`}
+            icon="camera"
+            variant="outline"
+            disabled={saving || photos.length >= 5}
+            onPress={selectPhoto}
+            style={styles.photoButton}
+          />
+
+          {formError && (
+            <Text
+              accessibilityRole="alert"
+              style={styles.formError}
+            >
+              {formError}
+            </Text>
+          )}
+
+          <AppButton
+            title={editingId ? "Save Changes" : "Submit Review"}
+            icon="check"
+            loading={saving}
+            disabled={saving}
+            onPress={submit}
+            style={styles.submitButton}
+          />
+
+          {editingId && (
+            <AppButton
+              title="Cancel Edit"
+              variant="secondary"
+              disabled={saving}
+              onPress={resetForm}
+              style={styles.cancelEditButton}
+            />
+          )}
+
+          {!!notice && (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={styles.notice}
+            >
+              {notice}
+            </Text>
+          )}
+        </View>
+      ) : (
+        <View style={styles.loginRequired}>
+          <AppIcon
+            name="login"
+            size={28}
+            color={colors.primary}
+          />
+
+          <Text style={styles.loginTitle}>
+            Sign In to Write a Review
+          </Text>
+
+          <Text style={styles.loginDescription}>
+            You can read reviews without an account.
+            Sign in to rate dishes, write reviews,
+            upload photos and like other reviews.
+          </Text>
+
+          {typeof onLoginPress === "function" && (
+            <AppButton
+              title="Log In / Sign Up"
+              icon="login"
+              onPress={onLoginPress}
+              style={styles.loginButton}
+            />
+          )}
+        </View>
+      )}
+    </View>
+  );
 }
+
 const styles = StyleSheet.create({
-  photo: { width: 110, height: 90, borderRadius: 6 },
-  panel: { marginTop: 20, paddingTop: 12, borderTopWidth: 1, borderColor: '#ddd' },
-  heading: { fontSize: 18, fontWeight: '600', marginVertical: 10 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  button: { padding: 12, backgroundColor: '#e0e7ff', borderRadius: 6, marginVertical: 8 },
-  star: { padding: 8 },
-  input: { minHeight: 90, textAlignVertical: 'top', padding: 12, borderWidth: 1, borderColor: '#999', borderRadius: 6, backgroundColor: 'white' },
-  review: { paddingVertical: 12 }
+  panel: {
+    backgroundColor: colors.surface,
+  },
+  sectionHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  heading: {
+    ...typography.section,
+    color: colors.text,
+  },
+  row: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  chip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceSecondary,
+  },
+  activeChip: {
+    backgroundColor: colors.primary,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  activeChipText: {
+    color: colors.white,
+  },
+  sortChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+  },
+  activeSortChip: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  sortText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  activeSortText: {
+    color: colors.primary,
+    fontWeight: "700",
+  },
+  summary: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginVertical: spacing.lg,
+  },
+  summaryRating: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: colors.primary,
+  },
+  summaryCount: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  reviewCard: {
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  reviewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
+  },
+  stars: {
+    flexDirection: "row",
+    gap: 2,
+  },
+  ownerBadge: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.primary,
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+  },
+  reviewComment: {
+    ...typography.body,
+    color: colors.text,
+    marginBottom: spacing.md,
+  },
+  photoRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  photo: {
+    width: 110,
+    height: 90,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceSecondary,
+  },
+  actionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  actionButton: {
+    minHeight: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingRight: spacing.md,
+  },
+  actionText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: "600",
+  },
+  likedText: {
+    color: colors.primary,
+  },
+  deleteText: {
+    fontSize: 13,
+    color: colors.error,
+    fontWeight: "600",
+  },
+  disabled: {
+    opacity: 0.5,
+  },
+  deleteConfirm: {
+    padding: spacing.md,
+    marginTop: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.errorLight,
+  },
+  confirmText: {
+    ...typography.body,
+    color: colors.text,
+    marginBottom: spacing.md,
+  },
+  confirmButton: {
+    flexGrow: 1,
+  },
+  pagination: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  pageButton: {
+    flexGrow: 1,
+  },
+  emptyState: {
+    minHeight: 160,
+  },
+  formSection: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: spacing.xl,
+    paddingTop: spacing.xl,
+  },
+  fieldLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: "600",
+    marginBottom: spacing.sm,
+  },
+  starRow: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    marginBottom: spacing.lg,
+  },
+  starButton: {
+    padding: spacing.xs,
+  },
+  commentInput: {
+    minHeight: 120,
+  },
+  characterCount: {
+    textAlign: "right",
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: -spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  selectedPhoto: {
+    alignItems: "center",
+  },
+  removePhotoButton: {
+    minHeight: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  removePhoto: {
+    color: colors.error,
+    fontSize: 12,
+  },
+  photoButton: {
+    marginTop: spacing.sm,
+  },
+  submitButton: {
+    marginTop: spacing.lg,
+  },
+  cancelEditButton: {
+    marginTop: spacing.sm,
+  },
+  formError: {
+    ...typography.caption,
+    color: colors.error,
+    marginTop: spacing.md,
+  },
+  notice: {
+    ...typography.caption,
+    color: colors.success,
+    marginTop: spacing.md,
+    textAlign: "center",
+  },
+  loginRequired: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.lg,
+    padding: spacing.xl,
+    marginTop: spacing.xl,
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  loginTitle: {
+    ...typography.section,
+    color: colors.text,
+    textAlign: "center",
+  },
+  loginDescription: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: "center",
+  },
+  loginButton: {
+    marginTop: spacing.lg,
+    alignSelf: "stretch",
+  },
 });

@@ -1,26 +1,61 @@
-// pass one ranked entry to a discovery row, pass data to restaurant card defaultly
+import React from "react";
 
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import RestaurantCard from './RestaurantCard';
+import {
+  StyleSheet,
+  View,
+} from "react-native";
 
+import RestaurantCard from "./RestaurantCard";
+
+import {
+  colors,
+  spacing,
+  radius,
+} from "../../../shared/design/tokens";
+
+/**
+ * Renders one ranked restaurant entry.
+ *
+ * The host owns ranking, navigation,
+ * and saved-place actions.
+ */
 export default function FeedRestaurantItem({
   entry,
   RestaurantCardComponent = RestaurantCard,
   onRestaurantPress,
   renderRestaurantActions,
 }) {
+  const restaurant = entry.restaurant;
+
+  function openRestaurant() {
+    if (
+      typeof onRestaurantPress === "function"
+    ) {
+      onRestaurantPress(entry.restaurantId);
+    }
+  }
+
   return (
-    <View style={styles.item} testID={`feed-item:${entry.restaurantId}`}>
+    <View
+      style={styles.item}
+      testID={`feed-item:${entry.restaurantId}`}
+    >
       <RestaurantCardComponent
-        restaurant={entry.restaurant}
+        restaurant={restaurant}
         recommendedDish={entry.recommendedDish}
         preferenceScore={entry.preferenceScore}
-        onPress={onRestaurantPress ? () => onRestaurantPress(entry.restaurantId) : undefined}
+        onPress={
+          onRestaurantPress
+            ? openRestaurant
+            : undefined
+        }
       />
+
       {renderRestaurantActions && (
         <View style={styles.actions}>
-          {renderRestaurantActions(entry.restaurant)}
+          {renderRestaurantActions(
+            restaurant
+          )}
         </View>
       )}
     </View>
@@ -29,11 +64,17 @@ export default function FeedRestaurantItem({
 
 const styles = StyleSheet.create({
   item: {
-    marginBottom: 16,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    overflow: 'hidden',
-    elevation: 3,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    overflow: "hidden",
   },
-  actions: { paddingHorizontal: 16, paddingBottom: 16 },
+
+  actions: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
 });

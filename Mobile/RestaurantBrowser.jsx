@@ -1,70 +1,235 @@
 import React, { useState } from "react";
-import { SafeAreaView, StyleSheet, View, Text, Pressable, Alert, Platform } from "react-native";
+
+import {
+  View,
+  Text,
+  StyleSheet,
+} from "react-native";
 
 import DishBrowserScreen from "./src/modules/reviews/screens/DishBrowserScreen";
 
 import RestaurantListScreen from "./src/modules/restaurants/screens/RestaurantListScreen";
+
 import RestaurantDetailScreen from "./src/modules/restaurants/screens/RestaurantDetailScreen";
 
-export default function App({ toolbarAction }) {
-  const [selectedRestaurantId, setSelectedRestaurantId] = useState(null);
+import AppIcon from "./src/shared/components/AppIcon";
 
-  const [dishBrowser, setDishBrowser] = useState(null);
+import {
+  colors,
+  spacing,
+  typography,
+} from "./src/shared/design/tokens";
 
-  const [openingDemo, setOpeningDemo] = useState(false);
-  async function openLiveDemo() {
-    if (openingDemo) return;
-    setOpeningDemo(true);
-    const apiOrigin = Platform.OS === 'android' ? 'http://10.0.2.2:3001' : 'http://127.0.0.1:3001';
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-    try {
-      const response = await fetch(`${apiOrigin}/api/demo/session`, { signal: controller.signal });
-      if (!response.ok) throw new Error('Demo unavailable');
-      const session = await response.json();
-      setDishBrowser({ restaurantId: session.restaurantId, token: session.token, apiOrigin, demo: false, syntheticSession: true });
-    } catch { Alert.alert('Local demo unavailable', 'Run npm run demo:reviews from backend, then try again. This demo uses synthetic MongoDB data.'); }
-    finally { clearTimeout(timeout); setOpeningDemo(false); }
+// =====================================================
+// Restaurant Browser
+// =====================================================
+
+export default function RestaurantBrowser({
+  toolbarAction,
+
+  mode = "explore",
+
+  token = null,
+  isAuthenticated = false,
+  onLoginPress,
+}) {
+  const [
+    selectedRestaurantId,
+    setSelectedRestaurantId,
+  ] = useState(null);
+
+  const [
+    dishBrowser,
+    setDishBrowser,
+  ] = useState(null);
+
+  const createMode =
+    mode === "create";
+
+  // =====================================================
+  // 1. Open Restaurant
+  // =====================================================
+
+  function openRestaurant(restaurant) {
+    if (!restaurant?._id) {
+      return;
+    }
+
+    const id = restaurant._id;
+
+    setSelectedRestaurantId(id);
+
+    if (createMode) {
+      // Create directly enters the existing
+      // dish and review workflow.
+      setDishBrowser({
+        restaurantId: id,
+        demo: false,
+      });
+    } else {
+      setDishBrowser(null);
+    }
   }
 
-  return (
-    <SafeAreaView style={styles.container}>
-      {__DEV__ && !dishBrowser && !selectedRestaurantId && (
-        <View style={{ padding: 12 }}>
-          <Pressable accessibilityRole="button" onPress={() => setDishBrowser({ restaurantId: "100000000000000000000001", demo: true })}>
-            <Text style={{ color: "#2563eb", padding: 10 }}>Open dish demo (no backend required)</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" disabled={openingDemo} onPress={openLiveDemo}><Text style={{ color: '#2563eb', padding: 10 }}>{openingDemo ? 'Opening…' : 'Open synthetic MongoDB review demo'}</Text></Pressable>
+  // =====================================================
+  // 2. Open Dishes
+  // =====================================================
+
+  function openDishes() {
+    if (!selectedRestaurantId) {
+      return;
+    }
+
+    setDishBrowser({
+      restaurantId:
+        selectedRestaurantId,
+
+      demo: false,
+    });
+  }
+
+  // =====================================================
+  // 3. Back Navigation
+  // =====================================================
+
+  function backFromDishes() {
+    setDishBrowser(null);
+
+    // Create returns to restaurant selection.
+    if (createMode) {
+      setSelectedRestaurantId(null);
+    }
+  }
+
+  function backFromRestaurant() {
+    setSelectedRestaurantId(null);
+    setDishBrowser(null);
+  }
+
+  // =====================================================
+  // 4. Render Create Header
+  // =====================================================
+
+  function renderCreateHeader() {
+    if (!createMode) {
+      return null;
+    }
+
+    if (
+      selectedRestaurantId ||
+      dishBrowser
+    ) {
+      return null;
+    }
+
+    return (
+      <View style={styles.createHeader}>
+        <View style={styles.createTitleRow}>
+          <AppIcon
+            name="edit"
+            size={22}
+            color={colors.primary}
+          />
+
+          <Text style={styles.createTitle}>
+            Create a Review
+          </Text>
         </View>
-      )}
+
+        <Text style={styles.createDescription}>
+          Choose a restaurant to write a review
+          or share your experience with a dish.
+        </Text>
+      </View>
+    );
+  }
+
+  // =====================================================
+  // 5. Render
+  // =====================================================
+
+  return (
+    <View style={styles.container}>
+      {renderCreateHeader()}
+
       {dishBrowser ? (
         <DishBrowserScreen
-          key={`${dishBrowser.restaurantId}-${dishBrowser.demo}`}
-          {...dishBrowser}
-          onBack={() => setDishBrowser(null)}
+          key={dishBrowser.restaurantId}
+          restaurantId={
+            dishBrowser.restaurantId
+          }
+          demo={false}
+          token={token}
+          authToken={token}
+          isAuthenticated={
+            isAuthenticated
+          }
+          onLoginPress={
+            onLoginPress
+          }
+          onBack={backFromDishes}
         />
       ) : selectedRestaurantId ? (
         <RestaurantDetailScreen
-          restaurantId={selectedRestaurantId}
-          onViewDishes={() => setDishBrowser({ restaurantId: selectedRestaurantId, demo: false })}
-          onPreviewDishes={() => setDishBrowser({ restaurantId: "100000000000000000000001", demo: true })}
-          onBack={() => setSelectedRestaurantId(null)}
+          restaurantId={
+            selectedRestaurantId
+          }
+          onViewDishes={
+            openDishes
+          }
+          onBack={
+            backFromRestaurant
+          }
         />
       ) : (
         <RestaurantListScreen
-          toolbarAction={toolbarAction}
-          onSelectRestaurant={(restaurant) => {
-            setSelectedRestaurantId(restaurant._id);
-          }}
+          toolbarAction={
+            toolbarAction
+          }
+          onSelectRestaurant={
+            openRestaurant
+          }
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
+
+// =====================================================
+// Styles
+// =====================================================
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: colors.background,
+  },
+
+  createHeader: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+
+    backgroundColor: colors.surface,
+
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+
+  createTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+
+  createTitle: {
+    ...typography.section,
+    color: colors.text,
+  },
+
+  createDescription: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
 });
