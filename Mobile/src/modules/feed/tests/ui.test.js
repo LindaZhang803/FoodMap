@@ -1,16 +1,31 @@
- import React from 'react';
-import { Pressable, Text } from 'react-native';
-import { fireEvent, render } from '@testing-library/react-native';
+import React from 'react';
+
+import {
+  Pressable,
+  Text,
+} from 'react-native';
+
+import {
+  fireEvent,
+  render,
+} from '@testing-library/react-native';
 
 import FeedRestaurantItem from '../components/FeedRestaurantItem';
 import RestaurantCard from '../components/RestaurantCard';
 import FeedStatus from '../components/FeedStatus';
 import HomeFeedScreen from '../screens/HomeFeedScreen';
 import SavedPlacesScreen from '../favorites/SavedPlacesScreen';
-import { rankCandidates } from '../ranking/PreferenceRanker';
 
-jest.mock('react-native-safe-area-context', () =>
-  jest.requireActual('react-native-safe-area-context/jest/mock').default
+import {
+  rankCandidates,
+} from '../ranking/PreferenceRanker';
+
+jest.mock(
+  'react-native-safe-area-context',
+  () =>
+    jest.requireActual(
+      'react-native-safe-area-context/jest/mock'
+    ).default
 );
 
 const targets = {
@@ -42,434 +57,498 @@ const candidates = [
   {
     restaurantId: 'a',
     restaurant: restaurant('a', 1),
-    dishes: [dish('a', 'a1')],
+    dishes: [
+      dish('a', 'a1'),
+    ],
   },
   {
     restaurantId: 'b',
     restaurant: restaurant('b', 4),
-    dishes: [dish('b', 'b1')],
+    dishes: [
+      dish('b', 'b1'),
+    ],
   },
 ];
 
-it('loads the default home feed with integrated dish picks and opens the selected restaurant', async () => {
-  const feedRepository = {
-    getCandidates: jest.fn().mockResolvedValue({
-      candidates,
-      coverage: {
-        scope: 'candidate-pool',
-        complete: true,
-      },
-      diagnostics: [],
-      dishError: null,
-    }),
-  };
+it(
+  'loads the default home feed with integrated dish picks and opens the selected restaurant',
+  async () => {
+    const feedRepository = {
+      getCandidates: jest.fn().mockResolvedValue({
+        candidates,
+        coverage: {
+          scope: 'candidate-pool',
+          complete: true,
+        },
+        diagnostics: [],
+        dishError: null,
+      }),
+    };
 
-  const preferenceRepository = {
-    getSnapshot: jest.fn().mockResolvedValue({
-      userId: 'user-a',
-      status: 'ready',
-      flavorTargets: targets,
-      error: null,
-    }),
-  };
+    const preferenceRepository = {
+      getSnapshot: jest.fn().mockResolvedValue({
+        userId: 'user-a',
+        status: 'ready',
+        flavorTargets: targets,
+        error: null,
+      }),
+    };
 
-  const onRestaurantPress = jest.fn();
+    const onRestaurantPress = jest.fn();
 
-  const result = render(
-    <HomeFeedScreen
-      feedRepository={feedRepository}
-      preferenceRepository={preferenceRepository}
-      userId="user-a"
-      onRestaurantPress={onRestaurantPress}
-    />
-  );
-
-  await result.findAllByText('100% Taste Similarity');
-
-  expect(
-    result.getByText('Dish b1')
-  ).toBeTruthy();
-
-  expect(
-    result.getAllByTestId(/^feed-item:/)
-      .map(item => item.props.testID)
-  ).toEqual([
-    'feed-item:b',
-    'feed-item:a',
-  ]);
-
-  expect(
-    result.queryByText('Find your next favorite')
-  ).toBeNull();
-
-  fireEvent.press(
-    result.getByRole('button', {
-      name: 'Open restaurant Place b',
-    })
-  );
-
-  expect(
-    onRestaurantPress
-  ).toHaveBeenCalledWith('b');
-});
-
-it('passes the recommendation to an injected card and keeps restaurant actions separate', () => {
-  const [entry] = rankCandidates(
-    candidates,
-    {
-      status: 'ready',
-      flavorTargets: targets,
-    }
-  );
-
-  const onRestaurantPress = jest.fn();
-  const saveRestaurant = jest.fn();
-
-  function CustomCard({
-    restaurant: place,
-    recommendedDish,
-    preferenceScore,
-    onPress,
-  }) {
-    return (
-      <Pressable
-        accessibilityRole="button"
-        onPress={onPress}
-      >
-        <Text>
-          {place.name} · {recommendedDish.name} · {preferenceScore}%
-        </Text>
-      </Pressable>
+    const result = render(
+      <HomeFeedScreen
+        feedRepository={feedRepository}
+        preferenceRepository={preferenceRepository}
+        userId="user-a"
+        onRestaurantPress={onRestaurantPress}
+      />
     );
-  }
 
-  const result = render(
-    <FeedRestaurantItem
-      entry={entry}
-      RestaurantCardComponent={CustomCard}
-      onRestaurantPress={onRestaurantPress}
-      renderRestaurantActions={place => (
+    await result.findAllByText(
+      '100% Taste Similarity'
+    );
+
+    expect(
+      result.getByText('Dish b1')
+    ).toBeTruthy();
+
+    expect(
+      result
+        .getAllByTestId(/^feed-item:/)
+        .map(item => item.props.testID)
+    ).toEqual([
+      'feed-item:b',
+      'feed-item:a',
+    ]);
+
+    expect(
+      result.queryByText(
+        'Find your next favorite'
+      )
+    ).toBeNull();
+
+    fireEvent.press(
+      result.getByRole('button', {
+        name: 'Open restaurant Place b',
+      })
+    );
+
+    expect(
+      onRestaurantPress
+    ).toHaveBeenCalledWith('b');
+  }
+);
+
+it(
+  'passes the recommendation to an injected card and keeps restaurant actions separate',
+  () => {
+    const [entry] = rankCandidates(
+      candidates,
+      {
+        status: 'ready',
+        flavorTargets: targets,
+      }
+    );
+
+    const onRestaurantPress = jest.fn();
+    const saveRestaurant = jest.fn();
+
+    function CustomCard({
+      restaurant: place,
+      recommendedDish,
+      preferenceScore,
+      onPress,
+    }) {
+      return (
         <Pressable
           accessibilityRole="button"
-          onPress={() => saveRestaurant(place)}
+          onPress={onPress}
         >
-          <Text>Save restaurant</Text>
+          <Text>
+            {place.name} · {recommendedDish.name} · {preferenceScore}%
+          </Text>
         </Pressable>
-      )}
-    />
-  );
-
-  fireEvent.press(
-    result.getByText('Place b · Dish b1 · 100%')
-  );
-
-  expect(
-    onRestaurantPress
-  ).toHaveBeenCalledWith('b');
-
-  fireEvent.press(
-    result.getByText('Save restaurant')
-  );
-
-  expect(
-    saveRestaurant
-  ).toHaveBeenCalledWith(entry.restaurant);
-
-  expect(
-    onRestaurantPress
-  ).toHaveBeenCalledTimes(1);
-});
-
-it('keeps a restaurant browsable when its dish recommendation is unavailable', () => {
-  const [entry] = rankCandidates(
-    [
-      {
-        ...candidates[0],
-        dishes: [],
-      },
-    ],
-    {
-      status: 'empty',
+      );
     }
-  );
 
-  const onRestaurantPress = jest.fn();
+    const result = render(
+      <FeedRestaurantItem
+        entry={entry}
+        RestaurantCardComponent={CustomCard}
+        onRestaurantPress={onRestaurantPress}
+        renderRestaurantActions={place => (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => saveRestaurant(place)}
+          >
+            <Text>Save restaurant</Text>
+          </Pressable>
+        )}
+      />
+    );
 
-  const result = render(
-    <FeedRestaurantItem
-      entry={entry}
-      onRestaurantPress={onRestaurantPress}
-    />
-  );
+    fireEvent.press(
+      result.getByText(
+        'Place b · Dish b1 · 100%'
+      )
+    );
 
-  expect(
-    result.getByText('Dish recommendation unavailable')
-  ).toBeTruthy();
+    expect(
+      onRestaurantPress
+    ).toHaveBeenCalledWith('b');
 
-  expect(
-    result.getByTestId('restaurant-fallback-image')
-  ).toBeTruthy();
+    fireEvent.press(
+      result.getByText('Save restaurant')
+    );
 
-  expect(
-    result.queryByTestId('dish-image:a1')
-  ).toBeNull();
+    expect(
+      saveRestaurant
+    ).toHaveBeenCalledWith(entry.restaurant);
 
-  expect(
-    result.getAllByRole('button')
-  ).toHaveLength(1);
+    expect(
+      onRestaurantPress
+    ).toHaveBeenCalledTimes(1);
+  }
+);
 
-  fireEvent.press(
-    result.getByRole('button', {
-      name: 'Open restaurant Place a',
-    })
-  );
+it(
+  'keeps a restaurant browsable when its dish recommendation is unavailable',
+  () => {
+    const [entry] = rankCandidates(
+      [
+        {
+          ...candidates[0],
+          dishes: [],
+        },
+      ],
+      {
+        status: 'empty',
+      }
+    );
 
-  expect(
-    onRestaurantPress
-  ).toHaveBeenCalledWith('a');
-});
+    const onRestaurantPress = jest.fn();
 
-it('shows a popular dish and renders no button when navigation is unavailable', () => {
-  const result = render(
-    <RestaurantCard
-      restaurant={restaurant('a', 1)}
-      recommendedDish={dish('a', 'd')}
-      preferenceScore={null}
-    />
-  );
+    const result = render(
+      <FeedRestaurantItem
+        entry={entry}
+        onRestaurantPress={onRestaurantPress}
+      />
+    );
 
-  expect(
-    result.getByText('Popular Dish')
-  ).toBeTruthy();
+    expect(
+      result.getByText(
+        'Dish recommendation unavailable'
+      )
+    ).toBeTruthy();
 
-  expect(
-    result.getByText('Dish d')
-  ).toBeTruthy();
+    expect(
+      result.getByTestId(
+        'restaurant-fallback-image'
+      )
+    ).toBeTruthy();
 
-  expect(
-    result.queryAllByRole('button')
-  ).toHaveLength(0);
-});
+    expect(
+      result.queryByTestId('dish-image:a1')
+    ).toBeNull();
 
-it('preserves zero similarity and retries a failed photo when its URL changes', () => {
-  const place = restaurant('a', 1);
+    expect(
+      result.getAllByRole('button')
+    ).toHaveLength(1);
 
-  const recommendedDish = {
-    ...dish('a', 'd'),
-    imageUrl: 'https://example.com/first.jpg',
-  };
+    fireEvent.press(
+      result.getByRole('button', {
+        name: 'Open restaurant Place a',
+      })
+    );
 
-  const result = render(
-    <RestaurantCard
-      restaurant={place}
-      recommendedDish={recommendedDish}
-      preferenceScore={0}
-    />
-  );
+    expect(
+      onRestaurantPress
+    ).toHaveBeenCalledWith('a');
+  }
+);
 
-  expect(
-    result.getByText('0% Taste Similarity')
-  ).toBeTruthy();
+it(
+  'shows a popular dish and renders no button when navigation is unavailable',
+  () => {
+    const result = render(
+      <RestaurantCard
+        restaurant={restaurant('a', 1)}
+        recommendedDish={dish('a', 'd')}
+        preferenceScore={null}
+      />
+    );
 
-  expect(
-    result.getByText('Dish d')
-  ).toBeTruthy();
+    expect(
+      result.getByText('Popular Dish')
+    ).toBeTruthy();
 
-  expect(
-    result.getByTestId('dish-image:d')
-  ).toBeTruthy();
+    expect(
+      result.getByText('Dish d')
+    ).toBeTruthy();
 
-  fireEvent(
-    result.getByTestId('dish-image:d'),
-    'error'
-  );
+    expect(
+      result.queryAllByRole('button')
+    ).toHaveLength(0);
+  }
+);
 
-  // New design uses a restaurant illustration
-  // when a dish photo fails to load.
-  expect(
-    result.getByTestId('restaurant-fallback-image')
-  ).toBeTruthy();
+it(
+  'preserves zero similarity and retries a failed photo when its URL changes',
+  () => {
+    const place = restaurant('a', 1);
 
-  expect(
-    result.queryByTestId('dish-image:d')
-  ).toBeNull();
+    const recommendedDish = {
+      ...dish('a', 'd'),
+      imageUrl: 'https://example.com/first.jpg',
+    };
 
-  result.rerender(
-    <RestaurantCard
-      restaurant={place}
-      recommendedDish={{
-        ...recommendedDish,
-        imageUrl: 'https://example.com/replacement.jpg',
-      }}
-      preferenceScore={0}
-    />
-  );
+    const result = render(
+      <RestaurantCard
+        restaurant={place}
+        recommendedDish={recommendedDish}
+        preferenceScore={0}
+      />
+    );
 
-  expect(
-    result.getByTestId('dish-image:d').props.source
-  ).toEqual({
-    uri: 'https://example.com/replacement.jpg',
-  });
+    expect(
+      result.getByText('0% Taste Similarity')
+    ).toBeTruthy();
 
-  expect(
-    result.queryByTestId('restaurant-fallback-image')
-  ).toBeNull();
-});
+    expect(
+      result.getByText('Dish d')
+    ).toBeTruthy();
 
-it('retries a failed photo when the supplied demo image changes', () => {
-  const place = restaurant('a', 1);
-  const recommendedDish = dish('a', 'd');
+    expect(
+      result.getByTestId('dish-image:d')
+    ).toBeTruthy();
 
-  const result = render(
-    <RestaurantCard
-      restaurant={place}
-      recommendedDish={recommendedDish}
-      dishImageSource={1}
-    />
-  );
+    fireEvent(
+      result.getByTestId('dish-image:d'),
+      'error'
+    );
 
-  expect(
-    result.getByTestId('dish-image:d')
-  ).toBeTruthy();
+    expect(
+      result.getByTestId(
+        'restaurant-fallback-image'
+      )
+    ).toBeTruthy();
 
-  fireEvent(
-    result.getByTestId('dish-image:d'),
-    'error'
-  );
+    expect(
+      result.queryByTestId('dish-image:d')
+    ).toBeNull();
 
-  expect(
-    result.getByTestId('restaurant-fallback-image')
-  ).toBeTruthy();
+    result.rerender(
+      <RestaurantCard
+        restaurant={place}
+        recommendedDish={{
+          ...recommendedDish,
+          imageUrl:
+            'https://example.com/replacement.jpg',
+        }}
+        preferenceScore={0}
+      />
+    );
 
-  result.rerender(
-    <RestaurantCard
-      restaurant={place}
-      recommendedDish={recommendedDish}
-      dishImageSource={2}
-    />
-  );
+    expect(
+      result.getByTestId('dish-image:d').props.source
+    ).toEqual({
+      uri:
+        'https://example.com/replacement.jpg',
+    });
 
-  expect(
-    result.getByTestId('dish-image:d').props.source
-  ).toBe(2);
+    expect(
+      result.queryByTestId(
+        'restaurant-fallback-image'
+      )
+    ).toBeNull();
+  }
+);
 
-  expect(
-    result.queryByTestId('restaurant-fallback-image')
-  ).toBeNull();
-});
+it(
+  'retries a failed photo when the supplied demo image changes',
+  () => {
+    const place = restaurant('a', 1);
 
-it('uses the default card for saved restaurants and retains saved dish navigation', () => {
-  const savedPlaces = {
-    favorites: [
-      restaurant('a', 1),
-    ],
-    favoriteDishes: [
-      dish('a', 'd'),
-    ],
-    toggleFavorite: jest.fn(),
-    toggleFavoriteDish: jest.fn(),
-  };
+    const recommendedDish = dish('a', 'd');
 
-  const onRestaurantPress = jest.fn();
-  const onDishPress = jest.fn();
+    const result = render(
+      <RestaurantCard
+        restaurant={place}
+        recommendedDish={recommendedDish}
+        dishImageSource={1}
+      />
+    );
 
-  const result = render(
-    <SavedPlacesScreen
-      savedPlaces={savedPlaces}
-      onRestaurantPress={onRestaurantPress}
-      onDishPress={onDishPress}
-    />
-  );
+    expect(
+      result.getByTestId('dish-image:d')
+    ).toBeTruthy();
 
-  expect(
-    result.queryByText('Dish recommendation unavailable')
-  ).toBeNull();
+    fireEvent(
+      result.getByTestId('dish-image:d'),
+      'error'
+    );
 
-  expect(
-    result.queryByLabelText('Dish photo unavailable')
-  ).toBeNull();
+    expect(
+      result.getByTestId(
+        'restaurant-fallback-image'
+      )
+    ).toBeTruthy();
 
-  fireEvent.press(
-    result.getByRole('button', {
-      name: 'Open restaurant Place a',
-    })
-  );
+    result.rerender(
+      <RestaurantCard
+        restaurant={place}
+        recommendedDish={recommendedDish}
+        dishImageSource={2}
+      />
+    );
 
-  expect(
-    onRestaurantPress
-  ).toHaveBeenCalledWith('a');
+    expect(
+      result.getByTestId('dish-image:d').props.source
+    ).toBe(2);
 
-  fireEvent.press(
-    result.getByRole('tab', {
-      name: 'Saved Dishes',
-    })
-  );
+    expect(
+      result.queryByTestId(
+        'restaurant-fallback-image'
+      )
+    ).toBeNull();
+  }
+);
 
-  fireEvent.press(
-    result.getByRole('button', {
-      name: 'View dish Dish d',
-    })
-  );
+it(
+  'uses the default card for saved restaurants and retains saved dish navigation',
+  () => {
+    const savedPlaces = {
+      favorites: [
+        restaurant('a', 1),
+      ],
+      favoriteDishes: [
+        dish('a', 'd'),
+      ],
+      toggleFavorite: jest.fn(),
+      toggleFavoriteDish: jest.fn(),
+    };
 
-  expect(
-    onDishPress
-  ).toHaveBeenCalledWith('d', 'a');
-});
+    const onRestaurantPress = jest.fn();
+    const onDishPress = jest.fn();
 
-it('shows independent resource failure, degraded recommendation retry, and loading states', () => {
-  const onRetry = jest.fn();
+    const result = render(
+      <SavedPlacesScreen
+        savedPlaces={savedPlaces}
+        onRestaurantPress={onRestaurantPress}
+        onDishPress={onDishPress}
+      />
+    );
 
-  const result = render(
-    <FeedStatus
-      entries={[]}
-      loading
-      onRetry={onRetry}
-    />
-  );
+    expect(
+      result.queryByText(
+        'Dish recommendation unavailable'
+      )
+    ).toBeNull();
 
-  expect(
-    result.getByText('Finding places to try...')
-  ).toBeTruthy();
+    expect(
+      result.queryByLabelText(
+        'Dish photo unavailable'
+      )
+    ).toBeNull();
 
-  result.rerender(
-    <FeedStatus
-      entries={[]}
-      resourceError={new Error('private diagnostic')}
-      onRetry={onRetry}
-    />
-  );
+    fireEvent.press(
+      result.getByRole('button', {
+        name: 'Open restaurant Place a',
+      })
+    );
 
-  fireEvent.press(
-    result.getByText(/Try Again/i)
-  );
+    expect(
+      onRestaurantPress
+    ).toHaveBeenCalledWith('a');
 
-  expect(
-    onRetry
-  ).toHaveBeenCalledTimes(1);
+    fireEvent.press(
+      result.getByRole('tab', {
+        name: 'Saved Dishes',
+      })
+    );
 
-  expect(
-    result.queryByText('private diagnostic')
-  ).toBeNull();
+    fireEvent.press(
+      result.getByRole('button', {
+        name: 'View dish Dish d',
+      })
+    );
 
-  result.rerender(
-    <FeedStatus
-      entries={[]}
-      preferenceStatus="unavailable"
-      onRetry={onRetry}
-    />
-  );
+    expect(
+      onDishPress
+    ).toHaveBeenCalledWith('d', 'a');
+  }
+);
 
-  expect(
-    result.getByText(
-      'Showing popular places while recommendations are unavailable.'
-    )
-  ).toBeTruthy();
+it(
+  'shows independent resource failure, degraded recommendation retry, and loading states',
+  () => {
+    const onRetry = jest.fn();
 
-  fireEvent.press(
-    result.getByText(/Retry Recommendations/i)
-  );
+    const result = render(
+      <FeedStatus
+        entries={[]}
+        loading
+        onRetry={onRetry}
+      />
+    );
 
-  expect(
-    onRetry
-  ).toHaveBeenCalledTimes(2);
-});
+    expect(
+      result.getByText(
+        'Finding places to try...'
+      )
+    ).toBeTruthy();
+
+    result.rerender(
+      <FeedStatus
+        entries={[]}
+        resourceError={
+          new Error('private diagnostic')
+        }
+        onRetry={onRetry}
+      />
+    );
+
+    // FIX: Match exactly one accessible retry button.
+    // getByText(/Try Again/i) may match multiple nodes.
+    fireEvent.press(
+      result.getByRole('button', {
+        name: /^Try Again$/i,
+      })
+    );
+
+    expect(
+      onRetry
+    ).toHaveBeenCalledTimes(1);
+
+    expect(
+      result.queryByText(
+        'private diagnostic'
+      )
+    ).toBeNull();
+
+    result.rerender(
+      <FeedStatus
+        entries={[]}
+        preferenceStatus="unavailable"
+        onRetry={onRetry}
+      />
+    );
+
+    expect(
+      result.getByText(
+        'Showing popular places while recommendations are unavailable.'
+      )
+    ).toBeTruthy();
+
+    fireEvent.press(
+      result.getByRole('button', {
+        name: /^Retry Recommendations$/i,
+      })
+    );
+
+    expect(
+      onRetry
+    ).toHaveBeenCalledTimes(2);
+  }
+);
