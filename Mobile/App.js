@@ -144,12 +144,15 @@ function FoodMapApp() {
     setSelectedPostRestaurantId,
   ] = useState(null);
 
-  const [showPostRestaurantDishes, setShowPostRestaurantDishes] =
-    useState(false);
+  const [
+    showPostRestaurantDishes,
+    setShowPostRestaurantDishes,
+  ] = useState(false);
 
-  // Used to reload Home after a post is deleted.
-  const [postFeedRevision, setPostFeedRevision] =
-    useState(0);
+  const [
+    postFeedRevision,
+    setPostFeedRevision,
+  ] = useState(0);
 
   // =====================================================
   // 3. Authentication Navigation
@@ -158,6 +161,7 @@ function FoodMapApp() {
   const openAccount = useCallback(
     (returnPage = "home") => {
       accountReturnPage.current = returnPage;
+
       setPage("profile");
     },
     []
@@ -208,12 +212,11 @@ function FoodMapApp() {
   );
 
   // =====================================================
-  // 4. Bottom Navigation
+  // 4. Navigation
   // =====================================================
 
   function navigateTo(nextPage) {
     if (nextPage === page) {
-      // Return from a post detail to the Home feed.
       if (nextPage === "home") {
         closeHomeDetails();
       }
@@ -221,7 +224,7 @@ function FoodMapApp() {
       return;
     }
 
-    // Creating reviews requires authentication.
+    // Creating posts requires login.
     if (
       nextPage === "create" &&
       !isAuthenticated
@@ -230,8 +233,8 @@ function FoodMapApp() {
       return;
     }
 
-    // The existing Decision Wheel is still
-    // hosted by the authenticated Feed module.
+    // Wheel uses the existing authenticated
+    // Feed/Favorites session.
     if (
       nextPage === "wheel" &&
       !isAuthenticated
@@ -335,24 +338,21 @@ function FoodMapApp() {
   }
 
   // =====================================================
-  // Post Published
+  // 9. Post Published
   // =====================================================
 
-  function handlePostPublished(post) {
-    // Refresh Home so the new post is visible.
+  function handlePostPublished() {
     setPostFeedRevision(
       (current) => current + 1
     );
 
-    // Clear any previously opened post details.
     closeHomeDetails();
 
-    // Return to the public food feed.
     setPage("home");
   }
 
   // =====================================================
-  // 9. Header
+  // 10. Header
   // =====================================================
 
   const isHomeDetail =
@@ -418,7 +418,7 @@ function FoodMapApp() {
   }
 
   // =====================================================
-  // 10. Bottom Navigation
+  // 11. Bottom Navigation
   // =====================================================
 
   function renderBottomNavigation() {
@@ -511,20 +511,17 @@ function FoodMapApp() {
   }
 
   // =====================================================
-  // 11. Home Content
+  // 12. Home Content
   // =====================================================
 
   function renderHome() {
-    // Restaurant dishes opened from a post.
     if (
       selectedPostRestaurantId &&
       showPostRestaurantDishes
     ) {
       return (
         <DishBrowserScreen
-          key={
-            `post-dishes-${selectedPostRestaurantId}`
-          }
+          key={`post-dishes-${selectedPostRestaurantId}`}
           restaurantId={
             selectedPostRestaurantId
           }
@@ -544,13 +541,10 @@ function FoodMapApp() {
       );
     }
 
-    // Restaurant detail opened from a post.
     if (selectedPostRestaurantId) {
       return (
         <RestaurantDetailScreen
-          key={
-            `post-restaurant-${selectedPostRestaurantId}`
-          }
+          key={`post-restaurant-${selectedPostRestaurantId}`}
           restaurantId={
             selectedPostRestaurantId
           }
@@ -564,7 +558,6 @@ function FoodMapApp() {
       );
     }
 
-    // Post detail.
     if (selectedPostId) {
       return (
         <PostDetailScreen
@@ -588,7 +581,6 @@ function FoodMapApp() {
       );
     }
 
-    // Public Home Feed.
     return (
       <PostFeedScreen
         key={postFeedRevision}
@@ -602,7 +594,30 @@ function FoodMapApp() {
   }
 
   // =====================================================
-  // 12. Main Render
+  // 13. Wheel Content
+  // =====================================================
+
+  function renderWheel() {
+    if (!isAuthenticated) {
+      return null;
+    }
+
+    return (
+      <FeedRouteScreen
+        auth={auth}
+        navigationTab="wheel"
+        onLoginRequired={() =>
+          handleLoginRequired("wheel")
+        }
+        onSessionExpired={
+          handleSessionExpired
+        }
+      />
+    );
+  }
+
+  // =====================================================
+  // 14. Main Render
   // =====================================================
 
   return (
@@ -617,7 +632,7 @@ function FoodMapApp() {
       {renderHeader()}
 
       {/* ===============================================
-          HOME - Public Food Posts
+          HOME
       =============================================== */}
 
       <View
@@ -639,7 +654,7 @@ function FoodMapApp() {
       </View>
 
       {/* ===============================================
-          EXPLORE - Restaurant Discovery
+          EXPLORE
       =============================================== */}
 
       <View
@@ -670,7 +685,7 @@ function FoodMapApp() {
       </View>
 
       {/* ===============================================
-          CREATE - Food Posts and Reviews
+          CREATE
       =============================================== */}
 
       <View
@@ -691,17 +706,50 @@ function FoodMapApp() {
         {isAuthenticated && (
           <CreatePostScreen
             token={token}
-            isAuthenticated={isAuthenticated}
+            isAuthenticated={
+              isAuthenticated
+            }
             onLoginRequired={() =>
               handleLoginRequired("create")
             }
-            onPublished={handlePostPublished}
+            onPublished={
+              handlePostPublished
+            }
           />
         )}
       </View>
 
       {/* ===============================================
-          PROFILE - Accounts
+          WHEEL
+
+          This is the missing integration.
+
+          FeedRouteScreen
+            -> FoodMapFeed
+            -> FeedExperience
+            -> DecisionWheel
+      =============================================== */}
+
+      <View
+        style={[
+          styles.content,
+          page !== "wheel" &&
+            styles.hidden,
+        ]}
+        accessibilityElementsHidden={
+          page !== "wheel"
+        }
+        importantForAccessibility={
+          page === "wheel"
+            ? "auto"
+            : "no-hide-descendants"
+        }
+      >
+        {renderWheel()}
+      </View>
+
+      {/* ===============================================
+          PROFILE
       =============================================== */}
 
       <View
@@ -727,6 +775,7 @@ function FoodMapApp() {
         />
       </View>
 
+      {/* Bottom bar stays outside page content. */}
       {renderBottomNavigation()}
     </View>
   );
@@ -783,6 +832,7 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: radius.md,
     backgroundColor: colors.primary,
+
     alignItems: "center",
     justifyContent: "center",
   },
@@ -796,6 +846,7 @@ const styles = StyleSheet.create({
   headerAction: {
     width: 44,
     height: 44,
+
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radius.pill,
@@ -861,7 +912,6 @@ const styles = StyleSheet.create({
     height: 38,
 
     borderRadius: radius.pill,
-
     backgroundColor: colors.primary,
 
     alignItems: "center",
