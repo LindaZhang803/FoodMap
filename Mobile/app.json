@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "FoodMap",
+    "slug": "foodmap",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/images/icons/icon.png",
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/images/icons/android-icon-foreground.png",
+        "backgroundImage": "./src/assets/images/icons/android-icon-background.png",
+        "monochromeImage": "./src/assets/images/icons/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./src/assets/images/icons/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./src/assets/images/icons/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ]
+    ]
+  }
+}

@@ -1,0 +1,1105 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>FoodMap Restaurant Image Review</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            margin: 0;
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .summary {
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .save-container {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .save-btn {
+            background: #1677d2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        .save-btn:hover {
+            background: #0958a5;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns:
+                repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px #00000015;
+            border: 2px solid transparent;
+        }
+
+        .card h2 {
+            padding: 0 16px;
+            font-size: 20px;
+        }
+
+        .card img {
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+            background: #ddd;
+        }
+
+        .image-placeholder {
+            width: 100%;
+            height: 220px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #ddd;
+            color: #888;
+        }
+
+        .info {
+            padding: 16px;
+        }
+
+        .info p {
+            overflow-wrap: anywhere;
+        }
+
+        a {
+            color: #1677d2;
+        }
+
+        .warning {
+            font-size: 12px;
+            color: #777;
+            margin-top: 15px;
+            line-height: 1.5;
+        }
+
+        /* Review buttons */
+
+        .review-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 20px;
+        }
+
+        .review-actions button {
+            border: none;
+            padding: 10px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .approve-btn {
+            background: #2e7d32;
+            color: white;
+        }
+
+        .reject-btn {
+            background: #c62828;
+            color: white;
+        }
+
+        .pending-btn {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .review-status {
+            margin-top: 12px;
+            font-size: 13px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        /* Review states */
+
+        .card.approved {
+            border-color: #2e7d32;
+        }
+
+        .card.rejected {
+            border-color: #c62828;
+            opacity: 0.7;
+        }
+
+        .card.pending {
+            border-color: transparent;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <h1 id="restaurant-name">
+        Tio&#39;s Tacos
+    </h1>
+
+    <p class="subtitle">
+        Restaurant Image Review —
+        9 candidates
+    </p>
+
+    <p id="summary" class="summary">
+        Approved: 0 |
+        Rejected: 0 |
+        Pending: 9
+    </p>
+
+    <div class="save-container">
+
+        <button
+            class="save-btn"
+            onclick="saveReview()"
+        >
+            Save Review
+        </button>
+
+    </div>
+
+    <div class="container">
+
+        
+                <div class="card" id="card-0">
+
+                    <h2>Candidate 1</h2>
+
+                    
+                                <img
+                                    src="https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d0/Coronation_%2832490299353%29.jpg/500px-Coronation_%2832490299353%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                    alt="Candidate 1"
+                                    loading="lazy"
+                                >
+                              
+
+                    <div class="info">
+
+                        <p>
+                            <strong>Title:</strong>
+                            File:Coronation (32490299353).jpg
+                        </p>
+
+                        <p>
+                            <strong>License:</strong>
+                            CC BY 2.0
+                        </p>
+
+                        
+                                    <p>
+                                        <a
+                                            href="https://commons.wikimedia.org/wiki/File%3ACoronation_(32490299353).jpg"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            View Original Image
+                                        </a>
+                                    </p>
+                                  
+
+                        
+
+                        <p class="warning">
+                            Confirm the restaurant identity,
+                            image content, and license
+                            before approving.
+                        </p>
+
+                        <div class="review-actions">
+
+                            <button
+                                class="approve-btn"
+                                onclick="approveImage(0)"
+                            >
+                                Approve
+                            </button>
+
+                            <button
+                                class="reject-btn"
+                                onclick="rejectImage(0)"
+                            >
+                                Reject
+                            </button>
+
+                            <button
+                                class="pending-btn"
+                                onclick="pendingImage(0)"
+                            >
+                                Pending
+                            </button>
+
+                        </div>
+
+                        <p
+                            id="status-0"
+                            class="review-status"
+                        >
+                            Pending
+                        </p>
+
+                    </div>
+
+                </div>
+            
+                <div class="card" id="card-1">
+
+                    <h2>Candidate 2</h2>
+
+                    
+                                <img
+                                    src="https://thumb.wikimedia.org/wikipedia/commons/thumb/9/92/Tio%27s_Tacos_in_Riverside%2C_CA._%2832472077263%29.jpg/500px-Tio%27s_Tacos_in_Riverside%2C_CA._%2832472077263%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                    alt="Candidate 2"
+                                    loading="lazy"
+                                >
+                              
+
+                    <div class="info">
+
+                        <p>
+                            <strong>Title:</strong>
+                            File:Tio&#39;s Tacos in Riverside, CA. (32472077263).jpg
+                        </p>
+
+                        <p>
+                            <strong>License:</strong>
+                            CC BY 2.0
+                        </p>
+
+                        
+                                    <p>
+                                        <a
+                                            href="https://commons.wikimedia.org/wiki/File%3ATio&#39;s_Tacos_in_Riverside%2C_CA._(32472077263).jpg"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            View Original Image
+                                        </a>
+                                    </p>
+                                  
+
+                        
+
+                        <p class="warning">
+                            Confirm the restaurant identity,
+                            image content, and license
+                            before approving.
+                        </p>
+
+                        <div class="review-actions">
+
+                            <button
+                                class="approve-btn"
+                                onclick="approveImage(1)"
+                            >
+                                Approve
+                            </button>
+
+                            <button
+                                class="reject-btn"
+                                onclick="rejectImage(1)"
+                            >
+                                Reject
+                            </button>
+
+                            <button
+                                class="pending-btn"
+                                onclick="pendingImage(1)"
+                            >
+                                Pending
+                            </button>
+
+                        </div>
+
+                        <p
+                            id="status-1"
+                            class="review-status"
+                        >
+                            Pending
+                        </p>
+
+                    </div>
+
+                </div>
+            
+                <div class="card" id="card-2">
+
+                    <h2>Candidate 3</h2>
+
+                    
+                                <img
+                                    src="https://thumb.wikimedia.org/wikipedia/commons/thumb/d/de/Junk_art_1_%2833738981505%29.jpg/500px-Junk_art_1_%2833738981505%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                    alt="Candidate 3"
+                                    loading="lazy"
+                                >
+                              
+
+                    <div class="info">
+
+                        <p>
+                            <strong>Title:</strong>
+                            File:Junk art 1 (33738981505).jpg
+                        </p>
+
+                        <p>
+                            <strong>License:</strong>
+                            CC BY 2.0
+                        </p>
+
+                        
+                                    <p>
+                                        <a
+                                            href="https://commons.wikimedia.org/wiki/File%3AJunk_art_1_(33738981505).jpg"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            View Original Image
+                                        </a>
+                                    </p>
+                                  
+
+                        
+
+                        <p class="warning">
+                            Confirm the restaurant identity,
+                            image content, and license
+                            before approving.
+                        </p>
+
+                        <div class="review-actions">
+
+                            <button
+                                class="approve-btn"
+                                onclick="approveImage(2)"
+                            >
+                                Approve
+                            </button>
+
+                            <button
+                                class="reject-btn"
+                                onclick="rejectImage(2)"
+                            >
+                                Reject
+                            </button>
+
+                            <button
+                                class="pending-btn"
+                                onclick="pendingImage(2)"
+                            >
+                                Pending
+                            </button>
+
+                        </div>
+
+                        <p
+                            id="status-2"
+                            class="review-status"
+                        >
+                            Pending
+                        </p>
+
+                    </div>
+
+                </div>
+            
+                <div class="card" id="card-3">
+
+                    <h2>Candidate 4</h2>
+
+                    
+                                <img
+                                    src="https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0f/Junk_art_3_%2832925858553%29.jpg/500px-Junk_art_3_%2832925858553%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                    alt="Candidate 4"
+                                    loading="lazy"
+                                >
+                              
+
+                    <div class="info">
+
+                        <p>
+                            <strong>Title:</strong>
+                            File:Junk art 3 (32925858553).jpg
+                        </p>
+
+                        <p>
+                            <strong>License:</strong>
+                            CC BY 2.0
+                        </p>
+
+                        
+                                    <p>
+                                        <a
+                                            href="https://commons.wikimedia.org/wiki/File%3AJunk_art_3_(32925858553).jpg"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            View Original Image
+                                        </a>
+                                    </p>
+                                  
+
+                        
+
+                        <p class="warning">
+                            Confirm the restaurant identity,
+                            image content, and license
+                            before approving.
+                        </p>
+
+                        <div class="review-actions">
+
+                            <button
+                                class="approve-btn"
+                                onclick="approveImage(3)"
+                            >
+                                Approve
+                            </button>
+
+                            <button
+                                class="reject-btn"
+                                onclick="rejectImage(3)"
+                            >
+                                Reject
+                            </button>
+
+                            <button
+                                class="pending-btn"
+                                onclick="pendingImage(3)"
+                            >
+                                Pending
+                            </button>
+
+                        </div>
+
+                        <p
+                            id="status-3"
+                            class="review-status"
+                        >
+                            Pending
+                        </p>
+
+                    </div>
+
+                </div>
+            
+                <div class="card" id="card-4">
+
+                    <h2>Candidate 5</h2>
+
+                    
+                                <img
+                                    src="https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b8/Junk_art_2_%2833739026325%29.jpg/500px-Junk_art_2_%2833739026325%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                    alt="Candidate 5"
+                                    loading="lazy"
+                                >
+                              
+
+                    <div class="info">
+
+                        <p>
+                            <strong>Title:</strong>
+                            File:Junk art 2 (33739026325).jpg
+                        </p>
+
+                        <p>
+                            <strong>License:</strong>
+                            CC BY 2.0
+                        </p>
+
+                        
+                                    <p>
+                                        <a
+                                            href="https://commons.wikimedia.org/wiki/File%3AJunk_art_2_(33739026325).jpg"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            View Original Image
+                                        </a>
+                                    </p>
+                                  
+
+                        
+
+                        <p class="warning">
+                            Confirm the restaurant identity,
+                            image content, and license
+                            before approving.
+                        </p>
+
+                        <div class="review-actions">
+
+                            <button
+                                class="approve-btn"
+                                onclick="approveImage(4)"
+                            >
+                                Approve
+                            </button>
+
+                            <button
+                                class="reject-btn"
+                                onclick="rejectImage(4)"
+                            >
+                                Reject
+                            </button>
+
+                            <button
+                                class="pending-btn"
+                                onclick="pendingImage(4)"
+                            >
+                                Pending
+                            </button>
+
+                        </div>
+
+                        <p
+                            id="status-4"
+                            class="review-status"
+                        >
+                            Pending
+                        </p>
+
+                    </div>
+
+                </div>
+            
+                <div class="card" id="card-5">
+
+                    <h2>Candidate 6</h2>
+
+                    
+                                <img
+                                    src="https://thumb.wikimedia.org/wikipedia/commons/thumb/3/35/Outsider_art_%2832942640764%29.jpg/500px-Outsider_art_%2832942640764%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                    alt="Candidate 6"
+                                    loading="lazy"
+                                >
+                              
+
+                    <div class="info">
+
+                        <p>
+                            <strong>Title:</strong>
+                            File:Outsider art (32942640764).jpg
+                        </p>
+
+                        <p>
+                            <strong>License:</strong>
+                            CC BY 2.0
+                        </p>
+
+                        
+                                    <p>
+                                        <a
+                                            href="https://commons.wikimedia.org/wiki/File%3AOutsider_art_(32942640764).jpg"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            View Original Image
+                                        </a>
+                                    </p>
+                                  
+
+                        
+
+                        <p class="warning">
+                            Confirm the restaurant identity,
+                            image content, and license
+                            before approving.
+                        </p>
+
+                        <div class="review-actions">
+
+                            <button
+                                class="approve-btn"
+                                onclick="approveImage(5)"
+                            >
+                                Approve
+                            </button>
+
+                            <button
+                                class="reject-btn"
+                                onclick="rejectImage(5)"
+                            >
+                                Reject
+                            </button>
+
+                            <button
+                                class="pending-btn"
+                                onclick="pendingImage(5)"
+                            >
+                                Pending
+                            </button>
+
+                        </div>
+
+                        <p
+                            id="status-5"
+                            class="review-status"
+                        >
+                            Pending
+                        </p>
+
+                    </div>
+
+                </div>
+            
+                <div class="card" id="card-6">
+
+                    <h2>Candidate 7</h2>
+
+                    
+                                <img
+                                    src="https://thumb.wikimedia.org/wikipedia/commons/thumb/7/73/Outsider_art_%2833656156241%29.jpg/500px-Outsider_art_%2833656156241%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                    alt="Candidate 7"
+                                    loading="lazy"
+                                >
+                              
+
+                    <div class="info">
+
+                        <p>
+                            <strong>Title:</strong>
+                            File:Outsider art (33656156241).jpg
+                        </p>
+
+                        <p>
+                            <strong>License:</strong>
+                            CC BY 2.0
+                        </p>
+
+                        
+                                    <p>
+                                        <a
+                                            href="https://commons.wikimedia.org/wiki/File%3AOutsider_art_(33656156241).jpg"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            View Original Image
+                                        </a>
+                                    </p>
+                                  
+
+                        
+
+                        <p class="warning">
+                            Confirm the restaurant identity,
+                            image content, and license
+                            before approving.
+                        </p>
+
+                        <div class="review-actions">
+
+                            <button
+                                class="approve-btn"
+                                onclick="approveImage(6)"
+                            >
+                                Approve
+                            </button>
+
+                            <button
+                                class="reject-btn"
+                                onclick="rejectImage(6)"
+                            >
+                                Reject
+                            </button>
+
+                            <button
+                                class="pending-btn"
+                                onclick="pendingImage(6)"
+                            >
+                                Pending
+                            </button>
+
+                        </div>
+
+                        <p
+                            id="status-6"
+                            class="review-status"
+                        >
+                            Pending
+                        </p>
+
+                    </div>
+
+                </div>
+            
+                <div class="card" id="card-7">
+
+                    <h2>Candidate 8</h2>
+
+                    
+                                <img
+                                    src="https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a2/Outsider_art_%2832972623313%29.jpg/500px-Outsider_art_%2832972623313%29.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                    alt="Candidate 8"
+                                    loading="lazy"
+                                >
+                              
+
+                    <div class="info">
+
+                        <p>
+                            <strong>Title:</strong>
+                            File:Outsider art (32972623313).jpg
+                        </p>
+
+                        <p>
+                            <strong>License:</strong>
+                            CC BY 2.0
+                        </p>
+
+                        
+                                    <p>
+                                        <a
+                                            href="https://commons.wikimedia.org/wiki/File%3AOutsider_art_(32972623313).jpg"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            View Original Image
+                                        </a>
+                                    </p>
+                                  
+
+                        
+
+                        <p class="warning">
+                            Confirm the restaurant identity,
+                            image content, and license
+                            before approving.
+                        </p>
+
+                        <div class="review-actions">
+
+                            <button
+                                class="approve-btn"
+                                onclick="approveImage(7)"
+                            >
+                                Approve
+                            </button>
+
+                            <button
+                                class="reject-btn"
+                                onclick="rejectImage(7)"
+                            >
+                                Reject
+                            </button>
+
+                            <button
+                                class="pending-btn"
+                                onclick="pendingImage(7)"
+                            >
+                                Pending
+                            </button>
+
+                        </div>
+
+                        <p
+                            id="status-7"
+                            class="review-status"
+                        >
+                            Pending
+                        </p>
+
+                    </div>
+
+                </div>
+            
+                <div class="card" id="card-8">
+
+                    <h2>Candidate 9</h2>
+
+                    
+                                <img
+                                    src="https://thumb.wikimedia.org/wikipedia/commons/thumb/5/58/The_Glendale_Evening_News_1924-01-23_%28IA_cgl_005212%29.pdf/page1-500px-The_Glendale_Evening_News_1924-01-23_%28IA_cgl_005212%29.pdf.jpg?utm_source=commons.wikimedia.org&amp;utm_campaign=imageinfo&amp;utm_content=thumbnail"
+                                    alt="Candidate 9"
+                                    loading="lazy"
+                                >
+                              
+
+                    <div class="info">
+
+                        <p>
+                            <strong>Title:</strong>
+                            File:The Glendale Evening News 1924-01-23 (IA cgl 005212).pdf
+                        </p>
+
+                        <p>
+                            <strong>License:</strong>
+                            Public domain
+                        </p>
+
+                        
+                                    <p>
+                                        <a
+                                            href="https://commons.wikimedia.org/wiki/File%3AThe_Glendale_Evening_News_1924-01-23_(IA_cgl_005212).pdf"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            View Original Image
+                                        </a>
+                                    </p>
+                                  
+
+                        
+
+                        <p class="warning">
+                            Confirm the restaurant identity,
+                            image content, and license
+                            before approving.
+                        </p>
+
+                        <div class="review-actions">
+
+                            <button
+                                class="approve-btn"
+                                onclick="approveImage(8)"
+                            >
+                                Approve
+                            </button>
+
+                            <button
+                                class="reject-btn"
+                                onclick="rejectImage(8)"
+                            >
+                                Reject
+                            </button>
+
+                            <button
+                                class="pending-btn"
+                                onclick="pendingImage(8)"
+                            >
+                                Pending
+                            </button>
+
+                        </div>
+
+                        <p
+                            id="status-8"
+                            class="review-status"
+                        >
+                            Pending
+                        </p>
+
+                    </div>
+
+                </div>
+            
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- JavaScript Review Logic -->
+    <!-- ================================================= -->
+
+    <script>
+
+        const restaurantName = "Tio's Tacos";
+
+        const city = "Riverside California";
+
+        const images = [{"id":0,"title":"File:Coronation (32490299353).jpg","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d0/Coronation_%2832490299353%29.jpg/500px-Coronation_%2832490299353%29.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3ACoronation_(32490299353).jpg","author":"\u003ca rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/12836528@N00\"\u003eKevin Dooley\u003c/a\u003e from Chandler, AZ, USA","license":"CC BY 2.0","licenseUrl":"https://creativecommons.org/licenses/by/2.0"},{"id":1,"title":"File:Tio's Tacos in Riverside, CA. (32472077263).jpg","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/9/92/Tio%27s_Tacos_in_Riverside%2C_CA._%2832472077263%29.jpg/500px-Tio%27s_Tacos_in_Riverside%2C_CA._%2832472077263%29.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3ATio's_Tacos_in_Riverside%2C_CA._(32472077263).jpg","author":"\u003ca rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/12836528@N00\"\u003eKevin Dooley\u003c/a\u003e from Chandler, AZ, USA","license":"CC BY 2.0","licenseUrl":"https://creativecommons.org/licenses/by/2.0"},{"id":2,"title":"File:Junk art 1 (33738981505).jpg","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/d/de/Junk_art_1_%2833738981505%29.jpg/500px-Junk_art_1_%2833738981505%29.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AJunk_art_1_(33738981505).jpg","author":"\u003ca rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/12836528@N00\"\u003eKevin Dooley\u003c/a\u003e from Chandler, AZ, USA","license":"CC BY 2.0","licenseUrl":"https://creativecommons.org/licenses/by/2.0"},{"id":3,"title":"File:Junk art 3 (32925858553).jpg","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0f/Junk_art_3_%2832925858553%29.jpg/500px-Junk_art_3_%2832925858553%29.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AJunk_art_3_(32925858553).jpg","author":"\u003ca rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/12836528@N00\"\u003eKevin Dooley\u003c/a\u003e from Chandler, AZ, USA","license":"CC BY 2.0","licenseUrl":"https://creativecommons.org/licenses/by/2.0"},{"id":4,"title":"File:Junk art 2 (33739026325).jpg","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b8/Junk_art_2_%2833739026325%29.jpg/500px-Junk_art_2_%2833739026325%29.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AJunk_art_2_(33739026325).jpg","author":"\u003ca rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/12836528@N00\"\u003eKevin Dooley\u003c/a\u003e from Chandler, AZ, USA","license":"CC BY 2.0","licenseUrl":"https://creativecommons.org/licenses/by/2.0"},{"id":5,"title":"File:Outsider art (32942640764).jpg","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/3/35/Outsider_art_%2832942640764%29.jpg/500px-Outsider_art_%2832942640764%29.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AOutsider_art_(32942640764).jpg","author":"\u003ca rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/12836528@N00\"\u003eKevin Dooley\u003c/a\u003e from Chandler, AZ, USA","license":"CC BY 2.0","licenseUrl":"https://creativecommons.org/licenses/by/2.0"},{"id":6,"title":"File:Outsider art (33656156241).jpg","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/7/73/Outsider_art_%2833656156241%29.jpg/500px-Outsider_art_%2833656156241%29.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AOutsider_art_(33656156241).jpg","author":"\u003ca rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/12836528@N00\"\u003eKevin Dooley\u003c/a\u003e from Chandler, AZ, USA","license":"CC BY 2.0","licenseUrl":"https://creativecommons.org/licenses/by/2.0"},{"id":7,"title":"File:Outsider art (32972623313).jpg","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a2/Outsider_art_%2832972623313%29.jpg/500px-Outsider_art_%2832972623313%29.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AOutsider_art_(32972623313).jpg","author":"\u003ca rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/12836528@N00\"\u003eKevin Dooley\u003c/a\u003e from Chandler, AZ, USA","license":"CC BY 2.0","licenseUrl":"https://creativecommons.org/licenses/by/2.0"},{"id":8,"title":"File:The Glendale Evening News 1924-01-23 (IA cgl 005212).pdf","imageUrl":"https://thumb.wikimedia.org/wikipedia/commons/thumb/5/58/The_Glendale_Evening_News_1924-01-23_%28IA_cgl_005212%29.pdf/page1-500px-The_Glendale_Evening_News_1924-01-23_%28IA_cgl_005212%29.pdf.jpg?utm_source=commons.wikimedia.org\u0026utm_campaign=imageinfo\u0026utm_content=thumbnail","sourceUrl":"https://commons.wikimedia.org/wiki/File%3AThe_Glendale_Evening_News_1924-01-23_(IA_cgl_005212).pdf","author":"\u003cdiv class=\"fn value\"\u003e\nCowan, A.T.\u003c/div\u003e","license":"Public domain","licenseUrl":null}];
+
+        // Initial review status
+        const reviews = images.map(image => ({
+            ...image,
+            status: "pending"
+        }));
+
+
+        // =================================================
+        // Update Review Status
+        // =================================================
+
+        function updateStatus(index, status) {
+
+            reviews[index].status = status;
+
+            const statusElement =
+                document.getElementById("status-" + index);
+
+            const card =
+                document.getElementById("card-" + index);
+
+            statusElement.textContent = status;
+
+            card.classList.remove(
+                "approved",
+                "rejected",
+                "pending"
+            );
+
+            card.classList.add(status);
+
+            updateSummary();
+        }
+
+
+        // =================================================
+        // Approve Image
+        // =================================================
+
+        function approveImage(index) {
+
+            // Only one approved cover per restaurant
+            reviews.forEach((review, i) => {
+
+                if (
+                    review.status === "approved" &&
+                    i !== index
+                ) {
+                    updateStatus(i, "pending");
+                }
+
+            });
+
+            updateStatus(index, "approved");
+        }
+
+
+        // =================================================
+        // Reject Image
+        // =================================================
+
+        function rejectImage(index) {
+            updateStatus(index, "rejected");
+        }
+
+
+        // =================================================
+        // Set Image Back to Pending
+        // =================================================
+
+        function pendingImage(index) {
+            updateStatus(index, "pending");
+        }
+
+
+        // =================================================
+        // Update Summary
+        // =================================================
+
+        function updateSummary() {
+
+            const approved = reviews.filter(
+                review => review.status === "approved"
+            ).length;
+
+            const rejected = reviews.filter(
+                review => review.status === "rejected"
+            ).length;
+
+            const pending = reviews.filter(
+                review => review.status === "pending"
+            ).length;
+
+            document.getElementById(
+                "summary"
+            ).textContent =
+                "Approved: " + approved +
+                " | Rejected: " + rejected +
+                " | Pending: " + pending;
+        }
+
+
+        // =================================================
+        // Save Review as JSON
+        // =================================================
+
+        function saveReview() {
+
+            const result = {
+
+                restaurantName: restaurantName,
+
+                city: city,
+
+                reviewedAt:
+                    new Date().toISOString(),
+
+                images: reviews
+
+            };
+
+            const blob = new Blob(
+                [JSON.stringify(result, null, 2)],
+                {
+                    type: "application/json"
+                }
+            );
+
+            const url =
+                URL.createObjectURL(blob);
+
+            const link =
+                document.createElement("a");
+
+            link.href = url;
+
+            link.download =
+                "restaurant-image-review.json";
+
+            document.body.appendChild(link);
+
+            link.click();
+
+            link.remove();
+
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 1000);
+
+        }
+
+    </script>
+
+</body>
+
+</html>
+        
