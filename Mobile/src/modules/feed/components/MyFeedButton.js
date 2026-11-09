@@ -19,7 +19,7 @@ export default function MyFeedButton({ auth, onOpenFeed, onLoginRequired }) {
 
 const styles = StyleSheet.create({
   button: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 14,
-    borderRadius: 8, backgroundColor: '#007bff' },
+    borderRadius: 8, backgroundColor: '#2563eb' },
   disabled: { opacity: 0.5 },
-  text: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  text: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });

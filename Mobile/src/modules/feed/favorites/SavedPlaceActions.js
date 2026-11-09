@@ -50,12 +50,12 @@ const styles = StyleSheet.create({
   container: { gap: 6, alignSelf: 'flex-start' },
   button: {
     alignSelf: 'flex-start', justifyContent: 'center', minHeight: 44,
-    paddingHorizontal: 14, borderRadius: 22, borderWidth: 1,
-    borderColor: '#b8cbb7', backgroundColor: '#fff',
+    paddingHorizontal: 14, borderRadius: 8, borderWidth: 1,
+    borderColor: '#2563eb', backgroundColor: '#fff',
   },
-  saved: { backgroundColor: '#e5eee1' },
+  saved: { backgroundColor: '#e8eefc' },
   pressed: { opacity: 0.7 },
   disabled: { opacity: 0.5 },
-  label: { color: '#31563c', fontWeight: '600', fontSize: 13 },
-  error: { color: '#9b3029', fontSize: 13, lineHeight: 18 },
+  label: { color: '#2563eb', fontWeight: '600', fontSize: 14 },
+  error: { color: '#dc2626', fontSize: 13, lineHeight: 18 },
 });

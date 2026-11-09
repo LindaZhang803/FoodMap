@@ -46,12 +46,12 @@ export default function PreviewPlaceDetails({ restaurant, dishId, savedPlaces, o
 }
 
 const styles = StyleSheet.create({
-  content: { width: '100%', maxWidth: 680, alignSelf: 'center', gap: 12, padding: 20 },
+  content: { width: '100%', maxWidth: 680, alignSelf: 'center', gap: 12, padding: 16 },
   photo: { height: 200, width: '100%', borderRadius: 12 },
-  title: { fontSize: 28, fontWeight: '700', color: '#213b2b' },
-  subheading: { fontSize: 18, fontWeight: '700', color: '#213b2b' },
-  secondary: { fontSize: 15, color: '#57675b' },
-  link: { color: '#31563c', fontSize: 15, fontWeight: '700', paddingVertical: 8 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#222' },
+  subheading: { fontSize: 18, fontWeight: 'bold', color: '#222' },
+  secondary: { fontSize: 14, lineHeight: 20, color: '#666' },
+  link: { color: '#2563eb', fontSize: 16, fontWeight: '600', paddingVertical: 8 },
   menu: { gap: 8 },
-  menuItem: { paddingHorizontal: 12, backgroundColor: '#e6ece3', borderRadius: 8 },
+  menuItem: { paddingHorizontal: 12, backgroundColor: '#e8eefc', borderRadius: 8 },
 });

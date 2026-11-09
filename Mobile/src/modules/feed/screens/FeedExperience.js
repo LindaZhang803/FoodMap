@@ -111,12 +111,13 @@ function Experience({
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#f4f5f2' },
+  screen: { flex: 1, backgroundColor: '#f5f5f5' },
   page: { flex: 1 },
   hidden: { display: 'none' },
-  tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 14, alignSelf: 'center' },
-  tab: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#e6eae3' },
-  selected: { backgroundColor: '#315a3e' },
-  text: { color: '#435343', fontWeight: '600' },
-  selectedText: { color: '#fff', fontWeight: '600' },
+  tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingVertical: 12,
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e5e5' },
+  tab: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#e8eefc' },
+  selected: { backgroundColor: '#2563eb' },
+  text: { color: '#2563eb', fontSize: 14, fontWeight: '600' },
+  selectedText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });

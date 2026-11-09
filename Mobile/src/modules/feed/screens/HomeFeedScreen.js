@@ -77,7 +77,7 @@ export function HomeFeedView({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f4f5f2' },
+  safe: { flex: 1, backgroundColor: '#f5f5f5' },
   body: { flex: 1 },
   refresh: { alignSelf: 'flex-start', marginBottom: 16 },
 });

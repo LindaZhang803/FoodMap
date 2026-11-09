@@ -35,9 +35,9 @@ export default function FoodMapFeed({ auth, preferenceRevision = 0, onLoginRequi
 }
 
 const styles = StyleSheet.create({
-  signIn: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 },
-  message: { fontSize: 16, color: '#435343', textAlign: 'center' },
+  signIn: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16, backgroundColor: '#f5f5f5' },
+  message: { fontSize: 16, color: '#666', textAlign: 'center' },
   button: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 16,
-    borderRadius: 8, backgroundColor: '#007bff' },
+    borderRadius: 10, backgroundColor: '#2563eb' },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

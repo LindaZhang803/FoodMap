@@ -29,12 +29,11 @@ export default function FeedRestaurantItem({
 
 const styles = StyleSheet.create({
   item: {
-    marginBottom: 24,
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
+    marginBottom: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#e5e9e3',
+    elevation: 3,
   },
-  actions: { paddingHorizontal: 16, paddingBottom: 14 },
+  actions: { paddingHorizontal: 16, paddingBottom: 16 },
 });

@@ -7,7 +7,7 @@ const MAX_CHOICES = 20;
 const SIZE = 236;
 const CENTER = SIZE / 2;
 const MARKER_RADIUS = 92;
-const COLORS = ['#39744f', '#a45a34', '#53718a', '#875475', '#676b2f'];
+const COLORS = ['#2563eb', '#16a34a', '#d97706', '#7c3aed', '#dc2626'];
 const EMPTY = [];
 const defaultAnimation = (rotation, config) => Animated.timing(rotation, config);
 
@@ -367,23 +367,23 @@ export default function DecisionWheel({
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 20, paddingBottom: 36, gap: 12, backgroundColor: '#f4f5f2' },
-  heading: { fontSize: 28, fontWeight: '800', color: '#24392b' },
-  subheading: { fontSize: 17, fontWeight: '700', color: '#24392b' },
-  muted: { color: '#53624f' },
+  content: { padding: 16, paddingBottom: 30, gap: 12, backgroundColor: '#f5f5f5' },
+  heading: { fontSize: 24, fontWeight: 'bold', color: '#222' },
+  subheading: { fontSize: 18, fontWeight: 'bold', color: '#222' },
+  muted: { color: '#666', fontSize: 14, lineHeight: 20 },
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  button: { alignItems: 'center', backgroundColor: '#e6eae3', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 },
-  buttonText: { color: '#31563c', fontWeight: '700' },
-  primary: { backgroundColor: '#31563c' },
-  primaryText: { color: '#ffffff' },
-  disabled: { opacity: 0.45 },
+  button: { minHeight: 44, justifyContent: 'center', alignItems: 'center', backgroundColor: '#e8eefc', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10 },
+  buttonText: { color: '#2563eb', fontSize: 14, fontWeight: '600' },
+  primary: { backgroundColor: '#2563eb' },
+  primaryText: { color: '#fff' },
+  disabled: { opacity: 0.5 },
   wheelWrap: { alignSelf: 'center', position: 'relative', paddingTop: 7 },
-  wheel: { width: SIZE, height: SIZE, borderRadius: CENTER, backgroundColor: '#e5ebdf', overflow: 'hidden' },
+  wheel: { width: SIZE, height: SIZE, borderRadius: CENTER, backgroundColor: '#eaf0ff', overflow: 'hidden' },
   spoke: { ...StyleSheet.absoluteFillObject, alignItems: 'center' },
-  line: { width: 1, height: CENTER, backgroundColor: '#bacbb7' },
+  line: { width: 1, height: CENTER, backgroundColor: '#cbd5e1' },
   marker: { position: 'absolute', width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  markerText: { fontSize: 11, fontWeight: '700', color: '#ffffff' },
-  hub: { width: 30, height: 30, position: 'absolute', top: CENTER - 15, left: CENTER - 15, borderRadius: 15, backgroundColor: '#31563c' },
+  markerText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+  hub: { width: 30, height: 30, position: 'absolute', top: CENTER - 15, left: CENTER - 15, borderRadius: 15, backgroundColor: '#2563eb' },
   pointer: {
     position: 'absolute',
     top: 0,
@@ -393,13 +393,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 20,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderTopColor: '#24392b',
+    borderTopColor: '#222',
   },
-  result: { padding: 12, gap: 8, borderRadius: 8, backgroundColor: '#dce8db' },
+  result: { padding: 16, gap: 8, borderRadius: 12, backgroundColor: '#fff', elevation: 3 },
   resultPhoto: { width: '100%', height: 170, borderRadius: 8 },
-  resultText: { color: '#24392b', fontSize: 16, fontWeight: '700' },
-  option: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: 10, backgroundColor: '#ffffff', borderRadius: 8 },
-  optionLabel: { flexGrow: 1, color: '#24392b' },
-  input: { flexGrow: 1, minWidth: 145, borderWidth: 1, borderColor: '#bbc9b8', borderRadius: 8, padding: 10, backgroundColor: '#ffffff', color: '#24392b' },
-  error: { color: '#943d38', fontWeight: '600' },
+  resultText: { color: '#222', fontSize: 18, fontWeight: 'bold' },
+  option: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: 12, backgroundColor: '#fff', borderRadius: 12 },
+  optionLabel: { flexGrow: 1, color: '#222', fontSize: 14 },
+  input: { flexGrow: 1, minWidth: 145, minHeight: 46, borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 12, backgroundColor: '#fff', color: '#222', fontSize: 15 },
+  error: { color: '#dc2626', fontSize: 14, fontWeight: '600' },
 });
