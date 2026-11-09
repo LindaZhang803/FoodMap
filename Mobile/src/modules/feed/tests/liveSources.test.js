@@ -147,22 +147,101 @@ describe('live authenticated numeric profile adapter', () => {
     expect(await repository.getSnapshot({ userId: 'a' })).toMatchObject({ status: 'unavailable' });
   });
 
+// =====================================================
+// Reject Invalid or Mismatched Profiles
+// =====================================================
+
+test.each([
+  {},
+  { userId: 'a' },
+
+  { userId: 'a', flavorTargets: {} },
+  { userId: 'a', flavorTargets: { spicy: 0 } },
+
+  { userId: 'a', flavorTargets: { ...vector(0), spicy: '0' } },
+  { userId: 'a', flavorTargets: { ...vector(0), spicy: null } },
+  { userId: 'a', flavorTargets: { ...vector(0), spicy: NaN } },
+  { userId: 'a', flavorTargets: { ...vector(0), spicy: Infinity } },
+
+  { userId: 'a', flavorTargets: { ...vector(0), spicy: 6 } },
+  { userId: 'a', flavorTargets: { ...vector(0), spicy: -1 } },
+  { userId: 'a', flavorTargets: { ...vector(0), extra: 0 } },
+
+  { userId: 'other', flavorTargets: vector(0) },
+  { userId: 'other', user: { id: 'a', flavorTargets: vector(0) } },
+
+])('rejects missing, malformed, or mismatched profile %j', async payload => {
+  const { repository } = preferences(
+    'a',
+    vector(0),
+    {
+      readSelfProfile: async () => payload,
+    }
+  );
+
+  expect(
+    await repository.getSnapshot({
+      userId: 'a',
+    })
+  ).toMatchObject({
+    status: 'unavailable',
+    flavorTargets: null,
+  });
+});
+
+// =====================================================
+// Support Legacy Accounts Profiles
+// =====================================================
+
+// Existing Accounts profiles may contain textual
+// foodPreferences or favoriteCuisines without
+// a six-dimensional numeric flavorTargets vector.
+//
+// These profiles should use fallback recommendations,
+// rather than being treated as invalid accounts.
+
   test.each([
-    {}, { userId: 'a' }, { userId: 'a', foodPreferences: ['spicy'] },
-    { user: { id: 'a', foodPreferences: ['sweet'] } },
-    { userId: 'a', flavorTargets: {} }, { userId: 'a', flavorTargets: { spicy: 0 } },
-    { userId: 'a', flavorTargets: { ...vector(0), spicy: '0' } },
-    { userId: 'a', flavorTargets: { ...vector(0), spicy: null } },
-    { userId: 'a', flavorTargets: { ...vector(0), spicy: NaN } },
-    { userId: 'a', flavorTargets: { ...vector(0), spicy: Infinity } },
-    { userId: 'a', flavorTargets: { ...vector(0), spicy: 6 } },
-    { userId: 'a', flavorTargets: { ...vector(0), spicy: -1 } },
-    { userId: 'a', flavorTargets: { ...vector(0), extra: 0 } },
-    { userId: 'other', flavorTargets: vector(0) },
-    { userId: 'other', user: { id: 'a', flavorTargets: vector(0) } },
-  ])('rejects missing, legacy, malformed, or mismatched profile %j', async payload => {
-    const { repository } = preferences('a', vector(0), { readSelfProfile: async () => payload });
-    expect(await repository.getSnapshot({ userId: 'a' })).toMatchObject({ status: 'unavailable', flavorTargets: null });
+    {
+      userId: 'a',
+      foodPreferences: ['spicy'],
+    },
+
+    {
+      user: {
+        id: 'a',
+        foodPreferences: ['sweet'],
+      },
+    },
+
+    {
+      userId: 'a',
+      favoriteCuisines: ['Japanese'],
+    },
+
+    {
+      user: {
+        id: 'a',
+        favoriteCuisines: ['Chinese'],
+      },
+    },
+
+  ])('supports legacy Accounts profiles without numeric preferences %j', async payload => {
+    const { repository } = preferences(
+      'a',
+      vector(0),
+      {
+        readSelfProfile: async () => payload,
+      }
+    );
+
+    expect(
+      await repository.getSnapshot({
+        userId: 'a',
+      })
+    ).toMatchObject({
+      status: 'empty',
+      flavorTargets: null,
+    });
   });
 
   test('only explicit null is empty, while all zero and Accounts envelope profiles are ready', async () => {
