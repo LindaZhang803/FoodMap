@@ -38,25 +38,27 @@ FoodMapFeed does not mount its readers without a usable signed-in session.
 
 FeedRouteScreen reuses the existing Accounts self-profile reader and restaurant
 and dish browser screens. No exact-dish route or server mount is added.
-Mobile/metro.config.js resolves React and React Native from the app installation
-so the standalone feed installation cannot introduce a second runtime.
+The app and standalone preview use the single dependency installation in
+`Mobile/node_modules`, managed by `Mobile/package-lock.json`. Metro uses its
+standard Expo resolver.
 
 The button's shared-file exception covers Mobile/App.js, Mobile/AccountApp.jsx,
 Mobile/RestaurantBrowser.jsx, the toolbar slot in RestaurantListScreen.js, and
-Mobile/metro.config.js. Other owner source and root manifests remain unchanged.
+Mobile/metro.config.js. The later CI package repair also updates the shared
+mobile manifest and lockfile for the single-install setup documented below.
 
-From this directory, the shared navigation checks run with:
+From the Mobile root, the shared navigation checks run with:
 
 ```sh
-npm test -- --config jest.host.config.cjs
+npm run test:feed:host
 ```
 
 These exercise the actual Accounts hook, login screen, account UI, app toolbar
 and feed, with synthetic HTTP responses and native secure-storage mocks.
-The host test uses the same single React runtime as the app build.
-Feed CI installs the existing Mobile and feed lockfiles and checks navigation
-plus the mounted app's web and iOS exports. Restart Expo after adding the Metro
-configuration so the runtime resolver takes effect.
+The host test uses the same React runtime as the app build.
+Feed CI installs only the Mobile lockfile and checks navigation plus the
+mounted app's web and iOS exports. Restart Expo after changing the dependency
+installation or Metro configuration.
 
 ## Entry points for the shared app owner
 
@@ -116,34 +118,36 @@ rating/count fields used by fallback sorting. These owner data changes are
 outside this repair. Missing numeric data preserves fallback recommendations,
 unscored dishes and restaurants without dishes. Taste filtering remains gated.
 
-## Dependency handoff
+## Shared mobile dependencies
 
-The root Mobile installation must eventually become canonical. Its owner must
-add the runtime/test dependencies already declared in this module's
-`package.json` using versions compatible with the installed Expo SDK, update
-the root lockfile and test/preview commands, and remove the nested React
-installation together with the feed manifest transition. Do not use React
-aliases to conceal two installations.
+Run `npm ci` from the Mobile root. Runtime and test dependencies are declared
+in `Mobile/package.json`; `Mobile/package-lock.json` is the only mobile lockfile.
+The feed package is a command launcher and does not install its own dependencies.
+If an older checkout left `src/modules/feed/node_modules` behind, move that
+folder out of the project before running tests or Expo so it cannot shadow the
+shared React installation.
 
-That transition cannot be completed within the allowed files: the root
-manifest currently lacks feed packages, and the root test run discovers feed
-tests across separate React installations. Isolated feed checks passing do not
-mean the shared mobile test/dependency integration passes.
+From the Mobile root:
+
+```sh
+npm ci
+npm test -- --runInBand
+npm run test:feed
+npm run test:feed:host
+npm run web:feed
+EXPO_NO_TELEMETRY=1 EXPO_OFFLINE=1 npm run export:feed
+```
+
+The existing preview commands also work from this feed directory using the
+shared dependencies. `npm test` and `npm run test:host` here forward to the
+Mobile root test commands. Do not run a separate dependency installation in
+the feed directory.
 
 ## Local verification
 
-The current real-reader binding tests also need the existing root Mobile
-installation: sibling owner sources resolve their Babel runtime from there.
-Feed CI explicitly installs that root lockfile and then the feed lockfile.
-The standalone preview itself can still build from the feed installation alone.
-
-From this directory, after `npm ci` at the Mobile root and the current locked
-feed installation:
-
-```sh
-pnpm test --ci
-EXPO_NO_TELEMETRY=1 EXPO_OFFLINE=1 pnpm run export:web
-```
+The normal app, owner catalog readers, feed tests and standalone preview all
+resolve their dependencies from the Mobile root. Feed CI uses the same
+single-install setup as FoodMap CI.
 
 `foodMapFeed.test.js` uses the real owner catalog readers and Member 4 clients
 with synthetic HTTP responses. It checks stable bulk reads, exact restaurant

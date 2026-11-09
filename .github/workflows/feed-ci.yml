@@ -62,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: Mobile/src/modules/feed
+        working-directory: Mobile
     env:
       CI: 'true'
       EXPO_NO_TELEMETRY: '1'
@@ -70,41 +70,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: Mobile/package-lock.json
 
-      - name: Cache local pnpm store (.pnpm-store)
-        uses: actions/cache@v4
-        with:
-          path: Mobile/src/modules/feed/.pnpm-store
-          key: ${{ runner.os }}-pnpm-feed-${{ hashFiles('Mobile/src/modules/feed/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-feed-
-
-      # Real reader sources live outside feed and resolve their runtime from
-      # the shared app installation. Root manifest consolidation is owner work.
-      - name: Install existing shared reader dependencies
-        working-directory: Mobile
+      - name: Install shared mobile dependencies
         run: npm ci
 
-      - name: Install Member 4 dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Run Jest test suites
-        run: pnpm test --ci
+        run: npm run test:feed -- --ci
 
       - name: Verify My Feed toolbar and shared sign-in navigation
-        run: pnpm test --config jest.host.config.cjs --ci
+        run: npm run test:feed:host -- --ci
 
       - name: Verify Expo Web bundle export
-        run: pnpm run export:web
+        run: npm run export:feed
 
   mobile-host-build:
     name: Mobile — App with My Feed (Web + iOS)
@@ -119,24 +102,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: Mobile/package-lock.json
 
-      - name: Install existing shared app dependencies
+      - name: Install shared mobile dependencies
         run: npm ci
-
-      - name: Install Member 4 runtime dependencies
-        working-directory: Mobile/src/modules/feed
-        run: pnpm install --frozen-lockfile
 
       - name: Verify app web export
         run: npx --no-install expo export --platform web --output-dir /tmp/foodmap-app-web
