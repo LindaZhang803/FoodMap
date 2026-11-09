@@ -100,11 +100,14 @@ jobs:
       - name: Run Jest test suites
         run: pnpm test --ci
 
+      - name: Verify My Feed toolbar and shared sign-in navigation
+        run: pnpm test --config jest.host.config.cjs --ci
+
       - name: Verify Expo Web bundle export
         run: pnpm run export:web
 
   mobile-host-build:
-    name: Mobile — Existing App Exports (feed mount pending)
+    name: Mobile — App with My Feed (Web + iOS)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -116,6 +119,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -126,8 +134,12 @@ jobs:
       - name: Install existing shared app dependencies
         run: npm ci
 
-      - name: Verify existing app web export
+      - name: Install Member 4 runtime dependencies
+        working-directory: Mobile/src/modules/feed
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify app web export
         run: npx --no-install expo export --platform web --output-dir /tmp/foodmap-app-web
 
-      - name: Verify existing app iOS export
+      - name: Verify app iOS export
         run: npx --no-install expo export --platform ios --output-dir /tmp/foodmap-app-ios

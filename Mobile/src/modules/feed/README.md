@@ -9,7 +9,8 @@ and the explicitly labeled `dev/` preview.
 Only `Mobile/src/modules/feed/`, `backend/modules/feed/` and
 `.github/workflows/feed-ci.yml` may change. Shared app/server entry points,
 root manifests/lockfiles, and Restaurants, Reviews and Accounts code remain
-read-only. The normal app does not currently mount the feed.
+read-only during that repair. The My Feed button has a user-authorized
+exception for the shared mobile files needed to open it.
 
 The branch/history comparison confirmed Member 4's implementation commits are
 authored by `szang005-ucr`. Other branches can contain merged copies of those
@@ -25,6 +26,37 @@ checked during this repair:
 | `skim1108` | `fce3058` | Dishes and Reviews |
 | `qsun036` | `e76c804` | Accounts |
 | `qsun036-test` | `7975a9c` | Current Accounts integration history |
+
+## My Feed entry
+
+My Feed is immediately after Near Me and before Sort in the restaurant toolbar.
+It uses the single Accounts session lifted to App and passed back to AccountApp.
+Guests open the existing login screen and return to the feed after login;
+signed-in users open it directly. While the session is being restored or changed,
+the button is disabled. Back to home cancels the pending login destination.
+FoodMapFeed does not mount its readers without a usable signed-in session.
+
+FeedRouteScreen reuses the existing Accounts self-profile reader and restaurant
+and dish browser screens. No exact-dish route or server mount is added.
+Mobile/metro.config.js resolves React and React Native from the app installation
+so the standalone feed installation cannot introduce a second runtime.
+
+The button's shared-file exception covers Mobile/App.js, Mobile/AccountApp.jsx,
+Mobile/RestaurantBrowser.jsx, the toolbar slot in RestaurantListScreen.js, and
+Mobile/metro.config.js. Other owner source and root manifests remain unchanged.
+
+From this directory, the shared navigation checks run with:
+
+```sh
+npm test -- --config jest.host.config.cjs
+```
+
+These exercise the actual Accounts hook, login screen, account UI, app toolbar
+and feed, with synthetic HTTP responses and native secure-storage mocks.
+The host test uses the same single React runtime as the app build.
+Feed CI installs the existing Mobile and feed lockfiles and checks navigation
+plus the mounted app's web and iOS exports. Restart Expo after adding the Metro
+configuration so the runtime resolver takes effect.
 
 ## Entry points for the shared app owner
 
@@ -60,7 +92,8 @@ The shared owner must supply these existing host interfaces:
 Discover and Wheel share one public candidate snapshot. Discover, detail actions,
 Want to Try and Wheel imports share one live Favorites owner. Restaurant `_id`
 is preserved; the dish reader's `id` becomes `dishId`, keeping its exact parent
-`restaurantId`. Guests can browse and use the manual Wheel.
+`restaurantId`. The lower-level experience and preview retain guest browsing
+and manual Wheel use; normal My Feed entry requires sign-in.
 
 Do not supply `onDishPress` until the host has an exact-dish route accepting
 `(dishId, restaurantId)`. In this checkout `DishBrowserScreen` only accepts the
@@ -116,4 +149,5 @@ EXPO_NO_TELEMETRY=1 EXPO_OFFLINE=1 pnpm run export:web
 with synthetic HTTP responses. It checks stable bulk reads, exact restaurant
 IDs, guest login delegation, both saved target types across remounts, common
 Wheel imports, fallback browsing and expired-session delegation. It does not
-claim that the normal app is mounted or that a native device was exercised.
+claim that a native device was exercised. The additional host navigation
+tests cover the shared app entry separately.

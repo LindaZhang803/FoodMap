@@ -46,25 +46,29 @@ beforeEach(() => {
 });
 afterEach(() => { global.fetch = originalFetch; });
 
-test('real owner catalog readers stay stable, preserve recommended dishes, and delegate guest navigation', async () => {
+test('feed waits for sign-in, then uses stable owner readers and canonical dish links', async () => {
   let latest;
   const onRestaurantPress = jest.fn();
   const onLoginRequired = jest.fn();
   const props = { onRestaurantPress, onLoginRequired,
     renderDetail: experience => { latest = experience; return null; } };
   const view = render(<FoodMapFeed {...props} auth={{ phase: 'signedOut' }} />);
+  expect(global.fetch).not.toHaveBeenCalled();
+  expect(latest).toBeUndefined();
+  fireEvent.press(screen.getByRole('button', { name: 'Sign in to load your feed' }));
+  expect(onLoginRequired).toHaveBeenCalledTimes(1);
+  view.rerender(<FoodMapFeed {...props} auth={auth} />);
+  await waitFor(() => expect(latest.savedPlaces.status).toBe('ready'));
   await waitFor(() => expect(latest.feed.entries).toHaveLength(1));
   expect(latest.feed.entries[0].recommendedDish).toMatchObject({ dishId, restaurantId });
-  expect(latest.feed.preferenceStatus).toBe('signed-out');
+  expect(latest.feed.preferenceStatus).toBe('unavailable');
   fireEvent.press(screen.getByRole('button', { name: 'Open restaurant Owner restaurant' }));
   expect(onRestaurantPress).toHaveBeenCalledWith(restaurantId);
-  fireEvent.press(screen.getByRole('button', { name: 'Sign in to save Owner restaurant' }));
-  expect(onLoginRequired).toHaveBeenCalledTimes(1);
   fireEvent.press(screen.getByRole('tab', { name: 'Wheel' }));
-  view.rerender(<FoodMapFeed {...props} auth={{ phase: 'signedOut' }} />);
+  view.rerender(<FoodMapFeed {...props} auth={auth} />);
   await act(async () => {});
-  expect(global.fetch.mock.calls.map(([url]) => url)).toEqual([
-    `${origin}/api/restaurants`, `${origin}/api/dishes`,
+  expect(global.fetch.mock.calls.map(([url]) => url).sort()).toEqual([
+    `${origin}/api/dishes`, `${origin}/api/favorites`, `${origin}/api/restaurants`,
   ]);
 });
 
@@ -121,6 +125,20 @@ test('the current Favorites 401 delegates cleanup and signingOut drops private s
   expect(latest.savedPlaces.items).toEqual([]);
   expect(latest.savedPlaces.sessionScope).toBeNull();
   view.rerender(<FoodMapFeed {...props} auth={{ ...auth, phase: 'signingOut' }} />);
-  expect(latest.savedPlaces.status).toBe('signed-out');
-  expect(latest.savedPlaces.items).toEqual([]);
+  expect(screen.getByText('Sign in to load your feed.')).toBeTruthy();
+  expect(screen.queryByRole('tab', { name: 'Discover' })).toBeNull();
+});
+
+test.each([
+  undefined,
+  { phase: 'restoring' },
+  { phase: 'signingIn' },
+  { ...auth, phase: 'signingOut' },
+  { ...auth, phase: 'clearing' },
+  { phase: 'signedIn', user: auth.user },
+])('feed makes no requests without a usable signed-in session: %j', async invalidAuth => {
+  render(<FoodMapFeed auth={invalidAuth} onLoginRequired={jest.fn()} />);
+  await act(async () => {});
+  expect(global.fetch).not.toHaveBeenCalled();
+  expect(screen.queryByRole('tab', { name: 'Discover' })).toBeNull();
 });
