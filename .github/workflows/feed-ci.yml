@@ -13,11 +13,11 @@ concurrency:
 
 jobs:
   backend-feed:
-    name: Backend — Feed & Favorites (Node Test + MongoMemoryServer)
+    name: Backend — Feed, Favorites & Real Owner Contracts
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backend/modules/feed
+        working-directory: backend
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,7 +27,9 @@ jobs:
         with:
           node-version: '22.x'
           cache: 'npm'
-          cache-dependency-path: backend/modules/feed/package-lock.json
+          cache-dependency-path: |
+            backend/package-lock.json
+            backend/modules/feed/package-lock.json
 
       - name: Cache MongoDB Memory Server binary (7.0.24)
         uses: actions/cache@v4
@@ -35,14 +37,25 @@ jobs:
           path: /tmp/foodmap-member4-mongodb
           key: ${{ runner.os }}-mongodb-memory-server-7.0.24
 
-      - name: Install dependencies
+      # Shared manifests remain owned by the host. Keep both locked installs
+      # explicit until its owner supplies the canonical feed test dependency.
+      - name: Install existing shared backend dependencies
         run: npm ci
 
+      - name: Install Member 4 test dependencies
+        run: npm ci --prefix modules/feed
+
+      - name: Run shared Jest suites without Node-runner discovery
+        run: npm test
+
       - name: Run unit & Express route contract tests
-        run: npm run test:unit
+        run: npm --prefix modules/feed run test:unit
 
       - name: Run disposable MongoDB integration tests
-        run: npm run test:mongo
+        run: npm --prefix modules/feed run test:mongo
+
+      - name: Verify real Accounts, Restaurant and Dish integration
+        run: npm --prefix modules/feed run test:host
 
   mobile-feed:
     name: Mobile — Feed, Favorites & Wheel (Jest + Expo Web)
@@ -75,7 +88,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-feed-
 
-      - name: Install dependencies
+      # Real reader sources live outside feed and resolve their runtime from
+      # the shared app installation. Root manifest consolidation is owner work.
+      - name: Install existing shared reader dependencies
+        working-directory: Mobile
+        run: npm ci
+
+      - name: Install Member 4 dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Run Jest test suites
@@ -84,12 +103,15 @@ jobs:
       - name: Verify Expo Web bundle export
         run: pnpm run export:web
 
-  backend-shared:
-    name: Backend — Shared Host & Root Dependencies
+  mobile-host-build:
+    name: Mobile — Existing App Exports (feed mount pending)
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backend
+        working-directory: Mobile
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -98,12 +120,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
+          cache: 'npm'
+          cache-dependency-path: Mobile/package-lock.json
 
-      - name: Install and test root backend (when package-lock.json is present)
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-            npm test --if-present
-          else
-            echo "No root backend/package-lock.json tracked on this branch; skipping."
-          fi
+      - name: Install existing shared app dependencies
+        run: npm ci
+
+      - name: Verify existing app web export
+        run: npx --no-install expo export --platform web --output-dir /tmp/foodmap-app-web
+
+      - name: Verify existing app iOS export
+        run: npx --no-install expo export --platform ios --output-dir /tmp/foodmap-app-ios

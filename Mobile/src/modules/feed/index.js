@@ -1,6 +1,7 @@
 export { default as HomeFeedScreen } from './screens/HomeFeedScreen';
 export { HomeFeedView } from './screens/HomeFeedScreen';
 export { default as FeedExperience, useFeedExperience } from './screens/FeedExperience';
+export { default as FoodMapFeed } from './screens/FoodMapFeed';
 export { createLiveCatalogSources, createLiveAccountSource, resolveCatalogImageUrl } from './services/liveSources';
 export { toFeedSession } from './services/accountSession';
 export { default as FeedSection } from './components/FeedSection';

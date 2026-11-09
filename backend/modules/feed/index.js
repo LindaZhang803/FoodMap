@@ -14,4 +14,22 @@ async function createFavoritesModule({ connection, authenticate, readers }) {
   return { router: createFavoritesRouter({ authenticate, service }), Favorite };
 }
 
-module.exports = { createFavoritesModule, createCatalogReaders };
+const mountedApps = new WeakMap();
+
+/** The host connects first and passes its existing catalog models and auth. */
+function mountFavoritesModule(app, { connection, authenticate, Restaurant, Dish }) {
+  if (mountedApps.has(app)) return mountedApps.get(app);
+  const ready = createFavoritesModule({
+    connection, authenticate, readers: createCatalogReaders({ Restaurant, Dish }),
+  }).then(favorites => {
+    app.use('/api/favorites', favorites.router);
+    return favorites;
+  }).catch(error => {
+    mountedApps.delete(app);
+    throw error;
+  });
+  mountedApps.set(app, ready);
+  return ready;
+}
+
+module.exports = { createFavoritesModule, createCatalogReaders, mountFavoritesModule };

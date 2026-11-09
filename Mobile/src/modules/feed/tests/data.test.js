@@ -183,6 +183,15 @@ describe('repository boundaries and synthetic sources', () => {
     expect(await repo.getSnapshot({ userId: 'demo-user-invalid' })).toMatchObject({ status: 'unavailable', flavorTargets: null });
   });
 
+  test.each([{}, undefined, { spicy: 0 }, { ...all(0), spicy: '0' }])(
+    'malformed preference targets %j remain unavailable at the repository boundary', async flavorTargets => {
+      const accountSource = { getPreferences: async () => ({ userId: 'current', flavorTargets }) };
+      const snapshot = await new UserPreferenceRepository({ accountSource }).getSnapshot({ userId: 'current' });
+      expect(snapshot).toMatchObject({ status: 'unavailable', userId: 'current', flavorTargets: null });
+      expect(snapshot.error).toBeInstanceOf(Error);
+    },
+  );
+
   test('mismatched preference identity and service failure become unavailable snapshots', async () => {
     const repo = new UserPreferenceRepository({ accountSource: { getPreferences: async () => ({ userId: 'other', flavorTargets: all(0) }) } });
     expect(await repo.getSnapshot({ userId: 'current' })).toMatchObject({ status: 'unavailable', userId: 'current', flavorTargets: null });

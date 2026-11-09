@@ -48,10 +48,7 @@ export class UserPreferenceRepository {
 
       const targets = payload.flavorTargets;
 
-      if (
-        targets === null ||
-        (isRecord(targets) && Object.keys(targets).length === 0)
-      ) {
+      if (targets === null) {
         return {
           status: 'empty',
           userId,
