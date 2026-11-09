@@ -2,7 +2,8 @@
  * Numeric values are measured/entered intensities: 0 neutral, 5 maximum.
  * All six values must be finite numbers in [0, 5]. Extra keys invalidate a
  * vector; missing/null, strings, NaN, and infinity are never coerced or filled.
- * An empty profile is null or an empty object. A partial profile is unavailable.
+ * Only explicit null is an unset profile. Empty objects and partial profiles
+ * are unavailable.
  * Dish traits must be assigned explicitly by the food-data owner; this module
  * never infers them from a cuisine, name, photograph, or review.
  *

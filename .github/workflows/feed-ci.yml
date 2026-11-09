@@ -1,0 +1,119 @@
+name: Feed CI
+
+on:
+  push:
+    branches: [szang005, szang005-test]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-feed:
+    name: Backend — Feed, Favorites & Real Owner Contracts
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            backend/modules/feed/package-lock.json
+
+      - name: Cache MongoDB Memory Server binary (7.0.24)
+        uses: actions/cache@v4
+        with:
+          path: /tmp/foodmap-member4-mongodb
+          key: ${{ runner.os }}-mongodb-memory-server-7.0.24
+
+      # Shared manifests remain owned by the host. Keep both locked installs
+      # explicit until its owner supplies the canonical feed test dependency.
+      - name: Install existing shared backend dependencies
+        run: npm ci
+
+      - name: Install Member 4 test dependencies
+        run: npm ci --prefix modules/feed
+
+      - name: Run shared Jest suites without Node-runner discovery
+        run: npm test
+
+      - name: Run unit & Express route contract tests
+        run: npm --prefix modules/feed run test:unit
+
+      - name: Run disposable MongoDB integration tests
+        run: npm --prefix modules/feed run test:mongo
+
+      - name: Verify real Accounts, Restaurant and Dish integration
+        run: npm --prefix modules/feed run test:host
+
+  mobile-feed:
+    name: Mobile — Feed, Favorites & Wheel (Jest + Expo Web)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Mobile
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: Mobile/package-lock.json
+
+      - name: Install shared mobile dependencies
+        run: npm ci
+
+      - name: Run Jest test suites
+        run: npm run test:feed -- --ci
+
+      - name: Verify My Feed toolbar and shared sign-in navigation
+        run: npm run test:feed:host -- --ci
+
+      - name: Verify Expo Web bundle export
+        run: npm run export:feed
+
+  mobile-host-build:
+    name: Mobile — App with My Feed (Web + iOS)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Mobile
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: Mobile/package-lock.json
+
+      - name: Install shared mobile dependencies
+        run: npm ci
+
+      - name: Verify app web export
+        run: npx --no-install expo export --platform web --output-dir /tmp/foodmap-app-web
+
+      - name: Verify app iOS export
+        run: npx --no-install expo export --platform ios --output-dir /tmp/foodmap-app-ios

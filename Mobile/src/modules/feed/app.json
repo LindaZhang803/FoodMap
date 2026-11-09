@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "FoodMap Feed Preview",
+    "slug": "foodmap-member4-feed-preview",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "web": { "bundler": "metro" }
+  }
+}

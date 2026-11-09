@@ -32,6 +32,7 @@ import {
 
 export default function RestaurantListScreen({
   onSelectRestaurant,
+  toolbarAction,
 }) {
   const [restaurants, setRestaurants] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -407,17 +408,20 @@ export default function RestaurantListScreen({
         </Pressable>
       </View>
 
-      {/* Near Me + Sort */}
+      {/* Near Me + My Feed + Sort */}
       <View style={styles.toolbar}>
-        <Pressable
-          style={styles.nearMeButton}
-          onPress={findNearbyRestaurants}
-          disabled={applyingFilters}
-        >
-          <Text style={styles.nearMeText}>
-            Near Me
-          </Text>
-        </Pressable>
+        <View style={styles.toolbarActions}>
+          <Pressable
+            style={styles.nearMeButton}
+            onPress={findNearbyRestaurants}
+            disabled={applyingFilters}
+          >
+            <Text style={styles.nearMeText}>
+              Near Me
+            </Text>
+          </Pressable>
+          {toolbarAction}
+        </View>
 
         <Pressable
           style={styles.sortButton}
@@ -639,6 +643,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 8,
+    gap: 8,
+  },
+
+  toolbarActions: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
 

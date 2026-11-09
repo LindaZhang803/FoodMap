@@ -15,7 +15,6 @@ import {
 import LoginScreen from "./src/modules/accounts/screens/LoginScreen";
 import RegisterScreen from "./src/modules/accounts/screens/RegisterScreen";
 import ProfileScreen from "./src/modules/accounts/screens/ProfileScreen";
-import useAuthSession from "./src/modules/accounts/hooks/useAuthSession";
 
 function StatusScreen({
     message,
@@ -51,6 +50,7 @@ function StatusScreen({
 }
 
 export default function AccountApp({
+    session,
     onUserChange,
     onLoginSuccess
 }) {
@@ -64,7 +64,7 @@ export default function AccountApp({
         isUploading,
         retryRestore,
         retryCleanup
-    } = useAuthSession();
+    } = session;
 
     const [authPage, setAuthPage] = useState("login");
     const [loginEmail, setLoginEmail] = useState("");

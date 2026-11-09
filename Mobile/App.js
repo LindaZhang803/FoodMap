@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 
 import {
     View,
@@ -6,14 +6,37 @@ import {
     Image,
     Pressable,
     SafeAreaView,
-    StyleSheet
+    StyleSheet,
+    Alert
 } from "react-native";
 
 import RestaurantBrowser from "./RestaurantBrowser";
 import AccountApp from "./AccountApp";
+import useAuthSession from "./src/modules/accounts/hooks/useAuthSession";
+import MyFeedButton from "./src/modules/feed/components/MyFeedButton";
+import FeedRouteScreen from "./src/modules/feed/screens/FeedRouteScreen";
 
 export default function App() {
     const [page, setPage] = useState("home");
+    const session = useAuthSession();
+    const accountReturnPage = useRef("home");
+
+    function openAccountForFeed() {
+        accountReturnPage.current = "feed";
+        setPage("account");
+    }
+
+    function backHome() {
+        accountReturnPage.current = "home";
+        setPage("home");
+    }
+
+    function handleSessionExpired() {
+        openAccountForFeed();
+        session.logout().catch(error => {
+            Alert.alert("Sign-in required", error.message);
+        });
+    }
     const [user, setUser] = useState(null);
     const [failedImage, setFailedImage] = useState("");
 
@@ -32,13 +55,13 @@ export default function App() {
         <View style={styles.container}>
             <SafeAreaView style={styles.header}>
                 <View style={styles.headerContent}>
-                    {page === "account" ? (
+                    {page !== "home" ? (
                         <Pressable
                             accessibilityRole="button"
                             accessibilityLabel="Back to home"
                             hitSlop={8}
                             style={styles.backButton}
-                            onPress={() => setPage("home")}
+                            onPress={backHome}
                         >
                             <Text style={styles.backText}>
                                 ‹
@@ -58,7 +81,10 @@ export default function App() {
                             }
                             hitSlop={6}
                             style={styles.avatarButton}
-                            onPress={() => setPage("account")}
+                            onPress={() => {
+                                accountReturnPage.current = "home";
+                                setPage("account");
+                            }}
                         >
                             {showImage ? (
                                 <Image
@@ -99,8 +125,20 @@ export default function App() {
                         : "no-hide-descendants"
                 }
             >
-                <RestaurantBrowser />
+                <RestaurantBrowser toolbarAction={
+                    <MyFeedButton auth={session.auth}
+                        onOpenFeed={() => setPage("feed")}
+                        onLoginRequired={openAccountForFeed} />
+                } />
             </View>
+
+            {page === "feed" && (
+                <View style={styles.content}>
+                    <FeedRouteScreen auth={session.auth}
+                        onLoginRequired={openAccountForFeed}
+                        onSessionExpired={handleSessionExpired} />
+                </View>
+            )}
 
             <View
                 style={[
@@ -115,8 +153,9 @@ export default function App() {
                 }
             >
                 <AccountApp
+                    session={session}
                     onUserChange={setUser}
-                    onLoginSuccess={() => setPage("home")}
+                    onLoginSuccess={() => setPage(accountReturnPage.current)}
                 />
             </View>
         </View>

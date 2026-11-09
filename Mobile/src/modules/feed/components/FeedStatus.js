@@ -11,7 +11,7 @@ export function RetryButton({ onPress, label = 'Try again' }) {
 export default function FeedStatus({ loading, refreshing, preferencesLoading, resourceError, dishError,
   preferenceStatus, entries, coverage, onRetry, showSummary = true }) {
   if (loading && entries.length === 0) return <View style={styles.block} accessibilityLiveRegion="polite">
-    <ActivityIndicator color="#356144" /><Text style={styles.message}>Finding places to try…</Text>
+    <ActivityIndicator color="#2563eb" /><Text style={styles.message}>Finding places to try…</Text>
   </View>;
   if (resourceError) return <View style={styles.notice} accessibilityLiveRegion="polite">
     <Text style={styles.heading}>{entries.length ? 'Could not refresh places' : 'Could not load places'}</Text>
@@ -29,15 +29,15 @@ export default function FeedStatus({ loading, refreshing, preferencesLoading, re
   return <View style={styles.notice} accessibilityLiveRegion="polite">
     {(showSummary || recommendationError) && <Text style={styles.message}>{message}</Text>}
     {coverage && !coverage.complete && <Text style={styles.message}>Dish information covers part of this catalog.</Text>}
-    {(refreshing || preferencesLoading) && <ActivityIndicator size="small" color="#356144" accessibilityLabel="Updating feed" />}
+    {(refreshing || preferencesLoading) && <ActivityIndicator size="small" color="#2563eb" accessibilityLabel="Updating feed" />}
     {recommendationError && <RetryButton onPress={onRetry} label="Retry recommendations" />}
   </View>;
 }
 const styles = StyleSheet.create({
   block: { paddingVertical: 36, alignItems: 'center', gap: 12 },
-  notice: { marginBottom: 20, gap: 10, alignItems: 'flex-start' },
-  heading: { fontSize: 17, fontWeight: '600', color: '#243a2a' },
-  message: { fontSize: 14, lineHeight: 21, color: '#647067' },
-  button: { backgroundColor: '#e3ece4', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 14 },
-  buttonText: { color: '#2e5839', fontWeight: '600', fontSize: 14 },
+  notice: { marginBottom: 16, gap: 10, alignItems: 'flex-start' },
+  heading: { fontSize: 18, fontWeight: 'bold', color: '#222' },
+  message: { fontSize: 14, lineHeight: 22, color: '#666' },
+  button: { minHeight: 44, justifyContent: 'center', backgroundColor: '#2563eb', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 16 },
+  buttonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
 });

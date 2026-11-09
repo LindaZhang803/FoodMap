@@ -18,12 +18,43 @@ export default function SavedPlacesScreen({
   onDishPress,
   header,
   safeAreaEdges,
+  showRefreshButton = false,
 }) {
   const [activeTab, setActiveTab] = useState('restaurants');
   const showRestaurants = activeTab === 'restaurants';
-  const data = showRestaurants ? savedPlaces.favorites : savedPlaces.favoriteDishes;
+  const targetType = showRestaurants ? 'restaurant' : 'dish';
+  const data = savedPlaces.items
+    ? savedPlaces.items.filter(item => item.targetType === targetType)
+    : (showRestaurants ? savedPlaces.favorites : savedPlaces.favoriteDishes).map(target => ({
+      targetType, targetId: showRestaurants ? target._id : target.dishId, target,
+    }));
+  const signedOut = ['signed-out', 'expired'].includes(savedPlaces.status);
+  const emptyMessage = signedOut ? 'Sign in to see your saved restaurants and dishes.'
+    : savedPlaces.status === 'loading' ? 'Loading Want to Try…'
+      : savedPlaces.status === 'failed' ? 'Your saved list could not be loaded.'
+        : showRestaurants ? 'Save a restaurant to find it here.' : 'Save a dish to find it here.';
 
-  function renderItem({ item }) {
+  function MissingTarget({ envelope }) {
+    const pending = savedPlaces.isPending?.(envelope.targetType, envelope.targetId);
+    const error = savedPlaces.mutationErrors?.[`${envelope.targetType}:${envelope.targetId}`];
+    return (
+      <View style={[styles.item, styles.dish]}>
+        <Text style={styles.dishName}>Saved {envelope.targetType} unavailable</Text>
+        <Text>The original item is no longer in the catalog.</Text>
+        <Pressable accessibilityRole="button"
+          accessibilityLabel={`Remove unavailable ${envelope.targetType} ${envelope.targetId}`}
+          accessibilityState={{ disabled: pending }} disabled={pending}
+          onPress={() => savedPlaces.removeFavorite(envelope.targetType, envelope.targetId)} style={styles.detail}>
+          <Text style={styles.detailLabel}>{pending ? 'Removing…' : 'Remove from Want to Try'}</Text>
+        </Pressable>
+        {error && <Text accessibilityRole="alert" style={styles.error}>{error.message}</Text>}
+      </View>
+    );
+  }
+
+  function renderItem({ item: envelope }) {
+    const item = envelope.target;
+    if (!item) return <MissingTarget envelope={envelope} />;
     if (showRestaurants) {
       return (
         <View style={styles.item}>
@@ -64,11 +95,32 @@ export default function SavedPlacesScreen({
         contentContainerStyle={styles.content}
         data={data}
         renderItem={renderItem}
-        keyExtractor={item => showRestaurants ? `restaurant:${item._id}` : `dish:${item.dishId}`}
+        keyExtractor={item => `${item.targetType}:${item.targetId}`}
+        refreshing={Boolean(savedPlaces.loading && data.length)}
+        onRefresh={savedPlaces.refresh}
         ListHeaderComponent={(
           <View style={styles.heading}>
             {header}
             <Text accessibilityRole="header" style={styles.title}>Want to Try</Text>
+            {savedPlaces.error && <Text accessibilityRole="alert" style={styles.error}>{savedPlaces.error.message}</Text>}
+            {signedOut && savedPlaces.canRequestLogin && (
+              <Pressable accessibilityRole="button" onPress={savedPlaces.requestLogin} style={styles.detail}>
+                <Text style={styles.detailLabel}>Sign in</Text>
+              </Pressable>
+            )}
+            {savedPlaces.status === 'failed' && (
+              <Pressable accessibilityRole="button" onPress={savedPlaces.retry} style={styles.detail}>
+                <Text style={styles.detailLabel}>Retry saved list</Text>
+              </Pressable>
+            )}
+            {showRefreshButton && !signedOut && savedPlaces.status !== 'failed'
+              && typeof savedPlaces.refresh === 'function' && (
+              <Pressable accessibilityRole="button" accessibilityLabel="Refresh saved list"
+                accessibilityState={{ disabled: Boolean(savedPlaces.loading), busy: Boolean(savedPlaces.loading) }}
+                disabled={Boolean(savedPlaces.loading)} onPress={savedPlaces.refresh} style={styles.detail}>
+                <Text style={styles.detailLabel}>{savedPlaces.loading ? 'Refreshing…' : 'Refresh saved list'}</Text>
+              </Pressable>
+            )}
             <View style={styles.tabs}>
               {tabs.map(({ id, label }) => (
                 <Pressable
@@ -86,7 +138,7 @@ export default function SavedPlacesScreen({
         )}
         ListEmptyComponent={(
           <Text style={styles.empty}>
-            {showRestaurants ? 'Save a restaurant to find it here.' : 'Save a dish to find it here.'}
+            {emptyMessage}
           </Text>
         )}
       />
@@ -95,41 +147,41 @@ export default function SavedPlacesScreen({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f4f5f2' },
+  safe: { flex: 1, backgroundColor: '#f5f5f5' },
   content: {
     width: '100%',
     maxWidth: 680,
     alignSelf: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 36,
+    paddingBottom: 30,
   },
-  heading: { gap: 16, marginBottom: 20 },
-  title: { fontSize: 30, fontWeight: '700', color: '#1d3527' },
+  heading: { gap: 16, marginBottom: 16 },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#222' },
   tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tab: {
     justifyContent: 'center',
     minHeight: 44,
     paddingHorizontal: 14,
-    borderRadius: 22,
-    backgroundColor: '#e5eae2',
+    borderRadius: 8,
+    backgroundColor: '#e8eefc',
   },
-  activeTab: { backgroundColor: '#31563c' },
-  tabLabel: { fontSize: 13, fontWeight: '600', color: '#31563c' },
+  activeTab: { backgroundColor: '#2563eb' },
+  tabLabel: { fontSize: 14, fontWeight: '600', color: '#2563eb' },
   activeLabel: { color: '#fff' },
   item: {
-    marginBottom: 18,
+    marginBottom: 16,
     overflow: 'hidden',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#e5e9e3',
+    borderRadius: 12,
+    elevation: 3,
     backgroundColor: '#fff',
   },
-  actions: { padding: 14 },
-  dish: { gap: 12, padding: 14 },
-  dishName: { fontSize: 18, fontWeight: '700', color: '#1d3527' },
+  actions: { padding: 16 },
+  dish: { gap: 12, padding: 16 },
+  dishName: { fontSize: 20, fontWeight: 'bold', color: '#222' },
   dishActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'center' },
   detail: { minHeight: 44, justifyContent: 'center' },
-  detailLabel: { color: '#31563c', fontSize: 13, fontWeight: '600' },
-  empty: { color: '#677269', marginTop: 12, lineHeight: 22 },
+  detailLabel: { color: '#2563eb', fontSize: 14, fontWeight: '600' },
+  error: { color: '#dc2626', lineHeight: 20 },
+  empty: { color: '#666', marginTop: 12, fontSize: 14, lineHeight: 22 },
 });

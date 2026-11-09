@@ -6,7 +6,7 @@ import DishBrowserScreen from "./src/modules/reviews/screens/DishBrowserScreen";
 import RestaurantListScreen from "./src/modules/restaurants/screens/RestaurantListScreen";
 import RestaurantDetailScreen from "./src/modules/restaurants/screens/RestaurantDetailScreen";
 
-export default function App() {
+export default function App({ toolbarAction }) {
   const [selectedRestaurantId, setSelectedRestaurantId] = useState(null);
 
   const [dishBrowser, setDishBrowser] = useState(null);
@@ -52,6 +52,7 @@ export default function App() {
         />
       ) : (
         <RestaurantListScreen
+          toolbarAction={toolbarAction}
           onSelectRestaurant={(restaurant) => {
             setSelectedRestaurantId(restaurant._id);
           }}

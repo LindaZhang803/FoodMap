@@ -19,10 +19,10 @@ export default function FeedSection({ title, subtitle, data, renderItem, keyExtr
 }
 const styles = StyleSheet.create({
   list: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 36, width: '100%', maxWidth: 680, alignSelf: 'center', flexGrow: 1 },
-  heading: { marginBottom: 14, gap: 7 },
-  title: { fontSize: 30, lineHeight: 37, fontWeight: '700', color: '#1d3527', letterSpacing: -0.8 },
-  subtitle: { fontSize: 14, lineHeight: 22, color: '#677269' },
-  empty: { alignItems: 'center', gap: 10, paddingVertical: 50 },
-  emptyTitle: { fontSize: 19, fontWeight: '600', color: '#344c3c' },
+  content: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 30, width: '100%', maxWidth: 680, alignSelf: 'center', flexGrow: 1 },
+  heading: { marginBottom: 16, gap: 8 },
+  title: { fontSize: 24, lineHeight: 32, fontWeight: 'bold', color: '#222' },
+  subtitle: { fontSize: 14, lineHeight: 22, color: '#666' },
+  empty: { alignItems: 'center', gap: 10, paddingVertical: 40 },
+  emptyTitle: { fontSize: 18, fontWeight: 'bold', color: '#222' },
 });

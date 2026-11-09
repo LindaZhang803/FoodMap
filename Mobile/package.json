@@ -11,7 +11,12 @@
     "expo-splash-screen": "~57.0.10",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
-    "react-native": "0.86.3"
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-web": "^0.21.2",
+    "@expo/metro-runtime": "~57.0.17",
+    "react-native-safe-area-context": "~5.7.0",
+    "@babel/runtime": "^7.29.2"
   },
   "scripts": {
     "start": "expo start",
@@ -19,12 +24,22 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test:reviews": "node --test src/modules/reviews/tests/*.test.js",
-    "test": "jest"
+    "test": "jest",
+    "start:feed": "npm --prefix src/modules/feed start --",
+    "web:feed": "npm --prefix src/modules/feed run web --",
+    "export:feed": "npm --prefix src/modules/feed run export:web --",
+    "test:feed": "jest --config src/modules/feed/jest.config.cjs --runInBand",
+    "test:feed:host": "jest --config src/modules/feed/jest.host.config.cjs --runInBand"
   },
   "private": true,
   "devDependencies": {
     "jest": "~29.7.0",
-    "jest-expo": "~57.0.6"
+    "jest-expo": "~57.0.6",
+    "@babel/core": "^7.25.2",
+    "babel-preset-expo": "~57.0.1",
+    "@react-native/jest-preset": "0.86.3",
+    "react-test-renderer": "19.2.3",
+    "@testing-library/react-native": "13.3.3"
   },
   "jest": {
     "preset": "jest-expo",

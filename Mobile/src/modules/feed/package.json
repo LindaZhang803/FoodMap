@@ -1,0 +1,13 @@
+{
+  "name": "foodmap-member4-feed",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dev/entry.js",
+  "scripts": {
+    "start": "expo start",
+    "web": "expo start --web --port 8084",
+    "export:web": "expo export --platform web --output-dir dev/.export",
+    "test": "npm --prefix ../../.. run test:feed --",
+    "test:host": "npm --prefix ../../.. run test:feed:host --"
+  }
+}
