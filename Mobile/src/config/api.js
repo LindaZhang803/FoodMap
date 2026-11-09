@@ -19,7 +19,11 @@ function getApiOrigin() {
     return `http://${host}:3000`;
   }
 
-  throw new Error("Backend API address is not configured");
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    return `http://${window.location.hostname}:3000`;
+  }
+
+  return "http://localhost:3000";
 }
 
 export const API_ORIGIN = getApiOrigin();
