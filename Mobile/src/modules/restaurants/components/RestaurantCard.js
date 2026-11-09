@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 
 import {
   View,
@@ -10,10 +10,19 @@ import {
 
 import getRestaurantImage from "../utils/getRestaurantImage";
 
+import {
+  colors,
+  spacing,
+  radius,
+  typography,
+  shadows,
+} from "../../../shared/design/tokens";
+
 export default function RestaurantCard({
   restaurant,
   onPress,
   distanceKm = null,
+  compact = false,
 }) {
   const [imageError, setImageError] = useState(false);
 
@@ -21,7 +30,6 @@ export default function RestaurantCard({
     setImageError(false);
   }, [restaurant.imageUrl, restaurant._id]);
 
-  // Restaurant image
   const imageSource = imageError
     ? getRestaurantImage({
         ...restaurant,
@@ -29,74 +37,112 @@ export default function RestaurantCard({
       })
     : getRestaurantImage(restaurant);
 
-  // Rating
-  const rating =
-    restaurant.rating == null || restaurant.reviewCount === 0
-      ? "No ratings yet"
-      : `Rating: ${restaurant.rating}`;
+  const hasRating =
+    restaurant.rating != null &&
+    restaurant.reviewCount !== 0 &&
+    Number.isFinite(Number(restaurant.rating));
 
-  // Address
+  const rating = hasRating
+    ? Number(restaurant.rating).toFixed(1)
+    : "No ratings yet";
+
   const address =
-    restaurant.address?.trim() || "Address unavailable";
+    restaurant.address?.trim() ||
+    "Address unavailable";
 
-  // Cuisine
   const cuisine =
-    restaurant.cuisineType?.trim() || "Cuisine unavailable";
+    restaurant.cuisineType?.trim() ||
+    "Cuisine unavailable";
 
-  // Price
   const price =
-    restaurant.priceRange?.trim() || "Price unavailable";
+    restaurant.priceRange?.trim() ||
+    "Price unavailable";
 
-  // Distance
   const distanceText =
     typeof distanceKm === "number" &&
     Number.isFinite(distanceKm) &&
     distanceKm >= 0
       ? distanceKm < 1
-        ? `${Math.round(distanceKm * 1000)} m away`
-        : `${distanceKm.toFixed(1)} km away`
+        ? `${Math.round(distanceKm * 1000)} m`
+        : `${distanceKm.toFixed(1)} km`
       : null;
 
+  const isIllustration =
+    !restaurant.imageUrl || imageError;
+
   return (
-    <Pressable style={styles.card} onPress={onPress}>
-      {/* Restaurant image */}
+    <Pressable
+      style={({ pressed }) => [
+        styles.card,
+        compact && styles.compactCard,
+        pressed && styles.pressed,
+      ]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`View ${restaurant.name}`}
+    >
       <Image
         source={imageSource}
-        style={styles.image}
+        style={[
+          styles.image,
+          compact && styles.compactImage,
+        ]}
         resizeMode="cover"
         onError={() => setImageError(true)}
       />
 
       <View style={styles.info}>
-        {/* Restaurant name */}
-        <Text style={styles.name}>
+        <Text
+          style={[
+            styles.name,
+            compact && styles.compactName,
+          ]}
+          numberOfLines={2}
+        >
           {restaurant.name}
         </Text>
 
-        {/* Rating */}
-        <Text style={styles.rating}>
-          {rating}
+        <Text
+          style={styles.cuisine}
+          numberOfLines={1}
+        >
+          {cuisine}
         </Text>
 
-        {/* Distance */}
-        {distanceText !== null && (
-          <Text style={styles.distance}>
-            {distanceText}
+        <View style={styles.metadata}>
+          <Text
+            style={[
+              styles.rating,
+              !hasRating && styles.unrated,
+            ]}
+          >
+            {hasRating ? `★ ${rating}` : rating}
+          </Text>
+
+          {distanceText !== null && (
+            <Text
+              style={styles.distance}
+              numberOfLines={1}
+            >
+              {distanceText}
+            </Text>
+          )}
+        </View>
+
+        <Text style={styles.price}>
+          {price}
+        </Text>
+
+        {!compact && (
+          <Text
+            style={styles.address}
+            numberOfLines={2}
+          >
+            {address}
           </Text>
         )}
 
-        {/* Address */}
-        <Text style={styles.address}>
-          {address}
-        </Text>
-
-        {/* Cuisine and price */}
-        <Text style={styles.details}>
-          {cuisine} | {price}
-        </Text>
-
-        {/* Image attribution */}
-        {!restaurant.imageUrl && (
+        {isIllustration && (
           <Text style={styles.imageNote}>
             Cuisine illustration
           </Text>
@@ -108,54 +154,97 @@ export default function RestaurantCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    marginBottom: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
     overflow: "hidden",
-    elevation: 3,
+    marginBottom: spacing.lg,
+    ...shadows.card,
+  },
+
+  compactCard: {
+    width: "48.5%",
+  },
+
+  pressed: {
+    opacity: 0.85,
   },
 
   image: {
     width: "100%",
-    height: 180,
+    height: 190,
+    backgroundColor: colors.surfaceSecondary,
+  },
+
+  compactImage: {
+    height: 155,
   },
 
   info: {
-    padding: 16,
+    padding: spacing.md,
   },
 
   name: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 8,
+    ...typography.section,
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+
+  compactName: {
+    ...typography.cardTitle,
+    minHeight: 42,
+  },
+
+  cuisine: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+    textTransform: "capitalize",
+  },
+
+  metadata: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
   },
 
   rating: {
-    fontSize: 16,
-    marginBottom: 6,
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.primary,
+  },
+
+  unrated: {
+    fontSize: 11,
+    fontWeight: "400",
+    color: colors.textMuted,
   },
 
   distance: {
-    fontSize: 14,
-    color: "#2563eb",
+    fontSize: 11,
     fontWeight: "600",
-    marginBottom: 6,
+    color: colors.textSecondary,
+  },
+
+  price: {
+    ...typography.caption,
+    fontWeight: "700",
+    color: colors.text,
   },
 
   address: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 6,
-  },
-
-  details: {
-    fontSize: 14,
-    color: "#444",
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
 
   imageNote: {
-    fontSize: 11,
-    color: "#999",
-    marginTop: 8,
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: spacing.sm,
   },
 });

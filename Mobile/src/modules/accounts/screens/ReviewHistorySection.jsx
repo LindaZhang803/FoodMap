@@ -1,222 +1,371 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import {
-    View,
-    Text,
-    Pressable,
-    ActivityIndicator,
-    StyleSheet
+  View,
+  Text,
+  StyleSheet,
 } from "react-native";
 
-export default function ReviewHistorySection({ token, loadReviews }) {
-    const [reviews, setReviews] = useState([]);
-    const [page, setPage] = useState(0);
-    const [total, setTotal] = useState(0);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
-    const [hasMore, setHasMore] = useState(false);
+import {
+  colors,
+  spacing,
+  radius,
+  typography,
+} from "../../../shared/design/tokens";
 
-    const requestId = useRef(0);
-    const inFlight = useRef(false);
+import {
+  AppButton,
+  LoadingState,
+  EmptyState,
+  ErrorState,
+} from "../../../shared/design/UIComponents";
 
-    async function fetchPage(nextPage, replace = false) {
-        if (!token || inFlight.current) return;
+export default function ReviewHistorySection({
+  token,
+  loadReviews,
+}) {
+  const [reviews, setReviews] = useState([]);
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
 
-        const id = ++requestId.current;
-        inFlight.current = true;
-        setLoading(true);
-        setError("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [hasMore, setHasMore] = useState(false);
 
-        try {
-            const result = await loadReviews(token, nextPage);
+  const requestId = useRef(0);
+  const inFlight = useRef(false);
 
-            if (id !== requestId.current) return;
+  // =====================================================
+  // 1. Load review history
+  // =====================================================
 
-            setReviews(current => {
-                if (replace) return [...result.reviews];
+  async function fetchPage(
+    nextPage,
+    replace = false
+  ) {
+    if (
+      !token ||
+      inFlight.current ||
+      typeof loadReviews !== "function"
+    ) {
+      return;
+    }
 
-                const ids = new Set(current.map(review => review.id));
-                return [
-                    ...current,
-                    ...result.reviews.filter(review => !ids.has(review.id))
-                ];
-            });
+    const id = ++requestId.current;
 
-            setPage(result.pagination.page);
-            setTotal(result.pagination.total);
-            setHasMore(
-                result.reviews.length > 0 &&
-                result.pagination.page * result.pagination.limit <
-                    result.pagination.total
-            );
-        } catch (err) {
-            if (id === requestId.current) {
-                setError(
-                    err instanceof Error
-                        ? err.message
-                        : "Could not load reviews."
-                );
-            }
-        } finally {
-            if (id === requestId.current) {
-                inFlight.current = false;
-                setLoading(false);
-            }
+    inFlight.current = true;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const result = await loadReviews(
+        token,
+        nextPage
+      );
+
+      if (id !== requestId.current) {
+        return;
+      }
+
+      setReviews((current) => {
+        if (replace) {
+          return [...result.reviews];
         }
+
+        const ids = new Set(
+          current.map((review) => review.id)
+        );
+
+        return [
+          ...current,
+          ...result.reviews.filter(
+            (review) => !ids.has(review.id)
+          ),
+        ];
+      });
+
+      setPage(result.pagination.page);
+      setTotal(result.pagination.total);
+
+      setHasMore(
+        result.reviews.length > 0 &&
+          result.pagination.page *
+            result.pagination.limit <
+            result.pagination.total
+      );
+    } catch (err) {
+      if (id === requestId.current) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Could not load reviews."
+        );
+      }
+    } finally {
+      if (id === requestId.current) {
+        inFlight.current = false;
+        setLoading(false);
+      }
+    }
+  }
+
+  // =====================================================
+  // 2. Reset when account changes
+  // =====================================================
+
+  useEffect(() => {
+    setReviews([]);
+    setPage(0);
+    setTotal(0);
+    setHasMore(false);
+
+    fetchPage(1, true);
+
+    return () => {
+      requestId.current += 1;
+      inFlight.current = false;
+    };
+  }, [token, loadReviews]);
+
+  // =====================================================
+  // 3. Date formatting
+  // =====================================================
+
+  function displayDate(value) {
+    const date = value
+      ? new Date(value)
+      : null;
+
+    return date &&
+      !Number.isNaN(date.getTime())
+      ? date.toLocaleDateString()
+      : "Date unavailable";
+  }
+
+  // =====================================================
+  // 4. Rating
+  // =====================================================
+
+  function renderRating(rating) {
+    const numeric = Number(rating);
+
+    if (!Number.isFinite(numeric)) {
+      return "No rating";
     }
 
-    useEffect(() => {
-        setReviews([]);
-        setPage(0);
-        setTotal(0);
-        setHasMore(false);
-        fetchPage(1, true);
+    return `★ ${numeric.toFixed(1)} / 5`;
+  }
 
-        return () => {
-            requestId.current += 1;
-            inFlight.current = false;
-        };
-    }, [token, loadReviews]);
+  // =====================================================
+  // 5. Render
+  // =====================================================
 
-    function displayDate(value) {
-        const date = value ? new Date(value) : null;
+  return (
+    <View style={styles.section}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text
+          accessibilityRole="header"
+          style={styles.heading}
+        >
+          My Reviews
+        </Text>
 
-        return date && !Number.isNaN(date.getTime())
-            ? date.toLocaleDateString()
-            : "Date unavailable";
-    }
+        {page > 0 && (
+          <View style={styles.countBadge}>
+            <Text style={styles.count}>
+              {total} review
+              {total === 1 ? "" : "s"}
+            </Text>
+          </View>
+        )}
+      </View>
 
-    return (
-        <View style={styles.section}>
-            <Text style={styles.heading}>My reviews</Text>
+      {/* Review cards */}
+      {reviews.map((review) => (
+        <View
+          key={review.id}
+          style={styles.card}
+        >
+          <View style={styles.cardHeader}>
+            <Text style={styles.type}>
+              {review.reviewType === "dish"
+                ? "Dish Review"
+                : "Restaurant Review"}
+            </Text>
 
-            {page > 0 && (
-                <Text style={styles.count}>
-                    {total} review{total === 1 ? "" : "s"}
-                </Text>
-            )}
+            <Text style={styles.rating}>
+              {renderRating(review.rating)}
+            </Text>
+          </View>
 
-            {reviews.map(review => (
-                <View key={review.id} style={styles.card}>
-                    <View style={styles.row}>
-                        <Text style={styles.type}>
-                            {review.reviewType === "dish"
-                                ? "Dish review"
-                                : "Restaurant review"}
-                        </Text>
+          <Text style={styles.comment}>
+            {review.comment}
+          </Text>
 
-                        <Text style={styles.rating}>
-                            {`${review.rating} / 5`}
-                        </Text>
-                    </View>
-
-                    <Text style={styles.comment}>{review.comment}</Text>
-
-                    <Text style={styles.date}>
-                        {displayDate(review.createdAt)}
-                    </Text>
-                </View>
-            ))}
-
-            {!loading && !error && page > 0 && reviews.length === 0 && (
-                <Text style={styles.message}>
-                    You have not written any reviews yet.
-                </Text>
-            )}
-
-            {!!error && (
-                <View>
-                    <Text style={styles.error}>{error}</Text>
-
-                    <Pressable
-                        style={styles.button}
-                        accessibilityRole="button"
-                        onPress={() => fetchPage(page + 1, page === 0)}
-                    >
-                        <Text style={styles.buttonText}>Retry</Text>
-                    </Pressable>
-                </View>
-            )}
-
-            {loading && <ActivityIndicator color="#1b5ad0" />}
-
-            {!loading && !error && hasMore && (
-                <Pressable
-                    style={styles.button}
-                    accessibilityRole="button"
-                    onPress={() => fetchPage(page + 1)}
-                >
-                    <Text style={styles.buttonText}>Load more</Text>
-                </Pressable>
-            )}
+          <View style={styles.cardFooter}>
+            <Text style={styles.date}>
+              {displayDate(
+                review.createdAt
+              )}
+            </Text>
+          </View>
         </View>
-    );
+      ))}
+
+      {/* Initial loading */}
+      {loading && reviews.length === 0 && (
+        <LoadingState
+          message="Loading your reviews..."
+          style={styles.state}
+        />
+      )}
+
+      {/* Empty state */}
+      {!loading &&
+        !error &&
+        page > 0 &&
+        reviews.length === 0 && (
+          <EmptyState
+            title="No Reviews Yet"
+            description="Your restaurant and dish reviews will appear here."
+            style={styles.state}
+          />
+        )}
+
+      {/* Error */}
+      {!!error && (
+        <ErrorState
+          title="Unable to Load Reviews"
+          message={error}
+          onRetry={() =>
+            fetchPage(
+              page + 1,
+              page === 0
+            )
+          }
+          style={styles.state}
+        />
+      )}
+
+      {/* Loading more */}
+      {loading && reviews.length > 0 && (
+        <LoadingState
+          message="Loading more reviews..."
+          style={styles.smallState}
+        />
+      )}
+
+      {/* Pagination */}
+      {!loading &&
+        !error &&
+        hasMore && (
+          <AppButton
+            title="Load More Reviews"
+            variant="outline"
+            onPress={() =>
+              fetchPage(page + 1)
+            }
+            style={styles.loadMoreButton}
+          />
+        )}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-    section: {
-        marginTop: 28,
-        paddingTop: 20,
-        borderTopWidth: 1,
-        borderTopColor: "#ddd"
-    },
-    heading: {
-        fontSize: 22,
-        fontWeight: "bold",
-        marginBottom: 8
-    },
-    count: {
-        color: "#666",
-        marginBottom: 14
-    },
-    card: {
-        padding: 16,
-        borderWidth: 1,
-        borderColor: "#ddd",
-        borderRadius: 12,
-        marginBottom: 12,
-        backgroundColor: "#fafafa"
-    },
-    row: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginBottom: 8
-    },
-    type: {
-        fontWeight: "600",
-        color: "#222"
-    },
-    rating: {
-        fontWeight: "bold",
-        color: "#1b5ad0"
-    },
-    comment: {
-        fontSize: 15,
-        lineHeight: 22,
-        color: "#333"
-    },
-    date: {
-        marginTop: 10,
-        fontSize: 13,
-        color: "#777"
-    },
-    message: {
-        color: "#666",
-        marginBottom: 12
-    },
-    error: {
-        color: "#b42318",
-        marginBottom: 10
-    },
-    button: {
-        alignSelf: "center",
-        backgroundColor: "#1b5ad0",
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 10,
-        marginVertical: 10
-    },
-    buttonText: {
-        color: "#fff",
-        fontWeight: "bold"
-    }
+  section: {
+    backgroundColor: colors.surface,
+  },
+
+  header: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+
+  heading: {
+    ...typography.section,
+    color: colors.text,
+  },
+
+  countBadge: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.pill,
+  },
+
+  count: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: "700",
+  },
+
+  card: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+  },
+
+  cardHeader: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+
+  type: {
+    ...typography.caption,
+    fontWeight: "700",
+    color: colors.text,
+  },
+
+  rating: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.primary,
+  },
+
+  comment: {
+    ...typography.body,
+    color: colors.text,
+  },
+
+  cardFooter: {
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+
+  date: {
+    ...typography.caption,
+    color: colors.textMuted,
+  },
+
+  state: {
+    minHeight: 180,
+  },
+
+  smallState: {
+    minHeight: 100,
+  },
+
+  loadMoreButton: {
+    marginTop: spacing.md,
+  },
 });
