@@ -57,7 +57,10 @@ const postPhotoSchema = new mongoose.Schema(
 
 const PostPhoto =
   mongoose.models.PostPhoto ||
-  mongoose.model("PostPhoto", postPhotoSchema);
+  mongoose.model(
+    "PostPhoto",
+    postPhotoSchema
+  );
 
 // =====================================================
 // 2. Errors
@@ -76,7 +79,10 @@ class PostError extends Error {
 // 3. Validate ObjectId
 // =====================================================
 
-function requireId(value, label = "ID") {
+function requireId(
+  value,
+  label = "ID"
+) {
   if (
     typeof value !== "string" ||
     !ID_PATTERN.test(value)
@@ -133,12 +139,10 @@ function toImageBuffer(data) {
     );
   }
 
-  // Native Node.js Buffer.
   if (Buffer.isBuffer(data)) {
     return data;
   }
 
-  // MongoDB BSON Binary.
   if (
     typeof data.value === "function"
   ) {
@@ -153,16 +157,14 @@ function toImageBuffer(data) {
         return Buffer.from(value);
       }
     } catch {
-      // Continue checking other supported formats.
+      // Continue checking supported formats.
     }
   }
 
-  // Uint8Array.
   if (data instanceof Uint8Array) {
     return Buffer.from(data);
   }
 
-  // BSON Binary with underlying buffer.
   if (Buffer.isBuffer(data.buffer)) {
     return data.buffer;
   }
@@ -179,7 +181,6 @@ function toImageBuffer(data) {
     return Buffer.from(data.buffer);
   }
 
-  // Raw ArrayBuffer.
   if (data instanceof ArrayBuffer) {
     return Buffer.from(data);
   }
@@ -212,7 +213,9 @@ function readCursor(value) {
       decoded.offset < 0 ||
       decoded.offset > 1000000
     ) {
-      throw new Error("Invalid cursor");
+      throw new Error(
+        "Invalid cursor"
+      );
     }
 
     return decoded.offset;
@@ -311,7 +314,103 @@ function distanceExpression(
 }
 
 // =====================================================
-// 8. Normalize Post
+// 8. Read Review and Dish Models
+// =====================================================
+
+function getReviewModels() {
+  return {
+    Review:
+      mongoose.models.Review || null,
+
+    Dish:
+      mongoose.models.Dish || null,
+
+    ReviewPhoto:
+      mongoose.models.ReviewPhoto || null,
+  };
+}
+
+// =====================================================
+// 9. Read Original Review and Dish
+// =====================================================
+
+async function getPostReviewData(post) {
+  const {
+    Review,
+    Dish,
+  } = getReviewModels();
+
+  if (!Review) {
+    throw new PostError(
+      503,
+      "Reviews module is not initialized."
+    );
+  }
+
+  const authorId =
+    post.authorId?._id ||
+    post.authorId;
+
+  const restaurantId =
+    post.restaurantId?._id ||
+    post.restaurantId;
+
+  if (
+    !post.reviewId ||
+    !authorId ||
+    !restaurantId
+  ) {
+    return {
+      review: null,
+      dish: null,
+    };
+  }
+
+  // The review must belong to the post's
+  // original author and restaurant.
+
+  const review = await Review.findOne({
+    _id: post.reviewId,
+    userId: authorId,
+    restaurantId,
+  })
+    .select(
+      "_id userId restaurantId dishId reviewType rating comment"
+    )
+    .lean();
+
+  if (!review) {
+    return {
+      review: null,
+      dish: null,
+    };
+  }
+
+  let dish = null;
+
+  if (
+    review.reviewType === "dish" &&
+    review.dishId &&
+    Dish
+  ) {
+    dish = await Dish.findOne({
+      _id: review.dishId,
+      restaurantId,
+    })
+      .select(
+        "_id restaurantId name"
+      )
+      .lean();
+  }
+
+  return {
+    review,
+    dish: dish || null,
+  };
+}
+
+// =====================================================
+// 10. Normalize Post
 // =====================================================
 
 function normalizePost(
@@ -326,7 +425,30 @@ function normalizePost(
     record.restaurant ||
     record.restaurantId;
 
+  const review =
+    record.review || null;
+
+  const dish =
+    record.dish || null;
+
+  const imageUrls =
+    Array.isArray(record.imageUrls)
+      ? record.imageUrls
+      : [];
+
+  const reviewRating =
+    review?.rating != null &&
+    Number.isFinite(
+      Number(review.rating)
+    )
+      ? Number(review.rating)
+      : null;
+
   return {
+    // ================================================
+    // Post Identity
+    // ================================================
+
     id: String(record._id),
 
     title: record.title,
@@ -334,14 +456,21 @@ function normalizePost(
     caption:
       record.caption || "",
 
-    imageUrls:
-      record.imageUrls || [],
+    // ================================================
+    // Images
+    // ================================================
+
+    imageUrls,
 
     coverImageUrl:
-      record.imageUrls?.[0] || null,
+      imageUrls[0] || null,
 
     coverAspectRatio:
       Number(record.coverAspectRatio) || 1,
+
+    // ================================================
+    // Author
+    // ================================================
 
     author: {
       id: author?._id
@@ -355,6 +484,10 @@ function normalizePost(
       avatarUrl:
         author?.profileImage || null,
     },
+
+    // ================================================
+    // Restaurant
+    // ================================================
 
     restaurant: {
       id: restaurant?._id
@@ -376,8 +509,49 @@ function normalizePost(
         restaurant?.longitude ?? null,
     },
 
+    // ================================================
+    // Original Review
+    // ================================================
+
     reviewId:
       String(record.reviewId),
+
+    review: review
+      ? {
+          id:
+            String(review._id),
+
+          reviewType:
+            review.reviewType,
+
+          rating:
+            reviewRating,
+
+          comment:
+            review.comment || "",
+        }
+      : null,
+
+    // ================================================
+    // Associated Dish
+    // ================================================
+
+    dish: dish
+      ? {
+          id:
+            String(dish._id),
+
+          restaurantId:
+            String(dish.restaurantId),
+
+          name:
+            dish.name || "Dish",
+        }
+      : null,
+
+    // ================================================
+    // Likes
+    // ================================================
 
     likeCount:
       Number(record.likeCount) || 0,
@@ -385,7 +559,10 @@ function normalizePost(
     likedByMe:
       Boolean(liked),
 
-    // Fix: missing distance must remain null.
+    // ================================================
+    // Nearby Distance
+    // ================================================
+
     distanceKm:
       record.distanceKm != null &&
       Number.isFinite(
@@ -393,6 +570,10 @@ function normalizePost(
       )
         ? Number(record.distanceKm)
         : null,
+
+    // ================================================
+    // Timestamps
+    // ================================================
 
     createdAt:
       record.createdAt,
@@ -403,7 +584,7 @@ function normalizePost(
 }
 
 // =====================================================
-// 9. Read User Likes
+// 11. Read User Likes
 // =====================================================
 
 async function getLikedIds(
@@ -438,7 +619,39 @@ async function getLikedIds(
 }
 
 // =====================================================
-// 10. List Public Posts
+// 12. Attach Reviews to Post Records
+// =====================================================
+
+async function attachReviewData(posts) {
+  if (
+    !Array.isArray(posts) ||
+    posts.length === 0
+  ) {
+    return [];
+  }
+
+  // Read all review data in parallel.
+  // Each review and dish is verified against
+  // its corresponding post.
+
+  return Promise.all(
+    posts.map(async (post) => {
+      const {
+        review,
+        dish,
+      } = await getPostReviewData(post);
+
+      return {
+        ...post,
+        review,
+        dish,
+      };
+    })
+  );
+}
+
+// =====================================================
+// 13. List Public Posts
 // =====================================================
 
 async function listPosts({
@@ -449,6 +662,10 @@ async function listPosts({
   latitude,
   longitude,
 } = {}) {
+  // ================================================
+  // Validate Category
+  // ================================================
+
   if (
     ![
       "forYou",
@@ -461,6 +678,10 @@ async function listPosts({
       "Invalid feed category."
     );
   }
+
+  // ================================================
+  // Validate Page Size
+  // ================================================
 
   const pageSize = Number(limit);
 
@@ -480,9 +701,9 @@ async function listPosts({
   let lat = null;
   let lon = null;
 
-  // ===================================================
+  // ================================================
   // Nearby Location Validation
-  // ===================================================
+  // ================================================
 
   if (category === "nearby") {
     lat = Number(latitude);
@@ -505,9 +726,9 @@ async function listPosts({
     }
   }
 
-  // ===================================================
+  // ================================================
   // User Cuisine Preferences
-  // ===================================================
+  // ================================================
 
   let cuisines = [];
 
@@ -538,9 +759,9 @@ async function listPosts({
         : [];
   }
 
-  // ===================================================
+  // ================================================
   // Aggregation
-  // ===================================================
+  // ================================================
 
   const pipeline = [
     {
@@ -576,9 +797,9 @@ async function listPosts({
     },
   ];
 
-  // ===================================================
+  // ================================================
   // For You
-  // ===================================================
+  // ================================================
 
   if (category === "forYou") {
     pipeline.push({
@@ -599,6 +820,7 @@ async function listPosts({
                 cuisines,
               ],
             },
+
             1,
             0,
           ],
@@ -615,9 +837,9 @@ async function listPosts({
     });
   }
 
-  // ===================================================
+  // ================================================
   // Trending
-  // ===================================================
+  // ================================================
 
   if (category === "trending") {
     pipeline.push({
@@ -629,18 +851,58 @@ async function listPosts({
     });
   }
 
-  // ===================================================
+  // ================================================
   // Nearby
-  // ===================================================
+  // ================================================
 
   if (category === "nearby") {
+    // Do not pass null coordinates to
+    // trigonometric MongoDB operators.
+
     pipeline.push({
       $addFields: {
-        distanceKm:
-          distanceExpression(
-            lat,
-            lon
-          ),
+        hasCoordinates: {
+          $and: [
+            {
+              $isNumber:
+                "$restaurant.latitude",
+            },
+            {
+              $isNumber:
+                "$restaurant.longitude",
+            },
+          ],
+        },
+      },
+    });
+
+    pipeline.push({
+      $addFields: {
+        distanceKm: {
+          $cond: [
+            "$hasCoordinates",
+
+            distanceExpression(
+              lat,
+              lon
+            ),
+
+            null,
+          ],
+        },
+      },
+    });
+
+    // Restaurants with no usable coordinates
+    // cannot be ranked by distance.
+    // Exclude them from Nearby results.
+
+    pipeline.push({
+      $match: {
+        hasCoordinates: true,
+        distanceKm: {
+          $ne: null,
+        },
       },
     });
 
@@ -653,9 +915,9 @@ async function listPosts({
     });
   }
 
-  // ===================================================
+  // ================================================
   // Pagination
-  // ===================================================
+  // ================================================
 
   pipeline.push(
     {
@@ -679,14 +941,29 @@ async function listPosts({
     pageSize
   );
 
+  // ================================================
+  // Read Likes
+  // ================================================
+
   const likedIds =
     await getLikedIds(
       page,
       userId
     );
 
+  // ================================================
+  // Attach Review and Dish Data
+  // ================================================
+
+  const enrichedPosts =
+    await attachReviewData(page);
+
+  // ================================================
+  // Return Feed
+  // ================================================
+
   return {
-    items: page.map(
+    items: enrichedPosts.map(
       (post) =>
         normalizePost(
           post,
@@ -707,7 +984,7 @@ async function listPosts({
 }
 
 // =====================================================
-// 11. Get Post Details
+// 14. Get Post Details
 // =====================================================
 
 async function getPost(
@@ -718,6 +995,10 @@ async function getPost(
     id,
     "post ID"
   );
+
+  // ================================================
+  // Find Published Post
+  // ================================================
 
   const post = await Post.findOne({
     _id: id,
@@ -740,11 +1021,45 @@ async function getPost(
     );
   }
 
+  // ================================================
+  // Verify Author and Restaurant Still Exist
+  // ================================================
+
+  if (
+    !post.authorId?._id ||
+    !post.restaurantId?._id
+  ) {
+    throw new PostError(
+      404,
+      "Post author or restaurant is unavailable."
+    );
+  }
+
+  // ================================================
+  // Read Original Review and Dish
+  // ================================================
+
+  const {
+    review,
+    dish,
+  } = await getPostReviewData(post);
+
+  post.review = review;
+  post.dish = dish;
+
+  // ================================================
+  // Read Current User Like Status
+  // ================================================
+
   const likedIds =
     await getLikedIds(
       [post],
       userId
     );
+
+  // ================================================
+  // Return Full Post Details
+  // ================================================
 
   return normalizePost(
     post,
@@ -755,7 +1070,7 @@ async function getPost(
 }
 
 // =====================================================
-// 12. Create Post from Existing Review
+// 15. Create Post from Existing Review
 // =====================================================
 
 async function createPost({
@@ -791,15 +1106,14 @@ async function createPost({
     );
   }
 
-  // ===================================================
+  // ================================================
   // Load Existing Review Models
-  // ===================================================
+  // ================================================
 
-  const Review =
-    mongoose.models.Review;
-
-  const ReviewPhoto =
-    mongoose.models.ReviewPhoto;
+  const {
+    Review,
+    ReviewPhoto,
+  } = getReviewModels();
 
   if (
     !Review ||
@@ -811,9 +1125,9 @@ async function createPost({
     );
   }
 
-  // ===================================================
+  // ================================================
   // Verify Review Ownership
-  // ===================================================
+  // ================================================
 
   const review = await Review.findOne({
     _id: reviewId,
@@ -827,9 +1141,9 @@ async function createPost({
     );
   }
 
-  // ===================================================
+  // ================================================
   // Prevent Duplicate Posts
-  // ===================================================
+  // ================================================
 
   const existing =
     await Post.exists({
@@ -843,9 +1157,9 @@ async function createPost({
     );
   }
 
-  // ===================================================
+  // ================================================
   // Read Review Photo URLs
-  // ===================================================
+  // ================================================
 
   const urls =
     Array.isArray(review.photoUrls)
@@ -882,20 +1196,9 @@ async function createPost({
     }
   );
 
-  // ===================================================
+  // ================================================
   // Read Source Photos
-  // ===================================================
-
-  // Photo ownership is mandatory.
-  //
-  // Some existing reviews may have photos whose
-  // reviewId was never written after upload.
-  //
-  // We therefore verify:
-  // 1. The review belongs to this user.
-  // 2. The photo belongs to this user.
-  // 3. The photo URL is referenced by this review.
-  // 4. If photo.reviewId is present, it must match.
+  // ================================================
 
   const sourcePhotos =
     await ReviewPhoto.find({
@@ -917,9 +1220,9 @@ async function createPost({
     )
   );
 
-  // ===================================================
-  // Persistent Photo Copy
-  // ===================================================
+  // ================================================
+  // Copy Persistent Photos
+  // ================================================
 
   const copied = [];
 
@@ -944,8 +1247,10 @@ async function createPost({
         );
       }
 
-      // Reject a photo explicitly bound to
-      // another review.
+      // ==============================================
+      // Verify Photo Review Identity
+      // ==============================================
+
       if (
         source.reviewId &&
         String(source.reviewId) !==
@@ -957,7 +1262,10 @@ async function createPost({
         );
       }
 
-      // Do not publish expired temporary photos.
+      // ==============================================
+      // Reject Expired Temporary Photos
+      // ==============================================
+
       if (
         source.expiresAt &&
         new Date(source.expiresAt) <= now
@@ -968,9 +1276,9 @@ async function createPost({
         );
       }
 
-      // -----------------------------------------------
-      // Convert BSON / Mongoose Binary to Buffer
-      // -----------------------------------------------
+      // ==============================================
+      // Convert Binary Data
+      // ==============================================
 
       const imageBuffer =
         toImageBuffer(
@@ -986,9 +1294,9 @@ async function createPost({
         );
       }
 
-      // -----------------------------------------------
-      // Validate Image with Sharp
-      // -----------------------------------------------
+      // ==============================================
+      // Validate JPEG
+      // ==============================================
 
       let metadata;
 
@@ -1022,9 +1330,9 @@ async function createPost({
         );
       }
 
-      // -----------------------------------------------
-      // Cover Aspect Ratio
-      // -----------------------------------------------
+      // ==============================================
+      // Calculate Cover Aspect Ratio
+      // ==============================================
 
       if (index === 0) {
         const ratio =
@@ -1044,9 +1352,9 @@ async function createPost({
           );
       }
 
-      // -----------------------------------------------
-      // Create Persistent Photo
-      // -----------------------------------------------
+      // ==============================================
+      // Save Persistent Photo
+      // ==============================================
 
       const photo =
         await PostPhoto.create({
@@ -1059,9 +1367,9 @@ async function createPost({
       copied.push(photo);
     }
 
-    // =================================================
-    // Build Persistent Image URLs
-    // =================================================
+    // ================================================
+    // Build Permanent Photo URLs
+    // ================================================
 
     const persistentUrls =
       copied.map(
@@ -1069,9 +1377,9 @@ async function createPost({
           `${PHOTO_PREFIX}${photo._id}`
       );
 
-    // =================================================
+    // ================================================
     // Create Published Post
-    // =================================================
+    // ================================================
 
     post = await Post.create({
       authorId: userId,
@@ -1094,9 +1402,9 @@ async function createPost({
       status: "published",
     });
 
-    // =================================================
+    // ================================================
     // Link Permanent Photos to Post
-    // =================================================
+    // ================================================
 
     await PostPhoto.updateMany(
       {
@@ -1114,27 +1422,23 @@ async function createPost({
       }
     );
 
-    // =================================================
+    // ================================================
     // Return Created Post
-    // =================================================
+    // ================================================
 
     return await getPost(
       String(post._id),
       userId
     );
   } catch (error) {
-    // =================================================
-    // Debug Real Server Error
-    // =================================================
-
     console.error(
       "[Post Creation Failed]",
       error
     );
 
-    // =================================================
+    // ================================================
     // Roll Back Post
-    // =================================================
+    // ================================================
 
     if (post) {
       try {
@@ -1149,9 +1453,9 @@ async function createPost({
       }
     }
 
-    // =================================================
+    // ================================================
     // Roll Back Persistent Photos
-    // =================================================
+    // ================================================
 
     if (
       copied.length > 0
@@ -1173,9 +1477,9 @@ async function createPost({
       }
     }
 
-    // =================================================
+    // ================================================
     // Duplicate Post
-    // =================================================
+    // ================================================
 
     if (
       error.code === 11000
@@ -1191,7 +1495,7 @@ async function createPost({
 }
 
 // =====================================================
-// 13. Get Persistent Post Photo
+// 16. Get Persistent Post Photo
 // =====================================================
 
 async function getPostPhoto(id) {
@@ -1216,9 +1520,9 @@ async function getPostPhoto(id) {
     );
   }
 
-  // ===================================================
-  // Verify Public Post
-  // ===================================================
+  // ================================================
+  // Verify Published Post
+  // ================================================
 
   const published =
     await Post.exists({
@@ -1237,9 +1541,9 @@ async function getPostPhoto(id) {
     );
   }
 
-  // ===================================================
-  // Convert Binary to Buffer
-  // ===================================================
+  // ================================================
+  // Convert Binary Data
+  // ================================================
 
   const imageBuffer =
     toImageBuffer(
@@ -1253,7 +1557,7 @@ async function getPostPhoto(id) {
 }
 
 // =====================================================
-// 14. Like / Unlike Post
+// 17. Like / Unlike Post
 // =====================================================
 
 async function setPostLike({
@@ -1280,9 +1584,9 @@ async function setPostLike({
     );
   }
 
-  // ===================================================
-  // Confirm Post Exists
-  // ===================================================
+  // ================================================
+  // Verify Post Exists
+  // ================================================
 
   const post =
     await Post.findOne({
@@ -1297,9 +1601,9 @@ async function setPostLike({
     );
   }
 
-  // ===================================================
-  // Like
-  // ===================================================
+  // ================================================
+  // Like Post
+  // ================================================
 
   if (liked) {
     try {
@@ -1315,9 +1619,9 @@ async function setPostLike({
       }
     }
   } else {
-    // =================================================
-    // Unlike
-    // =================================================
+    // ================================================
+    // Unlike Post
+    // ================================================
 
     await PostLike.deleteOne({
       postId,
@@ -1325,9 +1629,9 @@ async function setPostLike({
     });
   }
 
-  // ===================================================
-  // Recalculate Like Count
-  // ===================================================
+  // ================================================
+  // Recalculate Likes
+  // ================================================
 
   const count =
     await PostLike.countDocuments({
@@ -1347,9 +1651,9 @@ async function setPostLike({
     }
   );
 
-  // ===================================================
-  // Current User Like Status
-  // ===================================================
+  // ================================================
+  // Read Current Like Status
+  // ================================================
 
   const currentLike =
     await PostLike.exists({
@@ -1369,7 +1673,7 @@ async function setPostLike({
 }
 
 // =====================================================
-// 15. Delete Own Post
+// 18. Delete Own Post
 // =====================================================
 
 async function deletePost({
@@ -1386,9 +1690,9 @@ async function deletePost({
     "user ID"
   );
 
-  // ===================================================
+  // ================================================
   // Verify Ownership
-  // ===================================================
+  // ================================================
 
   const post =
     await Post.findOne({
@@ -1403,27 +1707,33 @@ async function deletePost({
     );
   }
 
-  // ===================================================
+  // ================================================
   // Delete Post
-  // ===================================================
+  // ================================================
 
   await Post.deleteOne({
     _id: postId,
     authorId: userId,
   });
 
-  // ===================================================
+  // ================================================
   // Delete Related Likes and Photos
-  // ===================================================
+  // ================================================
+
+  const PostComment = mongoose.models.PostComment;
+  const PostFavorite = mongoose.models.PostFavorite;
 
   await Promise.all([
-    PostLike.deleteMany({
-      postId,
-    }),
+    PostLike.deleteMany({ postId }),
+    PostPhoto.deleteMany({ postId }),
 
-    PostPhoto.deleteMany({
-      postId,
-    }),
+    ...(PostComment
+      ? [PostComment.deleteMany({ postId })]
+      : []),
+
+    ...(PostFavorite
+      ? [PostFavorite.deleteMany({ postId })]
+      : []),
   ]);
 
   return {
@@ -1432,7 +1742,7 @@ async function deletePost({
 }
 
 // =====================================================
-// 16. Exports
+// 19. Exports
 // =====================================================
 
 module.exports = {

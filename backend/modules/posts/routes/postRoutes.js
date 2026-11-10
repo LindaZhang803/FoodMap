@@ -1,6 +1,10 @@
 const express = require("express");
 const mongoose = require("mongoose");
 
+const postSocialRoutes = require(
+  "./postSocialRoutes"
+);
+
 const authenticate = require(
   "../../accounts/middleware/authMiddleware"
 );
@@ -10,6 +14,8 @@ const controller = require(
 );
 
 const router = express.Router();
+
+router.use(postSocialRoutes);
 
 // =====================================================
 // Optional Authentication

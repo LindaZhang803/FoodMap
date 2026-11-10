@@ -95,6 +95,7 @@ function DishImage({
 export default function DishBrowserScreen({
   restaurantId,
   onBack,
+  initialDishId = null,
   demo = false,
   token = null,
   apiOrigin = API_ORIGIN,
@@ -105,7 +106,12 @@ export default function DishBrowserScreen({
   isAuthenticated = false,
   onLoginPress,
 }) {
-  const [dishId, setDishId] = useState(null);
+  const [dishId, setDishId] = useState(initialDishId);
+
+  useEffect(() => {
+    setDishId(initialDishId);
+    setRatingUpdate(null);
+  }, [restaurantId, initialDishId]);
   const [resource, setResource] = useState(null);
 
   const [scenario, setScenario] = useState("normal");
