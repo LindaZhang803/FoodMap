@@ -292,6 +292,19 @@ export default function RestaurantListScreen({
     }));
   }
 
+  function resetAllFilters() {
+    setSearchQuery("");
+
+    setFilters({
+      ...DEFAULT_FILTERS,
+    });
+
+    setSortBy("default");
+
+    setFilterVisible(false);
+    setSortVisible(false);
+  }
+
   async function changeSorting(nextSort) {
     if (applyingFilters) return;
 
@@ -457,6 +470,7 @@ export default function RestaurantListScreen({
               >
                 {category.label}
               </Text>
+              
             </Pressable>
           );
         })}
@@ -503,9 +517,22 @@ export default function RestaurantListScreen({
       </View>
 
       {!loading && !error && (
-        <Text style={styles.resultCount}>
-          {displayedRestaurants.length} restaurants found
-        </Text>
+        <View style={styles.resultRow}>
+          <Text style={styles.resultCount}>
+            {displayedRestaurants.length} restaurants found
+          </Text>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Reset all filters"
+            onPress={resetAllFilters}
+            style={styles.resetButton}
+          >
+            <Text style={styles.resetText}>
+              Reset All
+            </Text>
+          </Pressable>
+        </View>
       )}
     </View>
   );
@@ -807,9 +834,6 @@ const styles = StyleSheet.create({
   resultCount: {
     ...typography.caption,
     color: colors.textSecondary,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
   },
   state: {
     minHeight: 240,
@@ -871,5 +895,25 @@ const styles = StyleSheet.create({
   locationText: {
     ...typography.body,
     color: colors.textSecondary,
+  },
+
+  resultRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+  },
+
+  resetButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+
+  resetText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.primary,
   },
 });
