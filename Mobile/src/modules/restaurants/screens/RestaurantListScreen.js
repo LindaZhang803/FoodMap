@@ -58,6 +58,11 @@ const CUISINE_TABS = [
 export default function RestaurantListScreen({
   onSelectRestaurant,
   toolbarAction,
+
+  // Favorite integration
+  isRestaurantFavorite,
+  onToggleRestaurantFavorite,
+  isRestaurantFavoriteLoading,
 }) {
   const [restaurants, setRestaurants] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -69,6 +74,61 @@ export default function RestaurantListScreen({
   const [applyingFilters, setApplyingFilters] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Read location only if permission was already granted.
+  // Do not automatically request new permission.
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadExistingLocation() {
+      try {
+        const permission =
+          await Location.getForegroundPermissionsAsync();
+
+        if (permission.status !== "granted") {
+          return;
+        }
+
+        const position =
+          await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+
+        if (!active) {
+          return;
+        }
+
+        const { latitude, longitude } =
+          position.coords;
+
+        if (
+          Number.isFinite(latitude) &&
+          Number.isFinite(longitude) &&
+          latitude >= -90 &&
+          latitude <= 90 &&
+          longitude >= -180 &&
+          longitude <= 180
+        ) {
+          setUserLocation({
+            latitude,
+            longitude,
+          });
+        }
+      } catch (error) {
+        console.warn(
+          "Unable to load existing location:",
+          error
+        );
+      }
+    }
+
+    loadExistingLocation();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     fetchRestaurants();
@@ -210,9 +270,7 @@ export default function RestaurantListScreen({
         const location = await requestUserLocation();
         if (!location) return;
         setUserLocation(location);
-      } else if (sortBy !== "nearest") {
-        setUserLocation(null);
-      }
+      } 
 
       setFilters({
         ...nextFilters,
@@ -461,14 +519,38 @@ export default function RestaurantListScreen({
         numColumns={2}
         columnWrapperStyle={styles.columnWrapper}
         ListHeaderComponent={listHeader}
-        renderItem={({ item }) => (
-          <RestaurantCard
-            restaurant={item}
-            distanceKm={calculateRestaurantDistance(item)}
-            compact
-            onPress={() => onSelectRestaurant(item)}
-          />
-        )}
+        renderItem={({ item }) => {
+          const restaurantId =
+            String(item._id);
+
+          const isFavorite =
+            typeof isRestaurantFavorite === "function"
+              ? isRestaurantFavorite(restaurantId)
+              : false;
+
+          const favoriteLoading =
+            typeof isRestaurantFavoriteLoading === "function"
+              ? isRestaurantFavoriteLoading(restaurantId)
+              : false;
+
+          return (
+            <RestaurantCard
+              restaurant={item}
+              distanceKm={
+                calculateRestaurantDistance(item)
+              }
+              compact
+              onPress={() =>
+                onSelectRestaurant?.(item)
+              }
+              isFavorite={isFavorite}
+              favoriteLoading={favoriteLoading}
+              onToggleFavorite={
+                onToggleRestaurantFavorite
+              }
+            />
+          );
+        }}
         ListEmptyComponent={
           loading ? (
             <LoadingState

@@ -32,6 +32,11 @@ export default function RestaurantBrowser({
   token = null,
   isAuthenticated = false,
   onLoginPress,
+
+  // Favorite integration
+  isRestaurantFavorite,
+  onToggleRestaurantFavorite,
+  isRestaurantFavoriteLoading,
 }) {
   const [
     selectedRestaurantId,
@@ -183,11 +188,16 @@ export default function RestaurantBrowser({
         />
       ) : (
         <RestaurantListScreen
-          toolbarAction={
-            toolbarAction
+          toolbarAction={toolbarAction}
+          onSelectRestaurant={openRestaurant}
+          isRestaurantFavorite={
+            isRestaurantFavorite
           }
-          onSelectRestaurant={
-            openRestaurant
+          onToggleRestaurantFavorite={
+            onToggleRestaurantFavorite
+          }
+          isRestaurantFavoriteLoading={
+            isRestaurantFavoriteLoading
           }
         />
       )}
