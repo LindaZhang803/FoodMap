@@ -58,6 +58,11 @@ const CUISINE_TABS = [
 export default function RestaurantListScreen({
   onSelectRestaurant,
   toolbarAction,
+
+  // Favorite integration
+  isRestaurantFavorite,
+  onToggleRestaurantFavorite,
+  isRestaurantFavoriteLoading,
 }) {
   const [restaurants, setRestaurants] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -69,6 +74,61 @@ export default function RestaurantListScreen({
   const [applyingFilters, setApplyingFilters] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Read location only if permission was already granted.
+  // Do not automatically request new permission.
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadExistingLocation() {
+      try {
+        const permission =
+          await Location.getForegroundPermissionsAsync();
+
+        if (permission.status !== "granted") {
+          return;
+        }
+
+        const position =
+          await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+
+        if (!active) {
+          return;
+        }
+
+        const { latitude, longitude } =
+          position.coords;
+
+        if (
+          Number.isFinite(latitude) &&
+          Number.isFinite(longitude) &&
+          latitude >= -90 &&
+          latitude <= 90 &&
+          longitude >= -180 &&
+          longitude <= 180
+        ) {
+          setUserLocation({
+            latitude,
+            longitude,
+          });
+        }
+      } catch (error) {
+        console.warn(
+          "Unable to load existing location:",
+          error
+        );
+      }
+    }
+
+    loadExistingLocation();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     fetchRestaurants();
@@ -210,9 +270,7 @@ export default function RestaurantListScreen({
         const location = await requestUserLocation();
         if (!location) return;
         setUserLocation(location);
-      } else if (sortBy !== "nearest") {
-        setUserLocation(null);
-      }
+      } 
 
       setFilters({
         ...nextFilters,
@@ -232,6 +290,19 @@ export default function RestaurantListScreen({
       ...previous,
       cuisine,
     }));
+  }
+
+  function resetAllFilters() {
+    setSearchQuery("");
+
+    setFilters({
+      ...DEFAULT_FILTERS,
+    });
+
+    setSortBy("default");
+
+    setFilterVisible(false);
+    setSortVisible(false);
   }
 
   async function changeSorting(nextSort) {
@@ -399,6 +470,7 @@ export default function RestaurantListScreen({
               >
                 {category.label}
               </Text>
+              
             </Pressable>
           );
         })}
@@ -445,9 +517,22 @@ export default function RestaurantListScreen({
       </View>
 
       {!loading && !error && (
-        <Text style={styles.resultCount}>
-          {displayedRestaurants.length} restaurants found
-        </Text>
+        <View style={styles.resultRow}>
+          <Text style={styles.resultCount}>
+            {displayedRestaurants.length} restaurants found
+          </Text>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Reset all filters"
+            onPress={resetAllFilters}
+            style={styles.resetButton}
+          >
+            <Text style={styles.resetText}>
+              Reset All
+            </Text>
+          </Pressable>
+        </View>
       )}
     </View>
   );
@@ -461,14 +546,38 @@ export default function RestaurantListScreen({
         numColumns={2}
         columnWrapperStyle={styles.columnWrapper}
         ListHeaderComponent={listHeader}
-        renderItem={({ item }) => (
-          <RestaurantCard
-            restaurant={item}
-            distanceKm={calculateRestaurantDistance(item)}
-            compact
-            onPress={() => onSelectRestaurant(item)}
-          />
-        )}
+        renderItem={({ item }) => {
+          const restaurantId =
+            String(item._id);
+
+          const isFavorite =
+            typeof isRestaurantFavorite === "function"
+              ? isRestaurantFavorite(restaurantId)
+              : false;
+
+          const favoriteLoading =
+            typeof isRestaurantFavoriteLoading === "function"
+              ? isRestaurantFavoriteLoading(restaurantId)
+              : false;
+
+          return (
+            <RestaurantCard
+              restaurant={item}
+              distanceKm={
+                calculateRestaurantDistance(item)
+              }
+              compact
+              onPress={() =>
+                onSelectRestaurant?.(item)
+              }
+              isFavorite={isFavorite}
+              favoriteLoading={favoriteLoading}
+              onToggleFavorite={
+                onToggleRestaurantFavorite
+              }
+            />
+          );
+        }}
         ListEmptyComponent={
           loading ? (
             <LoadingState
@@ -725,9 +834,6 @@ const styles = StyleSheet.create({
   resultCount: {
     ...typography.caption,
     color: colors.textSecondary,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
   },
   state: {
     minHeight: 240,
@@ -789,5 +895,25 @@ const styles = StyleSheet.create({
   locationText: {
     ...typography.body,
     color: colors.textSecondary,
+  },
+
+  resultRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+  },
+
+  resetButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+
+  resetText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.primary,
   },
 });

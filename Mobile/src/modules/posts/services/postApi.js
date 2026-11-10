@@ -281,3 +281,54 @@ export async function deletePost(
     }
   );
 }
+
+// =====================================================
+// Post Social Data
+// =====================================================
+
+export async function getPostSocial(
+  postId,
+  { token, signal } = {}
+) {
+  return request(
+    `${POSTS_PATH}/${encodeURIComponent(postId)}/social`,
+    { token, signal }
+  );
+}
+
+// =====================================================
+// Favorite / Unfavorite
+// =====================================================
+
+export async function setPostFavorite({
+  postId,
+  saved,
+  token,
+}) {
+  return request(
+    `${POSTS_PATH}/${encodeURIComponent(postId)}/favorite`,
+    {
+      method: saved ? "PUT" : "DELETE",
+      token,
+    }
+  );
+}
+
+// =====================================================
+// Create Comment
+// =====================================================
+
+export async function createPostComment({
+  postId,
+  content,
+  token,
+}) {
+  return request(
+    `${POSTS_PATH}/${encodeURIComponent(postId)}/comments`,
+    {
+      method: "POST",
+      token,
+      body: { content },
+    }
+  );
+}

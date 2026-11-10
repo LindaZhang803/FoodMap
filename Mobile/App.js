@@ -1,3 +1,9 @@
+import {
+  getPostSocial,
+  setPostFavorite,
+  createPostComment,
+} from "./src/modules/posts/services/postApi";
+
 import React, {
   useCallback,
   useRef,
@@ -145,6 +151,11 @@ function FoodMapApp() {
   ] = useState(null);
 
   const [
+    selectedPostDishId,
+    setSelectedPostDishId,
+  ] = useState(null);
+
+  const [
     showPostRestaurantDishes,
     setShowPostRestaurantDishes,
   ] = useState(false);
@@ -215,6 +226,16 @@ function FoodMapApp() {
   // 4. Navigation
   // =====================================================
 
+
+  function openPostDish(dishId, restaurantId) {
+    if (!dishId || !restaurantId) {
+      return;
+    }
+
+    setSelectedPostDishId(dishId);
+    setSelectedPostRestaurantId(restaurantId);
+    setShowPostRestaurantDishes(true);
+  }
   function navigateTo(nextPage) {
     if (nextPage === page) {
       if (nextPage === "home") {
@@ -284,6 +305,8 @@ function FoodMapApp() {
     setSelectedPostId(null);
     setSelectedPostRestaurantId(null);
     setShowPostRestaurantDishes(false);
+    setSelectedPostDishId(null);
+    setSelectedPostDishId(null);
   }
 
   function backFromPost() {
@@ -306,11 +329,23 @@ function FoodMapApp() {
 
     setSelectedPostRestaurantId(id);
     setShowPostRestaurantDishes(false);
+    setSelectedPostDishId(null);
+  }
+
+  function openPostDish(dishId, restaurantId) {
+    if (!dishId || !restaurantId) {
+      return;
+    }
+
+    setSelectedPostRestaurantId(restaurantId);
+    setSelectedPostDishId(dishId);
+    setShowPostRestaurantDishes(true);
   }
 
   function backFromPostRestaurant() {
     setSelectedPostRestaurantId(null);
     setShowPostRestaurantDishes(false);
+    setSelectedPostDishId(null);
   }
 
   function openPostRestaurantDishes() {
@@ -319,6 +354,7 @@ function FoodMapApp() {
     }
 
     setShowPostRestaurantDishes(true);
+    setSelectedPostDishId(null);
   }
 
   function backFromPostRestaurantDishes() {
@@ -521,10 +557,9 @@ function FoodMapApp() {
     ) {
       return (
         <DishBrowserScreen
-          key={`post-dishes-${selectedPostRestaurantId}`}
-          restaurantId={
-            selectedPostRestaurantId
-          }
+          key={`post-dishes-${selectedPostRestaurantId}-${selectedPostDishId || "list"}`}
+          restaurantId={selectedPostRestaurantId}
+          initialDishId={selectedPostDishId}
           demo={false}
           token={token}
           authToken={token}
@@ -577,6 +612,10 @@ function FoodMapApp() {
           onDeleted={
             handlePostDeleted
           }
+          onDishPress={openPostDish}
+          onLoadComments={getPostSocial}
+          onToggleFavorite={setPostFavorite}
+          onSubmitComment={createPostComment}
         />
       );
     }
