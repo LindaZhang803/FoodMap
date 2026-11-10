@@ -68,7 +68,20 @@ afterEach(() => { global.fetch = originalFetch; alert.mockRestore(); });
 
 async function readyHome() {
   render(<App />);
-  await waitFor(() => expect(screen.getByRole('button', { name: 'My Feed' })).toBeEnabled());
+
+  await waitFor(() => {
+    expect(
+      screen.getByRole("tab", {
+        name: "Home",
+      })
+    ).toBeEnabled();
+
+    expect(
+      screen.getByRole("tab", {
+        name: "Profile",
+      })
+    ).toBeEnabled();
+  });
 }
 
 async function submitLogin() {

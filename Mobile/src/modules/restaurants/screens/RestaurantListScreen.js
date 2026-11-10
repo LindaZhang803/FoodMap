@@ -83,10 +83,20 @@ export default function RestaurantListScreen({
 
     async function loadExistingLocation() {
       try {
+        // Some Jest mocks do not provide this API.
+        if (
+          typeof Location.getForegroundPermissionsAsync !==
+            "function" ||
+          typeof Location.getCurrentPositionAsync !==
+            "function"
+        ) {
+          return;
+        }
+
         const permission =
           await Location.getForegroundPermissionsAsync();
 
-        if (permission.status !== "granted") {
+        if (permission?.status !== "granted") {
           return;
         }
 
@@ -99,8 +109,11 @@ export default function RestaurantListScreen({
           return;
         }
 
-        const { latitude, longitude } =
-          position.coords;
+        const latitude =
+          position?.coords?.latitude;
+
+        const longitude =
+          position?.coords?.longitude;
 
         if (
           Number.isFinite(latitude) &&
@@ -116,10 +129,14 @@ export default function RestaurantListScreen({
           });
         }
       } catch (error) {
-        console.warn(
-          "Unable to load existing location:",
-          error
-        );
+        // Location is optional.
+        // A location failure must not block restaurant browsing.
+        if (__DEV__ && process.env.NODE_ENV !== "test") {
+          console.warn(
+            "Unable to load existing location:",
+            error
+          );
+        }
       }
     }
 
