@@ -37,6 +37,13 @@ const postPhotoSchema = new mongoose.Schema(
       index: true,
     },
 
+    sourceReviewPhotoId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ReviewPhoto",
+      default: null,
+      index: true,
+    },
+
     data: {
       type: Buffer,
       required: true,
@@ -1370,6 +1377,7 @@ async function createPost({
 
       const photo =
         await PostPhoto.create({
+          sourceReviewPhotoId: source._id,
           data: imageBuffer,
 
           contentType:
@@ -1511,56 +1519,59 @@ async function createPost({
 // =====================================================
 
 async function getPostPhoto(id) {
-  requireId(
-    id,
-    "photo ID"
-  );
+  requireId(id, "photo ID");
 
-  const photo =
-    await PostPhoto.findById(id)
-      .select("+data")
-      .lean();
+  const photo = await PostPhoto.findById(id)
+    .select("+data")
+    .lean();
 
-  if (
-    !photo ||
-    !photo.postId ||
-    !photo.data
-  ) {
-    throw new PostError(
-      404,
-      "Photo not found."
+  if (!photo || !photo.postId || !photo.data) {
+    throw new PostError(404, "Photo not found.");
+  }
+
+  const published = await Post.findOne({
+    _id: photo.postId,
+    status: "published",
+    imageUrls: `${PHOTO_PREFIX}${id}`,
+  })
+    .select("_id reviewId")
+    .lean();
+
+  if (!published || !published.reviewId) {
+    throw new PostError(404, "Photo not found.");
+  }
+
+  const { ReviewPhoto } = getReviewModels();
+  if (!ReviewPhoto) {
+    throw new PostError(503, "The Reviews module is not initialized.");
+  }
+
+  const imageBuffer = toImageBuffer(photo.data);
+  let approved = false;
+
+  if (photo.sourceReviewPhotoId) {
+    const original = await ReviewPhoto.findOne({
+      _id: photo.sourceReviewPhotoId,
+      reviewId: published.reviewId,
+      status: "approved",
+    }).select("_id").lean();
+
+    approved = Boolean(original);
+  } else {
+    // Older posts have no source ID. Match their copied image bytes.
+    const originals = await ReviewPhoto.find({
+      reviewId: published.reviewId,
+      status: "approved",
+    }).select("+data").lean();
+
+    approved = originals.some(original =>
+      toImageBuffer(original.data).equals(imageBuffer)
     );
   }
 
-  // ================================================
-  // Verify Published Post
-  // ================================================
-
-  const published =
-    await Post.exists({
-      _id: photo.postId,
-
-      status: "published",
-
-      imageUrls:
-        `${PHOTO_PREFIX}${id}`,
-    });
-
-  if (!published) {
-    throw new PostError(
-      404,
-      "Photo not found."
-    );
+  if (!approved) {
+    throw new PostError(404, "Photo not found.");
   }
-
-  // ================================================
-  // Convert Binary Data
-  // ================================================
-
-  const imageBuffer =
-    toImageBuffer(
-      photo.data
-    );
 
   return {
     data: imageBuffer,
