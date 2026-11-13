@@ -38,7 +38,7 @@ jobs:
       - name: Run frontend tests
         run: >
           npx jest
-          --config src/test/frontend/jest.frontend.config.cjs
+          --config ./test/frontend/jest.frontend.config.cjs
           --runInBand
         env:
           CI: 'true'
