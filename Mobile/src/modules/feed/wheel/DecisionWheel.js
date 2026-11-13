@@ -262,7 +262,6 @@ export default function DecisionWheel({
     dish: [],
   });
 
-  const [scope, setScope] = useState(privateSessionKey);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [query, setQuery] = useState("");
   const [filterSelection, setFilterSelection] = useState([]);
@@ -272,13 +271,23 @@ export default function DecisionWheel({
   const animation = useRef(null);
   const generation = useRef(0);
   const currentScope = useRef(privateSessionKey);
+  const previousScope = useRef(privateSessionKey);
 
   currentScope.current = privateSessionKey;
 
   // Account switch protection.
-  if (scope !== privateSessionKey) {
+  useEffect(() => {
+    if (previousScope.current === privateSessionKey) {
+      return;
+    }
+
+    previousScope.current = privateSessionKey;
+
     generation.current += 1;
-    setScope(privateSessionKey);
+
+    const running = animation.current;
+    animation.current = null;
+    running?.handle.stop();
 
     setOptions((previous) =>
       Object.fromEntries(
@@ -289,12 +298,18 @@ export default function DecisionWheel({
       )
     );
 
-    setSavedSelection({ restaurant: [], dish: [] });
+    setSavedSelection({
+      restaurant: [],
+      dish: [],
+    });
+
     setWinner(null);
     setSpinning(false);
     setEditing(null);
+    setDraft("");
+    setFilterSelection([]);
     setError("");
-  }
+  }, [privateSessionKey]);
 
   useEffect(() => {
     angle.current = 0;
@@ -642,7 +657,13 @@ export default function DecisionWheel({
 
         <View style={styles.spinButton}>
           <Button
-            label={spinning ? "Spinning..." : "Spin the Wheel"}
+            label={
+              spinning
+                ? "Spinning..."
+                : winner
+                  ? "Spin Again"
+                  : "Spin the Wheel"
+            }
             primary
             disabled={spinning || choices.length < 2}
             onPress={spin}

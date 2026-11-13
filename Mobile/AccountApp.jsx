@@ -76,6 +76,9 @@ export default function AccountApp({
   session,
   onUserChange,
   onLoginSuccess,
+
+  onOpenFavorites,
+  onOpenWantToTry,
 }) {
   const {
     auth,
@@ -266,6 +269,9 @@ export default function AccountApp({
         isLoggingOut={
           auth.phase === "signingOut"
         }
+
+        onOpenFavorites={onOpenFavorites}
+        onOpenWantToTry={onOpenWantToTry}
       />
     );
   }

@@ -26,8 +26,43 @@ function createReviewRepository({ origin = '', fetchImpl = globalThis.fetch, fix
     return statistics;
   }
   function stats(target) {
-    const rows = fixtures.reviews.filter(r => matches(r, target));
-    return { averageRating: rows.length ? rows.reduce((sum, r) => sum + r.rating, 0) / rows.length : null, reviewCount: rows.length };
+    const rows = fixtures.reviews.filter(
+      (review) => matches(review, target)
+    );
+
+    const ratingDistribution = {
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0,
+    };
+
+    let ratingSum = 0;
+
+    rows.forEach((review) => {
+      const rating = Number(review.rating);
+
+      if (
+        Number.isInteger(rating) &&
+        rating >= 1 &&
+        rating <= 5
+      ) {
+        ratingDistribution[rating] += 1;
+        ratingSum += rating;
+      }
+    });
+
+    return {
+      averageRating:
+        rows.length > 0
+          ? ratingSum / rows.length
+          : null,
+
+      reviewCount: rows.length,
+
+      ratingDistribution,
+    };
   }
   async function request(path, options = {}) {
     const controller = new AbortController();

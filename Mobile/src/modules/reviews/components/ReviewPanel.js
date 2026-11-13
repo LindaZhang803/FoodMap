@@ -27,6 +27,102 @@ import {
 
 import AppIcon from "../../../shared/components/AppIcon";
 
+// =====================================================
+// Rating Distribution
+// =====================================================
+
+function RatingDistribution({ statistics }) {
+  const distribution = statistics?.ratingDistribution;
+
+  const hasDistribution =
+    distribution &&
+    typeof distribution === "object" &&
+    !Array.isArray(distribution);
+
+  const ratings = [5, 4, 3, 2, 1].map((stars) => {
+    const raw = hasDistribution
+      ? distribution[stars]
+      : undefined;
+
+    const count = Number(raw);
+
+    return {
+      stars,
+      count,
+      valid:
+        raw !== undefined &&
+        raw !== null &&
+        Number.isInteger(count) &&
+        count >= 0,
+    };
+  });
+
+  const total = ratings.reduce(
+    (sum, item) => sum + item.count,
+    0
+  );
+
+  const valid =
+    hasDistribution &&
+    ratings.every((item) => item.valid) &&
+    total === Number(statistics?.reviewCount);
+
+  if (!valid) {
+    return (
+      <View style={styles.ratingDistribution}>
+        <Text style={styles.distributionTitle}>
+          Rating Distribution
+        </Text>
+
+        <Text style={styles.distributionEmpty}>
+          Rating distribution unavailable
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.ratingDistribution}>
+      <Text style={styles.distributionTitle}>
+        Rating Distribution
+      </Text>
+
+      {ratings.map(({ stars, count }) => {
+        const percentage =
+          total > 0
+            ? (count / total) * 100
+            : 0;
+
+        return (
+          <View
+            key={stars}
+            style={styles.distributionRow}
+          >
+            <Text style={styles.distributionStars}>
+              {stars} ★
+            </Text>
+
+            <View style={styles.distributionTrack}>
+              <View
+                style={[
+                  styles.distributionFill,
+                  {
+                    width: `${percentage}%`,
+                  },
+                ]}
+              />
+            </View>
+
+            <Text style={styles.distributionNumber}>
+              {count}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 function ReviewStars({ rating, size = 18 }) {
   const value = Math.max(
     0,
@@ -70,7 +166,9 @@ export default function ReviewPanel({
     dishId ? "dish" : "restaurant"
   );
 
+  const [title, setTitle] = useState("");
   const [rating, setRating] = useState(0);
+  const [spicinessRating, setSpicinessRating] = useState(null);
   const [comment, setComment] = useState("");
   const [page, setPage] = useState(1);
   const [refresh, setRefresh] = useState(0);
@@ -166,15 +264,73 @@ export default function ReviewPanel({
   function resetForm() {
     setEditingId(null);
     setDeleteId(null);
+
+    setTitle("");
     setRating(0);
+    setSpicinessRating(null);
     setComment("");
+
     setPhotos([]);
     setFormError(null);
     setNotice("");
   }
 
+  function validateReviewForm() {
+    if (!restaurantId) {
+      return "Please select a restaurant.";
+    }
+
+    if (type === "dish" && !dishId) {
+      return "Please select a dish.";
+    }
+
+    if (!title.trim()) {
+      return "Please enter a review title.";
+    }
+
+    if (title.trim().length > 120) {
+      return "Review title must be 120 characters or fewer.";
+    }
+
+    if (
+      !Number.isInteger(rating) ||
+      rating < 1 ||
+      rating > 5
+    ) {
+      return "Please select an overall rating from 1 to 5.";
+    }
+
+    if (
+      spicinessRating !== null &&
+      (
+        !Number.isInteger(spicinessRating) ||
+        spicinessRating < 1 ||
+        spicinessRating > 5
+      )
+    ) {
+      return "Spiciness rating must be between 1 and 5.";
+    }
+
+    if (!comment.trim()) {
+      return "Please enter your review.";
+    }
+
+    if (comment.length > 2000) {
+      return "Review must be 2000 characters or fewer.";
+    }
+
+    return null;
+  }
+
   async function submit() {
     if (busy.current || !canWriteReview) return;
+
+    const validationError = validateReviewForm();
+
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
 
     busy.current = true;
     setSaving(true);
@@ -469,6 +625,12 @@ export default function ReviewPanel({
             </Text>
           </View>
 
+          {/* Rating Distribution */}
+
+          <RatingDistribution
+            statistics={data.statistics}
+          />
+
           {data.reviews.length === 0 && (
             <EmptyState
               title="No reviews yet"
@@ -639,7 +801,62 @@ export default function ReviewPanel({
               : `Write a ${type} review`}
           </Text>
 
-          <Text style={styles.fieldLabel}>Your Rating</Text>
+          <AppInput
+            label="Review Title"
+            accessibilityLabel="Review Title"
+            placeholder="Give your review a title..."
+            value={title}
+            onChangeText={setTitle}
+            maxLength={120}
+            editable={!saving}
+          />
+
+          <Text style={styles.fieldLabel}>Overall Rating (Required)</Text>
+
+          <View style={styles.starRow}>
+            {[1, 2, 3, 4, 5].map((value) => (
+              <Pressable
+                key={value}
+                accessibilityRole="button"
+                accessibilityLabel={`${value} spiciness`}
+                accessibilityState={{
+                  selected: spicinessRating === value,
+                }}
+                disabled={saving}
+                onPress={() => {
+                  setSpicinessRating(
+                    spicinessRating === value ? null : value
+                  );
+                }}
+                style={styles.starButton}
+              >
+                <AppIcon
+                  name={
+                    value <= (spicinessRating ?? 0)
+                      ? "starFilled"
+                      : "star"
+                  }
+                  size={32}
+                  color={colors.primary}
+                />
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.fieldLabel}>
+            Spiciness Rating (Optional)
+          </Text>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Clear spiciness rating"
+            disabled={saving || spicinessRating === null}
+            onPress={() => setSpicinessRating(null)}
+          >
+            <Text style={styles.clearRatingText}>
+              Clear Spiciness Rating
+            </Text>
+          </Pressable>
 
           <View style={styles.starRow}>
             {[1, 2, 3, 4, 5].map((value) => (
@@ -1045,5 +1262,69 @@ const styles = StyleSheet.create({
   loginButton: {
     marginTop: spacing.lg,
     alignSelf: "stretch",
+  },
+
+  clearRatingText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: "600",
+    marginBottom: spacing.lg,
+  },
+
+  // =====================================================
+  // Rating Distribution Styles
+  // =====================================================
+
+  ratingDistribution: {
+    marginBottom: spacing.xl,
+    padding: spacing.lg,
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: radius.lg,
+  },
+
+  distributionTitle: {
+    ...typography.section,
+    color: colors.text,
+    marginBottom: spacing.lg,
+  },
+
+  distributionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+
+  distributionStars: {
+    width: 42,
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.text,
+  },
+
+  distributionTrack: {
+    flex: 1,
+    height: 10,
+    backgroundColor: colors.border,
+    borderRadius: radius.pill,
+    overflow: "hidden",
+  },
+
+  distributionFill: {
+    height: "100%",
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
+  },
+
+  distributionNumber: {
+    width: 35,
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: "right",
+  },
+
+  distributionEmpty: {
+    ...typography.body,
+    color: colors.textMuted,
   },
 });
