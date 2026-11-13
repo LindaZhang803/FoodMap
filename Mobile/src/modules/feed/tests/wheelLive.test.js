@@ -457,7 +457,7 @@ it(
       })
     ).toBeNull();
 
-    press(view, 'Spin the Wheel');
+    press(view, 'Spin Again');
     animation.finish(1);
 
     expect(

@@ -79,16 +79,16 @@ export default function RestaurantBrowser({
   // =====================================================
   // 2. Open Dishes
   // =====================================================
-
-  function openDishes() {
-    if (!selectedRestaurantId) {
-      return;
-    }
+  function openDishes(
+    dishId = null,
+    restaurantName = null
+  ) {
+    if (!selectedRestaurantId) return;
 
     setDishBrowser({
-      restaurantId:
-        selectedRestaurantId,
-
+      restaurantId: selectedRestaurantId,
+      dishId,
+      restaurantName,
       demo: false,
     });
   }
@@ -159,6 +159,7 @@ export default function RestaurantBrowser({
 
       {dishBrowser ? (
         <DishBrowserScreen
+          initialDishId={dishBrowser.dishId ?? null}
           key={dishBrowser.restaurantId}
           restaurantId={
             dishBrowser.restaurantId
@@ -172,6 +173,7 @@ export default function RestaurantBrowser({
           onLoginPress={
             onLoginPress
           }
+          restaurantName={dishBrowser.restaurantName}
           onBack={backFromDishes}
         />
       ) : selectedRestaurantId ? (

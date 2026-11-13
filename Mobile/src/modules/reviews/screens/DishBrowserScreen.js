@@ -53,6 +53,66 @@ function getRatingText(dish) {
   return `${average.toFixed(1)} / 5 · ${count} reviews`;
 }
 
+function getPriceText(dish) {
+  const raw = dish?.price;
+
+  if (raw == null || raw === "") {
+    return "Price unavailable";
+  }
+
+  const price = Number(raw);
+
+  if (!Number.isFinite(price) || price < 0) {
+    return "Price unavailable";
+  }
+
+  return `$${price.toFixed(2)}`;
+}
+
+function getMedianSpiciness(dish) {
+  const value =
+    dish?.medianSpiciness ??
+    dish?.spicinessMedian;
+
+  if (
+    value == null ||
+    value === "" ||
+    !Number.isFinite(Number(value))
+  ) {
+    return null;
+  }
+
+  return Number(value);
+}
+
+function getSpicinessDistribution(dish) {
+  const distribution = dish?.spicinessDistribution;
+
+  if (
+    !distribution ||
+    typeof distribution !== "object" ||
+    Array.isArray(distribution)
+  ) {
+    return [];
+  }
+
+  return Object.entries(distribution)
+    .map(([level, count]) => ({
+      level,
+      count: Number(count),
+    }))
+    .filter(
+      (item) =>
+        Number.isFinite(Number(item.level)) &&
+        Number.isFinite(item.count) &&
+        item.count >= 0
+    )
+    .sort(
+      (a, b) =>
+        Number(a.level) - Number(b.level)
+    );
+}
+
 function DishImage({
   uri,
   large = false,
@@ -96,6 +156,14 @@ export default function DishBrowserScreen({
   restaurantId,
   onBack,
   initialDishId = null,
+
+  restaurantName = null,
+
+  isDishFavorite,
+  onToggleDishFavorite,
+  isDishFavoriteLoading,
+
+  onAddDishToWheel,
   demo = false,
   token = null,
   apiOrigin = API_ORIGIN,
@@ -427,29 +495,146 @@ export default function DishBrowserScreen({
             </View>
 
             <View style={styles.detailCard}>
+
+              {/* Dish Name */}
+
               <Text style={styles.dishTitle}>
                 {data.name}
               </Text>
 
-              <Text style={styles.detailRating}>
-                {getRatingText(
-                  ratingUpdate?.dishId === data.id
-                    ? {
-                        ...data,
-                        ...ratingUpdate.statistics,
-                      }
-                    : data
+              {/* Restaurant Name */}
+
+              <Text style={styles.restaurantName}>
+                {restaurantName ||
+                  data.restaurantName ||
+                  data.restaurant?.name ||
+                  "Restaurant name unavailable"}
+              </Text>
+
+              {/* Price */}
+
+              <Text style={styles.dishPrice}>
+                {getPriceText(data)}
+              </Text>
+
+              {/* Overall Rating */}
+
+              <View style={styles.statisticsSection}>
+                <Text style={styles.statisticsTitle}>
+                  Overall Rating
+                </Text>
+
+                <Text style={styles.overallRating}>
+                  {getRatingText(
+                    ratingUpdate?.dishId === data.id
+                      ? {
+                          ...data,
+                          ...ratingUpdate.statistics,
+                        }
+                      : data
+                  )}
+                </Text>
+              </View>
+
+              {/* Median Spiciness */}
+
+              <View style={styles.statisticsSection}>
+                <Text style={styles.statisticsTitle}>
+                  Median Spiciness
+                </Text>
+
+                <Text style={styles.spicinessValue}>
+                  {getMedianSpiciness(data) !== null
+                    ? String(getMedianSpiciness(data))
+                    : "Spiciness data unavailable"}
+                </Text>
+              </View>
+
+              {/* Spiciness Distribution */}
+
+              <View style={styles.statisticsSection}>
+                <Text style={styles.statisticsTitle}>
+                  Spiciness Distribution
+                </Text>
+
+                {getSpicinessDistribution(data).length === 0 ? (
+                  <Text style={styles.unavailableText}>
+                    Spiciness data unavailable
+                  </Text>
+                ) : (
+                  getSpicinessDistribution(data).map(
+                    ({ level, count }) => (
+                      <View
+                        key={level}
+                        style={styles.distributionRow}
+                      >
+                        <Text style={styles.distributionLabel}>
+                          Level {level}
+                        </Text>
+
+                        <Text style={styles.distributionCount}>
+                          {count} reviews
+                        </Text>
+                      </View>
+                    )
+                  )
                 )}
-              </Text>
+              </View>
 
-              <Text style={styles.sectionTitle}>
-                About This Dish
-              </Text>
+              {/* Description */}
 
-              <Text style={styles.description}>
-                {data.description ||
-                  "Description unavailable"}
-              </Text>
+              <View style={styles.statisticsSection}>
+                <Text style={styles.sectionTitle}>
+                  About This Dish
+                </Text>
+
+                <Text style={styles.description}>
+                  {data.description ||
+                    "Description unavailable"}
+                </Text>
+              </View>
+
+              {/* Favorite and Wheel Actions */}
+
+              <View style={styles.dishActionRow}>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Add dish to Want to Try"
+                  disabled={
+                    typeof onToggleDishFavorite !== "function" ||
+                    Boolean(isDishFavoriteLoading?.(data.id))
+                  }
+                  onPress={() =>
+                    onToggleDishFavorite?.(data)
+                  }
+                  style={styles.dishActionButton}
+                >
+                  <Text style={styles.dishActionText}>
+                    {isDishFavorite?.(data.id)
+                      ? "♥ Saved"
+                      : "♡ Want to Try"}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Add dish to Wheel"
+                  disabled={
+                    typeof onAddDishToWheel !== "function"
+                  }
+                  onPress={() =>
+                    onAddDishToWheel?.(data)
+                  }
+                  style={styles.dishActionButton}
+                >
+                  <Text style={styles.dishActionText}>
+                    Add to Wheel
+                  </Text>
+                </Pressable>
+
+              </View>
+
             </View>
 
             {reviewContent}
@@ -799,5 +984,88 @@ const styles = StyleSheet.create({
 
   state: {
     minHeight: 220,
+  },
+
+    restaurantName: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+  },
+
+  dishPrice: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: colors.primary,
+    marginBottom: spacing.lg,
+  },
+
+  statisticsSection: {
+    marginBottom: spacing.xl,
+  },
+
+  statisticsTitle: {
+    ...typography.section,
+    color: colors.text,
+    marginBottom: spacing.sm,
+  },
+
+  overallRating: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.primary,
+  },
+
+  spicinessValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.text,
+  },
+
+  unavailableText: {
+    ...typography.body,
+    color: colors.textMuted,
+  },
+
+  distributionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+
+  distributionLabel: {
+    ...typography.body,
+    color: colors.text,
+  },
+
+  distributionCount: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+
+  dishActionRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+
+  dishActionButton: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: spacing.sm,
+  },
+
+  dishActionText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.primary,
+    textAlign: "center",
   },
 });

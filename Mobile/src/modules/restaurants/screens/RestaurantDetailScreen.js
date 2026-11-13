@@ -1,4 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  createDishRepository,
+} from "../../reviews/services/dishRepository";
 
 import {
   View,
@@ -25,9 +33,134 @@ import {
 import {
   LoadingState,
   ErrorState,
+  EmptyState,
 } from "../../../shared/design/UIComponents";
 
 import AppIcon from "../../../shared/components/AppIcon";
+
+const MENU_CATEGORIES = [
+  { label: "Popular", value: "popular" },
+  { label: "Main Dishes", value: "main" },
+  { label: "Appetizers", value: "appetizer" },
+  { label: "Sides", value: "side" },
+  { label: "Drinks", value: "drink" },
+  { label: "Desserts", value: "dessert" },
+];
+
+function getDishCategory(dish) {
+  const raw = String(
+    dish.category ??
+    dish.dishCategory ??
+    dish.type ??
+    ""
+  )
+    .trim()
+    .toLowerCase();
+
+  if (!raw) return "uncategorized";
+
+  if (
+    ["main", "main dish", "main dishes", "entree", "entrée", "entrees", "mains"]
+      .includes(raw)
+  ) {
+    return "main";
+  }
+
+  if (
+    ["appetizer", "appetizers", "starter", "starters"]
+      .includes(raw)
+  ) {
+    return "appetizer";
+  }
+
+  if (
+    ["side", "sides", "side dish", "side dishes"]
+      .includes(raw)
+  ) {
+    return "side";
+  }
+
+  if (
+    ["drink", "drinks", "beverage", "beverages"]
+      .includes(raw)
+  ) {
+    return "drink";
+  }
+
+  if (
+    ["dessert", "desserts"]
+      .includes(raw)
+  ) {
+    return "dessert";
+  }
+
+  return "uncategorized";
+}
+
+function getDishRating(dish) {
+  const count = Number(dish.reviewCount);
+
+  const rating = Number(dish.averageRating);
+
+  if (
+    !Number.isFinite(count) ||
+    count <= 0 ||
+    dish.averageRating == null ||
+    !Number.isFinite(rating)
+  ) {
+    return "No ratings yet";
+  }
+
+  return `★ ${rating.toFixed(1)} (${count})`;
+}
+
+function getDishPrice(dish) {
+  if (
+    dish.price == null ||
+    dish.price === ""
+  ) {
+    return null;
+  }
+
+  const price = Number(dish.price);
+
+  if (
+    !Number.isFinite(price) ||
+    price < 0
+  ) {
+    return null;
+  }
+
+  return `$${price.toFixed(2)}`;
+}
+
+function MenuDishImage({ uri }) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [uri]);
+
+  if (!uri || failed) {
+    return (
+      <View style={styles.dishImageFallback}>
+        <Text style={styles.dishImageFallbackText}>
+          Photo unavailable
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      style={styles.dishImage}
+      resizeMode="cover"
+      accessibilityLabel="Dish photo"
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 // =====================================================
 // Restaurant Detail Screen
@@ -38,6 +171,12 @@ export default function RestaurantDetailScreen({
   onBack,
   onViewDishes,
   renderRestaurantActions,
+
+  distanceKm = null,
+
+  isDishFavorite,
+  onToggleDishFavorite,
+  isDishFavoriteLoading,
 }) {
   const [restaurant, setRestaurant] = useState(null);
 
@@ -48,6 +187,29 @@ export default function RestaurantDetailScreen({
   const [imageError, setImageError] = useState(false);
 
   const [retry, setRetry] = useState(0);
+
+  // =====================================================
+  // Menu State
+  // =====================================================
+
+  const [dishes, setDishes] = useState([]);
+
+  const [menuLoading, setMenuLoading] = useState(true);
+
+  const [menuError, setMenuError] = useState(null);
+
+  const [menuRetry, setMenuRetry] = useState(0);
+
+  const [selectedCategory, setSelectedCategory] =
+    useState("popular");
+
+  const dishRepository = useMemo(
+    () =>
+      createDishRepository({
+        origin: API_ORIGIN,
+      }),
+    []
+  );
 
   // =====================================================
   // 1. Load restaurant
@@ -112,6 +274,106 @@ export default function RestaurantDetailScreen({
       controller.abort();
     };
   }, [restaurantId, retry]);
+
+  // =====================================================
+  // Load Restaurant Menu
+  // =====================================================
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadMenu() {
+      setMenuLoading(true);
+      setMenuError(null);
+      setDishes([]);
+      setSelectedCategory("popular");
+
+      if (!restaurantId) {
+        setMenuLoading(false);
+        return;
+      }
+
+      try {
+        const result =
+          await dishRepository.getDishes(
+            restaurantId,
+            "name"
+          );
+
+        if (!active) return;
+
+        if (!Array.isArray(result)) {
+          throw new Error("Invalid menu response");
+        }
+
+        setDishes(result);
+      } catch (err) {
+        if (!active) return;
+
+        setMenuError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load menu"
+        );
+      } finally {
+        if (active) {
+          setMenuLoading(false);
+        }
+      }
+    }
+
+    loadMenu();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    restaurantId,
+    dishRepository,
+    menuRetry,
+  ]);
+
+  // =====================================================
+  // Menu Filtering
+  // =====================================================
+
+  const sortedDishes = useMemo(() => {
+    return [...dishes].sort((a, b) => {
+      const reviewDifference =
+        (Number(b.reviewCount) || 0) -
+        (Number(a.reviewCount) || 0);
+
+      if (reviewDifference !== 0) {
+        return reviewDifference;
+      }
+
+      const ratingDifference =
+        (Number(b.averageRating) || 0) -
+        (Number(a.averageRating) || 0);
+
+      if (ratingDifference !== 0) {
+        return ratingDifference;
+      }
+
+      return String(a.name || "").localeCompare(
+        String(b.name || "")
+      );
+    });
+  }, [dishes]);
+
+  const visibleDishes = useMemo(() => {
+    if (selectedCategory === "popular") {
+      return sortedDishes;
+    }
+
+    return sortedDishes.filter(
+      (dish) =>
+        getDishCategory(dish) === selectedCategory
+    );
+  }, [
+    sortedDishes,
+    selectedCategory,
+  ]);
 
   // =====================================================
   // 2. Fixed header
@@ -223,6 +485,15 @@ export default function RestaurantDetailScreen({
     restaurant.openingHours?.trim() ||
     "Hours unavailable";
 
+  const distanceText =
+    typeof distanceKm === "number" &&
+    Number.isFinite(distanceKm) &&
+    distanceKm >= 0
+      ? distanceKm < 1
+        ? `${Math.round(distanceKm * 1000)} m`
+        : `${distanceKm.toFixed(1)} km`
+      : "Distance unavailable";
+
   // =====================================================
   // 6. Shared Favorites action
   // =====================================================
@@ -311,6 +582,18 @@ export default function RestaurantDetailScreen({
             </Text>
           </View>
 
+          <View style={styles.addressRow}>
+            <AppIcon
+              name="location"
+              size={16}
+              color={colors.textMuted}
+            />
+
+            <Text style={styles.addressPreview}>
+              {distanceText}
+            </Text>
+          </View>
+
           {/* Favorite Button */}
           {favoriteAction && (
             <View style={styles.favoriteSection}>
@@ -319,36 +602,202 @@ export default function RestaurantDetailScreen({
           )}
         </View>
 
-        {/* Explore Menu */}
-        <View style={styles.section}>
-          <Text style={styles.heading}>
-            Explore the Menu
-          </Text>
+        {/* ==============================================
+            Restaurant Menu
+        ============================================== */}
 
-          <Text style={styles.description}>
-            Discover dishes and read customer reviews.
-          </Text>
+        <View style={styles.menuContainer}>
+          <View style={styles.menuHeader}>
+            <Text style={styles.heading}>
+              Restaurant Menu
+            </Text>
 
-          {typeof onViewDishes === "function" && (
-            <Pressable
-              style={({ pressed }) => [
-                styles.menuButton,
-                pressed && styles.pressed,
-              ]}
-              onPress={onViewDishes}
-              accessibilityRole="button"
-              accessibilityLabel="Browse dishes and reviews"
-            >
-              <Text style={styles.menuButtonText}>
-                Browse Dishes & Reviews
+            <Text style={styles.menuSubtitle}>
+              Explore dishes from this restaurant.
+            </Text>
+          </View>
+
+          {/* Menu Categories */}
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryRow}
+          >
+            {MENU_CATEGORIES.map((category) => {
+              const selected =
+                selectedCategory === category.value;
+
+              return (
+                <Pressable
+                  key={category.value}
+                  accessibilityRole="button"
+                  accessibilityLabel={category.label}
+                  accessibilityState={{ selected }}
+                  onPress={() =>
+                    setSelectedCategory(category.value)
+                  }
+                  style={[
+                    styles.categoryButton,
+                    selected && styles.activeCategoryButton,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      selected && styles.activeCategoryText,
+                    ]}
+                  >
+                    {category.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {/* Menu Loading */}
+
+          {menuLoading ? (
+            <LoadingState
+              message="Loading restaurant menu..."
+            />
+          ) : menuError ? (
+            <ErrorState
+              title="Unable to load menu"
+              message={menuError}
+              onRetry={() =>
+                setMenuRetry((current) => current + 1)
+              }
+            />
+          ) : dishes.length === 0 ? (
+            <EmptyState
+              title="No dishes available"
+              description="No dishes have been added for this restaurant yet."
+            />
+          ) : (
+            <View style={styles.dishList}>
+              {/* Category Result Count */}
+
+              <Text style={styles.dishCount}>
+                {visibleDishes.length} dishes
               </Text>
 
-              <AppIcon
-                name="forward"
-                size={22}
-                color={colors.white}
-              />
-            </Pressable>
+              {visibleDishes.length === 0 ? (
+                <Text style={styles.emptyCategoryText}>
+                  No dishes available in this category.
+                </Text>
+              ) : (
+                visibleDishes.map((dish) => {
+                  const dishId = dish.id;
+
+                  const saved =
+                    typeof isDishFavorite === "function"
+                      ? isDishFavorite(dishId)
+                      : false;
+
+                  const saving =
+                    typeof isDishFavoriteLoading === "function"
+                      ? isDishFavoriteLoading(dishId)
+                      : false;
+
+                  const hasFavoriteAction =
+                    typeof onToggleDishFavorite === "function";
+
+                  const priceText = getDishPrice(dish);
+
+                  const spice =
+                    dish.spicinessLevel ??
+                    dish.spiciness ??
+                    null;
+
+                  return (
+                    <View
+                      key={String(dishId)}
+                      style={styles.menuDishCard}
+                    >
+                      {/* Dish Details Navigation */}
+
+                      <Pressable
+                        style={styles.dishMain}
+                        accessibilityRole="button"
+                        accessibilityLabel={`View ${dish.name}`}
+                        onPress={() =>
+                          onViewDishes?.(dishId, restaurant.name)
+                        }
+                      >
+                        <View style={styles.dishImageWrapper}>
+                          <MenuDishImage
+                            uri={dish.imageUrl}
+                          />
+                        </View>
+
+                        <View style={styles.dishInformation}>
+                          <Text
+                            style={styles.dishName}
+                            numberOfLines={2}
+                          >
+                            {dish.name}
+                          </Text>
+
+                          <Text
+                            style={styles.dishDescription}
+                            numberOfLines={2}
+                          >
+                            {dish.description ||
+                              "Description unavailable"}
+                          </Text>
+
+                          {priceText !== null && (
+                            <Text style={styles.dishPrice}>
+                              {priceText}
+                            </Text>
+                          )}
+
+                          <Text style={styles.dishRating}>
+                            {getDishRating(dish)}
+                          </Text>
+
+                          {spice !== null && spice !== "" && (
+                            <Text style={styles.dishSpice}>
+                              Spiciness: {String(spice)}
+                            </Text>
+                          )}
+                        </View>
+                      </Pressable>
+
+                      {/* Dish Favorites */}
+
+                      <View style={styles.dishActions}>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={
+                            saved
+                              ? `Remove ${dish.name} from Want to Try`
+                              : `Add ${dish.name} to Want to Try`
+                          }
+                          accessibilityState={{
+                            selected: saved,
+                            disabled:
+                              !hasFavoriteAction || saving,
+                          }}
+                          disabled={
+                            !hasFavoriteAction || saving
+                          }
+                          onPress={() =>
+                            onToggleDishFavorite?.(dish)
+                          }
+                          style={styles.dishFavoriteButton}
+                        >
+                          <Text style={styles.dishFavoriteText}>
+                            {saved ? "♥" : "♡"}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
           )}
         </View>
 
@@ -624,5 +1073,170 @@ const styles = StyleSheet.create({
 
   pressed: {
     opacity: 0.8,
+  },
+
+    menuContainer: {
+    backgroundColor: colors.surface,
+    marginBottom: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+
+  menuHeader: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+  },
+
+  menuSubtitle: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+  },
+
+  categoryRow: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+
+  categoryButton: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+
+  activeCategoryButton: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+
+  categoryText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+
+  activeCategoryText: {
+    color: colors.white,
+  },
+
+  dishList: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+
+  dishCount: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+  },
+
+  emptyCategoryText: {
+    ...typography.body,
+    color: colors.textMuted,
+    paddingVertical: spacing.xl,
+    textAlign: "center",
+  },
+
+  menuDishCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    marginBottom: spacing.md,
+    overflow: "hidden",
+  },
+
+  dishMain: {
+    flexDirection: "row",
+    padding: spacing.md,
+    alignItems: "center",
+  },
+
+  dishImageWrapper: {
+    width: 110,
+    height: 110,
+    borderRadius: radius.md,
+    overflow: "hidden",
+    backgroundColor: colors.surfaceSecondary,
+  },
+
+  dishImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  dishImageFallback: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceSecondary,
+    padding: spacing.sm,
+  },
+
+  dishImageFallbackText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textAlign: "center",
+  },
+
+  dishInformation: {
+    flex: 1,
+    minWidth: 0,
+    paddingLeft: spacing.md,
+  },
+
+  dishName: {
+    ...typography.cardTitle,
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+
+  dishDescription: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+
+  dishPrice: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+
+  dishRating: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: "700",
+  },
+
+  dishSpice: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+
+  dishActions: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    alignItems: "flex-end",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+
+  dishFavoriteButton: {
+    width: 44,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  dishFavoriteText: {
+    fontSize: 28,
+    color: colors.primary,
   },
 });

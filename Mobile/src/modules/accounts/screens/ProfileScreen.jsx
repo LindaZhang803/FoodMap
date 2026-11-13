@@ -28,6 +28,8 @@ import {
 
 import ReviewHistorySection from "./ReviewHistorySection";
 
+import SpicinessQuestionnaireScreen from "./SpicinessQuestionnaireScreen";
+
 import {
   colors,
   spacing,
@@ -181,6 +183,10 @@ export default function ProfileScreen({
   onLogout,
   onSave,
   onChangeAvatar,
+
+  onOpenFavorites,
+  onOpenWantToTry,
+
   isLoggingOut = false,
   isSaving = false,
   isUploading = false,
@@ -189,6 +195,10 @@ export default function ProfileScreen({
   const [avatarStep, setAvatarStep] = useState("idle");
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(() => makeDraft(user));
+
+  // Spiciness Questionnaire
+  const [showSpicinessQuestionnaire, setShowSpicinessQuestionnaire] =
+    useState(false);
 
   const imageUri =
     typeof user.profileImage === "string" &&
@@ -236,6 +246,7 @@ export default function ProfileScreen({
       setIsEditing(false);
       setFailedImageUri("");
       setDraft(makeDraft(user));
+      setShowSpicinessQuestionnaire(false);
     }
   }, [user]);
 
@@ -416,6 +427,31 @@ export default function ProfileScreen({
     }
   }
 
+  // =====================================================
+  // Spiciness Questionnaire Navigation
+  // =====================================================
+
+  if (showSpicinessQuestionnaire) {
+    return (
+      <SpicinessQuestionnaireScreen
+        initialValues={{
+          preferredSpiciness:
+            user.spicinessPreferences?.preferredSpiciness ?? null,
+
+          spicyFoodFrequency:
+            user.spicinessPreferences?.spicyFoodFrequency ?? null,
+
+          maximumSpiciness:
+            user.spicinessPreferences?.maximumSpiciness ?? null,
+        }}
+
+        onBack={() => {
+          setShowSpicinessQuestionnaire(false);
+        }}
+      />
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.screen}
@@ -542,6 +578,38 @@ export default function ProfileScreen({
                 }
               />
 
+              {/* Spiciness Preferences */}
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Edit Spiciness Preferences"
+                disabled={busy}
+                onPress={() => {
+                  setShowSpicinessQuestionnaire(true);
+                }}
+                style={({ pressed }) => [
+                  styles.spicinessEntry,
+                  pressed && styles.collectionPressed,
+                ]}
+              >
+                <View style={styles.collectionInfo}>
+                  <Text style={styles.collectionTitle}>
+                    Spiciness Preferences
+                  </Text>
+
+                  <Text style={styles.collectionDescription}>
+                    Set your preferred spice level, eating frequency,
+                    and maximum spiciness.
+                  </Text>
+                </View>
+
+                <AppIcon
+                  name="forward"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              </Pressable>
+
               <AppButton
                 title="Edit Profile"
                 icon="edit"
@@ -570,6 +638,90 @@ export default function ProfileScreen({
             token={token}
             loadReviews={getMyReviews}
           />
+        </AppCard>
+
+        {/* ================================================
+            Favorites & Want to Try
+        ================================================ */}
+
+        <AppCard style={styles.sectionCard}>
+
+          <View style={styles.sectionHeading}>
+            <AppIcon
+              name="favoriteFilled"
+              size={20}
+              color={colors.primary}
+            />
+
+            <Text style={styles.sectionTitle}>
+              My Collections
+            </Text>
+          </View>
+
+          {/* Favorites */}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="View Favorites"
+            accessibilityState={{
+              disabled: typeof onOpenFavorites !== "function",
+            }}
+            disabled={typeof onOpenFavorites !== "function"}
+            onPress={onOpenFavorites}
+            style={({ pressed }) => [
+              styles.collectionItem,
+              pressed && styles.collectionPressed,
+            ]}
+          >
+            <View style={styles.collectionInfo}>
+              <Text style={styles.collectionTitle}>
+                Favorites
+              </Text>
+
+              <Text style={styles.collectionDescription}>
+                View your saved restaurants and dishes.
+              </Text>
+            </View>
+
+            <AppIcon
+              name="forward"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </Pressable>
+
+          {/* Want to Try */}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="View Want to Try"
+            accessibilityState={{
+              disabled: typeof onOpenWantToTry !== "function",
+            }}
+            disabled={typeof onOpenWantToTry !== "function"}
+            onPress={onOpenWantToTry}
+            style={({ pressed }) => [
+              styles.collectionItem,
+              pressed && styles.collectionPressed,
+            ]}
+          >
+            <View style={styles.collectionInfo}>
+              <Text style={styles.collectionTitle}>
+                Want to Try
+              </Text>
+
+              <Text style={styles.collectionDescription}>
+                Explore your Want to Try list.
+              </Text>
+            </View>
+
+            <AppIcon
+              name="forward"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </Pressable>
+
         </AppCard>
 
         <View style={styles.logoutSection}>
@@ -732,5 +884,52 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: spacing.md,
     paddingHorizontal: spacing.lg,
+  },
+
+  // =====================================================
+  // Collections
+  // =====================================================
+
+  collectionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+
+    paddingVertical: spacing.lg,
+
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+
+  collectionInfo: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+
+  collectionTitle: {
+    ...typography.body,
+    fontWeight: "700",
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+
+  collectionDescription: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+
+  collectionPressed: {
+    opacity: 0.65,
+  },
+
+  spicinessEntry: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: spacing.lg,
+    marginBottom: spacing.md,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
   },
 });

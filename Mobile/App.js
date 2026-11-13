@@ -1,5 +1,7 @@
 import { useMemo } from "react";
 
+import NotificationCenterScreen from "./src/modules/notifications/screens/NotificationCenterScreen";
+
 import { API_ORIGIN } from "./src/config/api";
 
 import useLiveSavedPlaces from "./src/modules/feed/favorites/useLiveSavedPlaces";
@@ -100,6 +102,7 @@ const PAGE_TITLES = {
   create: "Create Review",
   wheel: "Decision Wheel",
   profile: "My Profile",
+  collections: "Want to Try",
 };
 
 // =====================================================
@@ -159,6 +162,33 @@ function FoodMapApp() {
     onSessionExpired: handleSessionExpired,
   });
 
+    function isDishFavorite(dishId) {
+    return exploreFavorites.isSaved(
+      "dish",
+      dishId
+    );
+  }
+
+  function isDishFavoriteLoading(dishId) {
+    return (
+      exploreFavorites.isPending(
+        "dish",
+        dishId
+      ) ||
+      (isAuthenticated && !exploreFavorites.canMutate)
+    );
+  }
+
+  async function toggleDishFavorite(dish) {
+    if (!dish?.id) {
+      return false;
+    }
+
+    return exploreFavorites.toggleFavoriteDish({
+      dishId: dish.id,
+    });
+  }
+
   const isRestaurantFavorite = (restaurantId) => {
     return exploreFavorites.isSaved(
       "restaurant",
@@ -189,8 +219,12 @@ function FoodMapApp() {
   // =====================================================
 
   const [page, setPage] = useState("home");
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const accountReturnPage = useRef("home");
+
+  const [collectionDestination, setCollectionDestination] =
+  useState(null);
 
   // =====================================================
   // 2. Home Post Navigation
@@ -280,15 +314,19 @@ function FoodMapApp() {
   // 4. Navigation
   // =====================================================
 
+  function openFavorites() {
+    setCollectionDestination("favorites");
+    setPage("collections");
+  }
 
-  function openPostDish(dishId, restaurantId) {
-    if (!dishId || !restaurantId) {
-      return;
-    }
+  function openWantToTry() {
+    setCollectionDestination("wantToTry");
+    setPage("collections");
+  }
 
-    setSelectedPostDishId(dishId);
-    setSelectedPostRestaurantId(restaurantId);
-    setShowPostRestaurantDishes(true);
+  function closeCollections() {
+    setCollectionDestination(null);
+    setPage("profile");
   }
   function navigateTo(nextPage) {
     if (nextPage === page) {
@@ -322,6 +360,7 @@ function FoodMapApp() {
       accountReturnPage.current = "profile";
     }
 
+    setShowNotifications(false);
     setPage(nextPage);
   }
 
@@ -330,10 +369,7 @@ function FoodMapApp() {
   // =====================================================
 
   function openNotifications() {
-    Alert.alert(
-      "Notifications",
-      "Notifications are not available yet."
-    );
+    setShowNotifications(true);
   }
 
   // =====================================================
@@ -356,10 +392,10 @@ function FoodMapApp() {
   }
 
   function closeHomeDetails() {
+    setShowNotifications(false);
     setSelectedPostId(null);
     setSelectedPostRestaurantId(null);
     setShowPostRestaurantDishes(false);
-    setSelectedPostDishId(null);
     setSelectedPostDishId(null);
   }
 
@@ -402,13 +438,13 @@ function FoodMapApp() {
     setSelectedPostDishId(null);
   }
 
-  function openPostRestaurantDishes() {
+  function openPostRestaurantDishes(dishId = null) {
     if (!selectedPostRestaurantId) {
       return;
     }
 
+    setSelectedPostDishId(dishId);
     setShowPostRestaurantDishes(true);
-    setSelectedPostDishId(null);
   }
 
   function backFromPostRestaurantDishes() {
@@ -447,10 +483,12 @@ function FoodMapApp() {
 
   const isHomeDetail =
     page === "home" &&
-    Boolean(selectedPostId);
+    (Boolean(selectedPostId) || showNotifications);
 
   const headerTitle =
-    PAGE_TITLES[page] || "FoodMap";
+    page === "home" && showNotifications
+      ? "Notifications"
+      : PAGE_TITLES[page] || "FoodMap";
 
   function renderHeader() {
     return (
@@ -464,6 +502,22 @@ function FoodMapApp() {
       >
         <View style={styles.headerContent}>
           <View style={styles.headerTitleRow}>
+
+            {page === "collections" && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Back to Profile"
+                onPress={closeCollections}
+                style={styles.headerAction}
+              >
+                <AppIcon
+                  name="back"
+                  size={24}
+                  color={colors.primary}
+                />
+              </Pressable>
+            )}
+
             {page === "home" && (
               <View style={styles.brandIcon}>
                 <AppIcon
@@ -480,6 +534,7 @@ function FoodMapApp() {
             >
               {headerTitle}
             </Text>
+
           </View>
 
           {page === "home" &&
@@ -604,7 +659,31 @@ function FoodMapApp() {
   // 12. Home Content
   // =====================================================
 
+  
   function renderHome() {
+    if (showNotifications) {
+      return (
+        <NotificationCenterScreen
+          onBack={() => {
+            setShowNotifications(false);
+            setPage("home");
+          }}
+          onOpenHome={() => {
+            setShowNotifications(false);
+            closeHomeDetails();
+          }}
+          onOpenExplore={() => {
+            setShowNotifications(false);
+            setPage("explore");
+          }}
+          onOpenPost={(postId) => {
+            setShowNotifications(false);
+            openPost(postId);
+          }}
+        />
+      );
+    }
+
     if (
       selectedPostRestaurantId &&
       showPostRestaurantDishes
@@ -722,7 +801,7 @@ function FoodMapApp() {
         }
       />
 
-      {renderHeader()}
+      {!showNotifications && renderHeader()}
 
       {/* ===============================================
           HOME
@@ -850,7 +929,7 @@ function FoodMapApp() {
             : "no-hide-descendants"
         }
       >
-        {renderWheel()}
+        {page === "wheel" && renderWheel()}
       </View>
 
       {/* ===============================================
@@ -874,10 +953,41 @@ function FoodMapApp() {
       >
         <AccountApp
           session={session}
-          onLoginSuccess={
-            handleLoginSuccess
-          }
+          onLoginSuccess={handleLoginSuccess}
+
+          onOpenFavorites={openFavorites}
+          onOpenWantToTry={openWantToTry}
         />
+      </View>
+
+      {/* ===============================================
+          COLLECTIONS
+      =============================================== */}
+
+      <View
+        style={[
+          styles.content,
+          page !== "collections" && styles.hidden,
+        ]}
+        accessibilityElementsHidden={
+          page !== "collections"
+        }
+        importantForAccessibility={
+          page === "collections"
+            ? "auto"
+            : "no-hide-descendants"
+        }
+      >
+        {page === "collections" && isAuthenticated && (
+          <FeedRouteScreen
+            auth={auth}
+            navigationTab="saved"
+            onLoginRequired={() =>
+              handleLoginRequired("profile")
+            }
+            onSessionExpired={handleSessionExpired}
+          />
+        )}
       </View>
 
       {/* Bottom bar stays outside page content. */}
@@ -1030,4 +1140,4 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.75,
   },
-});
+})

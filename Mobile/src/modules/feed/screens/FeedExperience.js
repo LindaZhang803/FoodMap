@@ -162,17 +162,20 @@ function Experience({
 
   const externallyControlled =
     navigationTab === "home" ||
-    navigationTab === "wheel";
+    navigationTab === "wheel" ||
+    navigationTab === "saved";
 
   // Wheel is opened directly from the bottom bar.
   const activeTab =
     navigationTab === "wheel"
       ? "Wheel"
-      : externallyControlled
-        ? tab === "Want to Try"
-          ? "Want to Try"
-          : "Discover"
-        : tab;
+      : navigationTab === "saved"
+        ? "Want to Try"
+        : externallyControlled
+          ? tab === "Want to Try"
+            ? "Want to Try"
+            : "Discover"
+          : tab;
 
   const visibleTabs =
     externallyControlled
@@ -469,14 +472,13 @@ function Experience({
             Not displayed in independent Wheel mode.
         ============================================ */}
 
-        {!detail &&
-          navigationTab !== "wheel" && (
-            <View style={styles.tabs}>
-              {visibleTabs.map(
-                renderTab
-              )}
-            </View>
-          )}
+      {!detail &&
+        navigationTab !== "wheel" &&
+        navigationTab !== "saved" && (
+          <View style={styles.tabs}>
+            {visibleTabs.map(renderTab)}
+          </View>
+        )}
 
         {/* ============================================
             Discover
