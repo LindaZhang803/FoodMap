@@ -589,8 +589,8 @@ export default function RestaurantListScreen({
               }
               isFavorite={isFavorite}
               favoriteLoading={favoriteLoading}
-              onToggleFavorite={
-                onToggleRestaurantFavorite
+              onToggleFavorite={() =>
+                onToggleRestaurantFavorite?.(item)
               }
             />
           );

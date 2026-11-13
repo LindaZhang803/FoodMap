@@ -1,3 +1,9 @@
+import { useMemo } from "react";
+
+import { API_ORIGIN } from "./src/config/api";
+
+import useLiveSavedPlaces from "./src/modules/feed/favorites/useLiveSavedPlaces";
+
 import {
   getPostSocial,
   setPostFavorite,
@@ -129,6 +135,54 @@ function FoodMapApp() {
   const currentUserId = isAuthenticated
     ? auth?.user?.id ?? null
     : null;
+
+  // =====================================================
+  // Explore Restaurant Favorites
+  // =====================================================
+
+  const favoriteSession = useMemo(
+    () => ({
+      userId: currentUserId,
+      token,
+    }),
+    [currentUserId, token]
+  );
+
+  const exploreFavorites = useLiveSavedPlaces({
+    session: favoriteSession,
+    origin: API_ORIGIN,
+
+    onLoginRequired: () => {
+      handleLoginRequired("explore");
+    },
+
+    onSessionExpired: handleSessionExpired,
+  });
+
+  const isRestaurantFavorite = (restaurantId) => {
+    return exploreFavorites.isSaved(
+      "restaurant",
+      restaurantId
+    );
+  };
+
+  const isRestaurantFavoriteLoading = (restaurantId) => {
+    return (
+      exploreFavorites.isPending(
+        "restaurant",
+        restaurantId
+      ) ||
+      (isAuthenticated && !exploreFavorites.canMutate)
+    );
+  };
+
+  const toggleRestaurantFavorite = async (restaurant) => {
+    if (!restaurant?._id) {
+      return false;
+    }
+
+    return exploreFavorites.toggleFavorite(restaurant);
+  };
 
   // =====================================================
   // 1. Navigation State
@@ -719,6 +773,18 @@ function FoodMapApp() {
           }
           onLoginPress={() =>
             handleLoginRequired("explore")
+          }
+
+          isRestaurantFavorite={
+              isRestaurantFavorite
+          }
+
+          onToggleRestaurantFavorite={
+              toggleRestaurantFavorite
+          }
+
+          isRestaurantFavoriteLoading={
+              isRestaurantFavoriteLoading
           }
         />
       </View>
