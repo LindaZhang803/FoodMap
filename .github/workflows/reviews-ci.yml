@@ -1,7 +1,7 @@
 name: Dish and Review CI
 on:
   push:
-    branches: [skim1108, main]
+    branches: [skim1108, qsun036, main]
   pull_request:
     branches: [main]
 permissions:

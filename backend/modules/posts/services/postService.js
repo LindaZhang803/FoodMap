@@ -1220,6 +1220,18 @@ async function createPost({
     )
   );
 
+  // Review photos must be approved before becoming public post photos.
+  const allPhotosApproved = photoIds.every(
+    (photoId) => sourceMap.get(photoId)?.status === "approved"
+  );
+
+  if (!allPhotosApproved) {
+    throw new PostError(
+      400,
+      "All review photos must be approved before publishing a post."
+    );
+  }
+
   // ================================================
   // Copy Persistent Photos
   // ================================================
