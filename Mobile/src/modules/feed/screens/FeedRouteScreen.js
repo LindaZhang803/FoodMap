@@ -34,6 +34,8 @@ export default function FeedRouteScreen({
 
   // "home" or "wheel"
   navigationTab = "home",
+  wheelRequest,
+  onAddDishToWheel,
 }) {
   const [
     restaurantId,
@@ -44,6 +46,7 @@ export default function FeedRouteScreen({
     showDishes,
     setShowDishes,
   ] = useState(false);
+  const [selectedDishId, setSelectedDishId] = useState(null);
 
   // =====================================================
   // 1. Open Restaurant
@@ -60,6 +63,7 @@ export default function FeedRouteScreen({
     }
 
     setShowDishes(false);
+    setSelectedDishId(null);
     setRestaurantId(targetId);
   }
 
@@ -85,6 +89,7 @@ export default function FeedRouteScreen({
     setRestaurantId(
       targetRestaurantId
     );
+    setSelectedDishId(typeof dishId === 'string' ? dishId : null);
 
     setShowDishes(true);
   }
@@ -103,6 +108,7 @@ export default function FeedRouteScreen({
   // =====================================================
 
   function openDishes() {
+    setSelectedDishId(null);
     if (!restaurantId) {
       return;
     }
@@ -133,6 +139,11 @@ export default function FeedRouteScreen({
     if (showDishes) {
       return (
         <DishBrowserScreen
+          initialDishId={selectedDishId}
+          isDishFavorite={id => experience?.savedPlaces?.isSaved('dish', id)}
+          onToggleDishFavorite={dish => experience?.savedPlaces?.toggleFavoriteDish({ dishId: dish.id })}
+          isDishFavoriteLoading={id => !experience?.savedPlaces?.canMutate || experience?.savedPlaces?.isPending('dish', id)}
+          onAddDishToWheel={dish => { onAddDishToWheel?.(dish); backToFeed(); }}
           key={`dishes-${restaurantId}`}
           restaurantId={restaurantId}
           token={auth?.token ?? null}
@@ -165,6 +176,7 @@ export default function FeedRouteScreen({
 
   return (
     <FoodMapFeed
+      wheelRequest={wheelRequest}
       auth={auth}
       readSelfProfile={
         readSelfProfile

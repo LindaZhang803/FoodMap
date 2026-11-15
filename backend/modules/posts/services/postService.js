@@ -9,6 +9,7 @@ const Restaurant = require(
 
 const Post = require("../models/Post");
 const PostLike = require("../models/PostLike");
+const { readDishRanking } = require('../../feed/recommendations/readDishRanking');
 
 // =====================================================
 // Configuration
@@ -801,6 +802,19 @@ async function listPosts({
   // For You
   // ================================================
 
+  if (category === 'forYou' || category === 'trending') {
+    const { Dish, Review } = getReviewModels();
+    const ranked = await readDishRanking({ Dish, Review, Restaurant, User, connection: mongoose.connection, userId, mode: category });
+    pipeline.push(
+      { $lookup: { from: Review.collection.name, localField: 'reviewId', foreignField: '_id', as: '_rankingReview' } },
+      { $addFields: { _rankingDish: { $arrayElemAt: ['$_rankingReview.dishId', 0] } } },
+      { $addFields: { recommendationScore: ranked.length ? { $switch: {
+        branches: ranked.map(item => ({ case: { $eq: [{ $toString: '$_rankingDish' }, item.dish.id] }, then: item.score })),
+        default: 0
+      } } : 0 } }
+    );
+  }
+
   if (category === "forYou") {
     pipeline.push({
       $addFields: {
@@ -830,6 +844,7 @@ async function listPosts({
 
     pipeline.push({
       $sort: {
+        recommendationScore: -1,
         preferenceMatch: -1,
         createdAt: -1,
         _id: -1,
@@ -844,6 +859,7 @@ async function listPosts({
   if (category === "trending") {
     pipeline.push({
       $sort: {
+        recommendationScore: -1,
         likeCount: -1,
         createdAt: -1,
         _id: -1,

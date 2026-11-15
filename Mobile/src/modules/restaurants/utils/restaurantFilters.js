@@ -152,6 +152,7 @@ export function filterRestaurants(
       restaurant.name,
       restaurant.cuisineType,
       restaurant.address,
+      ...(Array.isArray(restaurant.dishNames) ? restaurant.dishNames : []),
     ].some((value) =>
       String(value ?? "")
         .toLowerCase()

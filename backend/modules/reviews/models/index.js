@@ -1,5 +1,6 @@
 // Pass the team's shared Mongoose instance; this module does not open a connection.
 const { validateReview } = require('../validators/review');
+const { MENU_CATEGORIES } = require('../services/dishQuery');
 function createModels(mongoose) {
   const { Schema } = mongoose;
   const reference = (ref, required = true) => ({ type: Schema.Types.ObjectId, ref, required });
@@ -8,6 +9,8 @@ function createModels(mongoose) {
     name: { type: String, required: true, trim: true, maxlength: 120 },
     description: { type: String, default: '', maxlength: 2000 },
     imageUrl: { type: String, default: null },
+    category: { type: String, enum: MENU_CATEGORIES, default: 'other' },
+    price: { type: Number, default: null, min: 0, validate: value => value === null || Number.isFinite(value) },
     averageRating: { type: Number, default: null, min: 1, max: 5 },
     reviewCount: { type: Number, default: 0, min: 0 }
   }, { timestamps: true });

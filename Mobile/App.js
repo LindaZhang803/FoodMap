@@ -159,7 +159,7 @@ function FoodMapApp() {
       handleLoginRequired("explore");
     },
 
-    onSessionExpired: handleSessionExpired,
+    onSessionExpired: () => handleSessionExpired(),
   });
 
     function isDishFavorite(dishId) {
@@ -220,6 +220,13 @@ function FoodMapApp() {
 
   const [page, setPage] = useState("home");
   const [showNotifications, setShowNotifications] = useState(false);
+  const [wheelRequest, setWheelRequest] = useState(null);
+  function addDishToWheel(dish) {
+    if (!isAuthenticated) { handleLoginRequired('wheel'); return; }
+    if (!dish?.id) return;
+    setWheelRequest({ dishId: dish.id, userId: currentUserId, requestId: Date.now() });
+    setPage('wheel');
+  }
 
   const accountReturnPage = useRef("home");
 
@@ -690,6 +697,10 @@ function FoodMapApp() {
     ) {
       return (
         <DishBrowserScreen
+          isDishFavorite={isDishFavorite}
+          onToggleDishFavorite={toggleDishFavorite}
+          isDishFavoriteLoading={isDishFavoriteLoading}
+          onAddDishToWheel={addDishToWheel}
           key={`post-dishes-${selectedPostRestaurantId}-${selectedPostDishId || "list"}`}
           restaurantId={selectedPostRestaurantId}
           initialDishId={selectedPostDishId}
@@ -712,6 +723,9 @@ function FoodMapApp() {
     if (selectedPostRestaurantId) {
       return (
         <RestaurantDetailScreen
+          isDishFavorite={isDishFavorite}
+          onToggleDishFavorite={toggleDishFavorite}
+          isDishFavoriteLoading={isDishFavoriteLoading}
           key={`post-restaurant-${selectedPostRestaurantId}`}
           restaurantId={
             selectedPostRestaurantId
@@ -778,6 +792,8 @@ function FoodMapApp() {
       <FeedRouteScreen
         auth={auth}
         navigationTab="wheel"
+        wheelRequest={wheelRequest?.userId === currentUserId ? wheelRequest : null}
+        onAddDishToWheel={addDishToWheel}
         onLoginRequired={() =>
           handleLoginRequired("wheel")
         }
@@ -845,6 +861,10 @@ function FoodMapApp() {
         }
       >
         <RestaurantBrowser
+          isDishFavorite={isDishFavorite}
+          onToggleDishFavorite={toggleDishFavorite}
+          isDishFavoriteLoading={isDishFavoriteLoading}
+          onAddDishToWheel={addDishToWheel}
           mode="explore"
           token={token}
           isAuthenticated={
@@ -982,6 +1002,7 @@ function FoodMapApp() {
           <FeedRouteScreen
             auth={auth}
             navigationTab="saved"
+            onAddDishToWheel={addDishToWheel}
             onLoginRequired={() =>
               handleLoginRequired("profile")
             }

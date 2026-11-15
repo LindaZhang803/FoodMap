@@ -37,6 +37,10 @@ export default function RestaurantBrowser({
   isRestaurantFavorite,
   onToggleRestaurantFavorite,
   isRestaurantFavoriteLoading,
+  isDishFavorite,
+  onToggleDishFavorite,
+  isDishFavoriteLoading,
+  onAddDishToWheel,
 }) {
   const [
     selectedRestaurantId,
@@ -174,10 +178,17 @@ export default function RestaurantBrowser({
             onLoginPress
           }
           restaurantName={dishBrowser.restaurantName}
+          isDishFavorite={isDishFavorite}
+          onToggleDishFavorite={onToggleDishFavorite}
+          isDishFavoriteLoading={isDishFavoriteLoading}
+          onAddDishToWheel={onAddDishToWheel}
           onBack={backFromDishes}
         />
       ) : selectedRestaurantId ? (
         <RestaurantDetailScreen
+          isDishFavorite={isDishFavorite}
+          onToggleDishFavorite={onToggleDishFavorite}
+          isDishFavoriteLoading={isDishFavoriteLoading}
           restaurantId={
             selectedRestaurantId
           }

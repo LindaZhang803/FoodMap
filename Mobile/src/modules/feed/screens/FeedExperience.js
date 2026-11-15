@@ -152,6 +152,7 @@ function Experience({
   // New Bottom Navigation integration.
   // Values: "home", "wheel", or undefined.
   navigationTab,
+  wheelRequest,
 }) {
   // =====================================================
   // 1. Navigation
@@ -580,6 +581,7 @@ function Experience({
           }
         >
           <DecisionWheel
+            requestedDish={wheelRequest}
             restaurants={restaurants}
             dishes={dishes}
             savedPlaces={

@@ -14,6 +14,7 @@ import {
 } from "react-native";
 
 import { API_ORIGIN } from "../../../config/api";
+import { resolveCatalogImageUrl } from '../../feed/services/liveSources';
 
 import { createDishRepository } from "../services/dishRepository";
 import fixtures from "../mocks/fixtures.json";
@@ -489,7 +490,7 @@ export default function DishBrowserScreen({
             {/* Dish details */}
             <View style={styles.heroImageContainer}>
               <DishImage
-                uri={data.imageUrl}
+                uri={resolveCatalogImageUrl(data.imageUrl, apiOrigin)}
                 large
               />
             </View>
@@ -707,7 +708,7 @@ export default function DishBrowserScreen({
                     }
                   >
                     <View style={styles.thumbnail}>
-                      <DishImage uri={dish.imageUrl} />
+                      <DishImage uri={resolveCatalogImageUrl(dish.imageUrl, apiOrigin)} />
                     </View>
 
                     <View style={styles.dishInfo}>

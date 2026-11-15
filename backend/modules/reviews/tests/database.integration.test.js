@@ -22,7 +22,7 @@ test('MongoDB-backed review, photo, ownership and concurrent-like flow', { skip:
     models = mountReviewModule(app, { mongoose, Restaurant, authenticate: require('../../accounts/middleware/authMiddleware') });
     await Promise.all(Object.values(models).map(model => model.init()));
     await Restaurant.create({ _id: ids.restaurant, name: '[SYNTHETIC INTEGRATION TEST] Review Lab', description: 'Temporary generated test record', latitude: 0, longitude: 0 });
-    await models.Dish.create({ _id: ids.dish, restaurantId: ids.restaurant, name: 'Synthetic test dish' });
+    await models.Dish.create({ _id: ids.dish, restaurantId: ids.restaurant, name: 'Synthetic test dish', category: 'main', price: 12.5 });
     for (let i = 0; i < 2; i++) await User.create({ _id: ids.users[i], username: 'Synthetic integration user', email: `review-test-${ids.users[i]}@example.invalid`, passwordHash: crypto.randomBytes(32).toString('hex') });
     server = await new Promise((resolve, reject) => { const listener = app.listen(0, '127.0.0.1', () => resolve(listener)); listener.once('error', reject); });
     const origin = `http://127.0.0.1:${server.address().port}`;
@@ -31,6 +31,13 @@ test('MongoDB-backed review, photo, ownership and concurrent-like flow', { skip:
       method, headers: { ...(user === null ? {} : { Authorization: `Bearer ${tokens[user]}` }), ...(body ? { 'Content-Type': 'application/json' } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {})
     });
+    const menuPath = `/api/dishes?restaurantId=${ids.restaurant}`;
+    const menu = await (await call(menuPath + '&q=TEST&category=main&minPrice=10&maxPrice=15&sort=lowestPrice')).json();
+    assert.deepEqual(menu.map(dish => dish.id), [String(ids.dish)], 'combined case-insensitive menu filters use real MongoDB');
+    assert.equal(menu[0].price, 12.5);
+    assert.deepEqual(await (await call(menuPath + '&q=test.*')).json(), [], 'search metacharacters are literal');
+    assert.deepEqual(await (await call(menuPath + '&minRating=1')).json(), [], 'unrated dishes are excluded from rating filters');
+    assert.equal((await call(menuPath + '&minPrice=invalid')).status, 400);
     const image = await sharp({ create: { width: 32, height: 32, channels: 3, background: '#e67e22' } }).png().toBuffer();
     async function upload(buffer, mime = 'image/png', user = 0) {
       const form = new FormData(); form.append('photo', new Blob([buffer], { type: mime }), 'synthetic.png');

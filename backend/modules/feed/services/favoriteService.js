@@ -6,7 +6,7 @@ const RESTAURANT_FIELDS = [
   'imageLicense', 'imageLicenseUrl', 'openingHours', 'minPrice', 'maxPrice',
   'priceCurrency', 'priceSource', 'priceSourceUrl', 'priceLastChecked',
 ];
-const DISH_FIELDS = ['name', 'description', 'imageUrl', 'averageRating', 'reviewCount'];
+const DISH_FIELDS = ['name', 'description', 'imageUrl', 'averageRating', 'reviewCount', 'category', 'price'];
 
 class FavoriteInputError extends Error {
   constructor(status, message) {
