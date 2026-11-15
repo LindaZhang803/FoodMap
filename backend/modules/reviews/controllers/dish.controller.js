@@ -1,4 +1,5 @@
 const isId = value => typeof value === 'string' && /^[a-f0-9]{24}$/i.test(value);
+const { parseDishQuery } = require('../services/dishQuery');
 function createDishController({ Dish, Review }) {
   const serialize = doc => {
     const { _id, __v, ...fields } = doc;
@@ -6,13 +7,11 @@ function createDishController({ Dish, Review }) {
   };
   return {
     async list(req, res) {
-      const { restaurantId } = req.query;
-      if (restaurantId !== undefined && !isId(restaurantId)) return res.status(400).json({ message: 'Invalid restaurantId' });
-      const orders = { name: { name: 1, _id: 1 }, highestRated: { averageRating: -1, reviewCount: -1, _id: 1 }, mostReviewed: { reviewCount: -1, averageRating: -1, _id: 1 } };
-      const sort = req.query.sort || 'name';
-      if (!Object.hasOwn(orders, sort)) return res.status(400).json({ message: 'Invalid dish sort' });
+      let parsed;
+      try { parsed = parseDishQuery(req.query); }
+      catch (error) { return res.status(400).json({ message: error.message }); }
       try {
-        const dishes = await Dish.find(restaurantId ? { restaurantId } : {}).sort(orders[sort]).lean();
+        const dishes = await Dish.find(parsed.filter).sort(parsed.order).lean();
         return res.json(dishes.map(serialize));
       } catch {
         return res.status(500).json({ message: 'Failed to load dishes' });
