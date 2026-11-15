@@ -110,7 +110,7 @@ async function getPostPhoto(req, res) {
 
     res.setHeader(
       "Cache-Control",
-      "public, max-age=3600"
+      "no-store"
     );
 
     return res.send(photo.data);
