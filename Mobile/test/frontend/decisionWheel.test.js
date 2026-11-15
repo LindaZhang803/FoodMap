@@ -20,6 +20,17 @@ jest.mock(
   }
 );
 
+test('Add to Wheel handoff waits for catalog data and adds the selected dish only once', () => {
+  const request = { dishId: 'd1', requestId: 1 };
+  const props = { requestedDish: request, privateSessionKey: 'test-user' };
+  const view = render(<DecisionWheel {...props} restaurants={[]} dishes={[]} />);
+  view.rerender(<DecisionWheel {...props} restaurants={[{ _id: 'r1', name: 'Test Cafe' }]} dishes={[{ dishId: 'd1', restaurantId: 'r1', name: 'Test Pasta' }]} />);
+  expect(screen.getByText('Options (1/20)')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Remove Test Pasta' })).toBeTruthy();
+  view.rerender(<DecisionWheel {...props} restaurants={[{ _id: 'r1', name: 'Test Cafe' }]} dishes={[{ dishId: 'd1', restaurantId: 'r1', name: 'Test Pasta' }]} />);
+  expect(screen.getByText('Options (1/20)')).toBeTruthy();
+});
+
 test("custom mode supports add, edit and remove without touching backend", () => {
   render(
     <DecisionWheel

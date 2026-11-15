@@ -22,6 +22,7 @@ import getRestaurantImage from "../utils/getRestaurantImage";
 import PhotoUploadButton from "../components/PhotoUploadButton";
 
 import { API_ORIGIN } from "../../../config/api";
+import { resolveCatalogImageUrl } from '../../feed/services/liveSources';
 
 import {
   colors,
@@ -727,7 +728,7 @@ export default function RestaurantDetailScreen({
                       >
                         <View style={styles.dishImageWrapper}>
                           <MenuDishImage
-                            uri={dish.imageUrl}
+                            uri={resolveCatalogImageUrl(dish.imageUrl, API_ORIGIN)}
                           />
                         </View>
 

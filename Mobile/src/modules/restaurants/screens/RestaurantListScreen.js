@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 
 import {
   View,
@@ -74,6 +74,7 @@ export default function RestaurantListScreen({
   const [applyingFilters, setApplyingFilters] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const activeRequest = useRef(null);
 
   // Read location only if permission was already granted.
   // Do not automatically request new permission.
@@ -148,15 +149,20 @@ export default function RestaurantListScreen({
   }, []);
 
   useEffect(() => {
-    fetchRestaurants();
-  }, []);
+    const timer = setTimeout(() => fetchRestaurants(), 200);
+    return () => { clearTimeout(timer); activeRequest.current?.abort(); };
+  }, [searchQuery, filters, sortBy, userLocation]);
 
   async function fetchRestaurants() {
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
     try {
       setLoading(true);
       setError(null);
 
-      const data = await getRestaurants();
+      const data = await getRestaurants({ searchQuery, filters, sortBy, userLocation, signal: controller.signal });
+      if (controller.signal.aborted) return;
 
       if (!Array.isArray(data)) {
         throw new Error("Invalid restaurant data");
@@ -164,10 +170,11 @@ export default function RestaurantListScreen({
 
       setRestaurants(data);
     } catch (err) {
+      if (controller.signal.aborted) return;
       console.warn("Fetch restaurants error:", err);
       setError("Failed to load restaurants.");
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }
 

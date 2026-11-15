@@ -1,5 +1,5 @@
 const express = require('express');
-const { rankDishes } = require('../recommendations/rankDishes');
+const { readDishRanking } = require('../recommendations/readDishRanking');
 const { parseCatalogQuery } = require('../../restaurants/services/catalogQuery');
 function createRecommendationsRouter({ Dish, Restaurant, Review, User, connection, authenticate, now = () => new Date() }) {
   const router = express.Router();
@@ -19,21 +19,7 @@ function createRecommendationsRouter({ Dish, Restaurant, Review, User, connectio
       location = coordinates.latitude === null ? null : { latitude: coordinates.latitude, longitude: coordinates.longitude };
     } catch (error) { return res.status(400).json({ message: error.message }); }
     try {
-      const since = new Date(now().getTime() - 7 * 24 * 60 * 60 * 1000);
-      const [dishes, restaurants, recent, favorites, user] = await Promise.all([
-        Dish.find({}).lean(), Restaurant.find({}).lean(),
-        Review.aggregate([
-          { $match: { reviewType: 'dish', createdAt: { $gte: since } } },
-          { $group: { _id: '$dishId', recentReviews: { $sum: 1 }, likes: { $sum: '$likeCount' } } }
-        ]),
-        connection.db.collection('favorites').aggregate([
-          { $match: { targetType: 'dish' } }, { $group: { _id: '$targetId', favorites: { $sum: 1 } } }
-        ]).toArray(),
-        req.user ? User.findById(req.user.id).select('favoriteCuisines').lean() : null
-      ]);
-      const activity = new Map(recent.map(r => [String(r._id), { dishId: r._id, recentReviews: r.recentReviews, likes: r.likes }]));
-      for (const f of favorites) activity.set(String(f._id), { ...activity.get(String(f._id)), dishId: f._id, favorites: f.favorites });
-      const ranked = rankDishes({ dishes, restaurants, activity: [...activity.values()], favoriteCuisines: user?.favoriteCuisines || [], location, mode });
+      const ranked = await readDishRanking({ Dish, Restaurant, Review, User, connection, userId: req.user?.id, location, mode, now: now() });
       return res.json({ dishes: ranked.slice((page - 1) * limit, page * limit), pagination: { page, limit, total: ranked.length }, mode, reviewWindowDays: 7 });
     } catch { return res.status(500).json({ message: 'Recommendations unavailable' }); }
   });

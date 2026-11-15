@@ -8,15 +8,19 @@ async function getAllRestaurants(query = {}) {
     // Keep the existing bare-array contract for current mobile consumers.
     const restaurants = await Restaurant.find();
     let dishRestaurantIds = new Set();
+    let matchingDishes = [];
     if (options.q) {
         const Dish = mongoose.models.Dish;
         if (Dish) {
             const literal = options.q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const dishes = await Dish.find({ name: { $regex: literal, $options: 'i' } }).select('restaurantId').lean();
-            dishRestaurantIds = new Set(dishes.map(dish => String(dish.restaurantId)));
+            matchingDishes = await Dish.find({ name: { $regex: literal, $options: 'i' } }).select('restaurantId name').lean();
+            dishRestaurantIds = new Set(matchingDishes.map(dish => String(dish.restaurantId)));
         }
     }
-    return filterCatalog(restaurants, options, dishRestaurantIds);
+    return filterCatalog(restaurants, options, dishRestaurantIds).map(restaurant => options.q ? {
+        ...restaurant,
+        dishNames: matchingDishes.filter(dish => String(dish.restaurantId) === String(restaurant._id)).map(dish => dish.name)
+    } : restaurant);
 }
 
 // Get restaurant by ID

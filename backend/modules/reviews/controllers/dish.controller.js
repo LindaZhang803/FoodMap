@@ -1,6 +1,6 @@
 const isId = value => typeof value === 'string' && /^[a-f0-9]{24}$/i.test(value);
 const { parseDishQuery } = require('../services/dishQuery');
-function createDishController({ Dish, Review }) {
+function createDishController({ Dish, Review, Restaurant }) {
   const serialize = doc => {
     const { _id, __v, ...fields } = doc;
     return { ...fields, id: String(_id) };
@@ -26,7 +26,8 @@ function createDishController({ Dish, Review }) {
         const reviews = await Review.find({ dishId: req.params.id, reviewType: 'dish' })
           .select('_id restaurantId dishId reviewType rating comment photoUrls createdAt updatedAt')
           .sort({ createdAt: -1, _id: -1 }).limit(50).lean();
-        return res.json({ ...serialize(dish), reviews: reviews.map(serialize) });
+        const restaurant = Restaurant ? await Restaurant.findById(dish.restaurantId).select('name').lean() : null;
+        return res.json({ ...serialize(dish), ...(Restaurant ? { restaurantName: restaurant?.name || null } : {}), reviews: reviews.map(serialize) });
       } catch {
         return res.status(500).json({ message: 'Failed to load dish' });
       }

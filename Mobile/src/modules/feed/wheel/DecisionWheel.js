@@ -241,6 +241,7 @@ export default function DecisionWheel({
   filterRestaurants,
   userLocation,
   onRequestLocation,
+  requestedDish,
 }) {
   const { width } = useWindowDimensions();
 
@@ -272,6 +273,16 @@ export default function DecisionWheel({
   const generation = useRef(0);
   const currentScope = useRef(privateSessionKey);
   const previousScope = useRef(privateSessionKey);
+  const appliedRequest = useRef(null);
+  useEffect(() => {
+    if (!requestedDish || appliedRequest.current === requestedDish.requestId) return;
+    const dish = dishes.find(item => item.dishId === requestedDish.dishId);
+    if (!dish || !restaurants.some(item => item._id === dish.restaurantId)) return;
+    const choice = dishChoice(dish, restaurants);
+    appliedRequest.current = requestedDish.requestId;
+    setMode('dish');
+    setOptions(previous => ({ ...previous, dish: uniqueChoices([...(previous.dish || []), choice]) }));
+  }, [requestedDish, dishes, restaurants]);
 
   currentScope.current = privateSessionKey;
 

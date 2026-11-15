@@ -18,13 +18,18 @@ function parseCatalogQuery(query = {}) {
   const latitude = number('latitude', -90, 90), longitude = number('longitude', -180, 180);
   const maxDistance = number('maxDistance', 0, 40075);
   const sort = query.sort === undefined ? 'default' : query.sort;
-  if (typeof sort !== 'string' || !['default', 'name', 'highestRated', 'distance'].includes(sort)) bad('Invalid restaurant sort');
+  if (typeof sort !== 'string' || !['default', 'name', 'highestRated', 'distance', 'popular', 'priceAsc', 'priceDesc'].includes(sort)) bad('Invalid restaurant sort');
   if (minPrice !== null && maxPrice !== null && minPrice > maxPrice) bad('Minimum price exceeds maximum price');
   if ((latitude === null) !== (longitude === null)) bad('Provide both latitude and longitude');
   if ((maxDistance !== null || sort === 'distance') && latitude === null) bad('Location required for distance filtering or sorting');
   return { q, cuisine, minPrice, maxPrice, minRating, latitude, longitude, maxDistance, sort };
 }
 const knownNumber = n => typeof n === 'number' && Number.isFinite(n);
+const priceLevels = { '$': [0, 10], '$$': [10, 30], '$$$': [30, 60], '$$$$': [60, Infinity] };
+function prices(r) {
+  return knownNumber(r.minPrice) && knownNumber(r.maxPrice) && r.minPrice >= 0 && r.maxPrice >= r.minPrice
+    ? [r.minPrice, r.maxPrice] : priceLevels[String(r.priceRange || '').trim()] || null;
+}
 function distanceKm(a, b, c, d) {
   const rad = n => n * Math.PI / 180;
   const h = Math.sin(rad(c - a) / 2) ** 2 + Math.cos(rad(a)) * Math.cos(rad(c)) * Math.sin(rad(d - b) / 2) ** 2;
@@ -37,13 +42,15 @@ function filterCatalog(records, options, dishRestaurantIds = new Set()) {
   const rows = [];
   for (const record of records) {
     const r = typeof record.toObject === 'function' ? record.toObject() : { ...record };
-    if (q && !normalized(r.name).includes(q) && !normalized(r.cuisineType).includes(q) && !dishRestaurantIds.has(String(r._id))) continue;
-    if (cuisine && normalized(r.cuisineType) !== cuisine) continue;
+    if (q && !normalized(r.name).includes(q) && !normalized(r.address).includes(q) && !normalized(r.cuisineType).includes(q) && !dishRestaurantIds.has(String(r._id))) continue;
+    const cuisineTokens = normalized(r.cuisineType).split(/[;,|]/).map(v => v.trim());
+    if (cuisine && (cuisine === 'other' ? cuisineTokens.some(v => ['american', 'chinese', 'italian', 'japanese', 'mexican'].includes(v)) : !cuisineTokens.includes(cuisine))) continue;
     if (minRating !== null && (!knownNumber(r.rating) || r.rating < minRating)) continue;
-    // Use overlap semantics for known restaurant price ranges; missing bounds are unknown.
-    if ((minPrice !== null || maxPrice !== null) && (!knownNumber(r.minPrice) || !knownNumber(r.maxPrice) || r.minPrice < 0 || r.maxPrice < r.minPrice)) continue;
-    if (minPrice !== null && r.maxPrice < minPrice) continue;
-    if (maxPrice !== null && r.minPrice > maxPrice) continue;
+    // Preserve Linda's numeric-first, estimated-price-level fallback semantics.
+    const price = prices(r);
+    if ((minPrice !== null || maxPrice !== null) && !price) continue;
+    if (minPrice !== null && price[1] < minPrice) continue;
+    if (maxPrice !== null && price[0] > maxPrice) continue;
     if (distanceRequested) {
       if (!knownNumber(r.latitude) || !knownNumber(r.longitude) || Math.abs(r.latitude) > 90 || Math.abs(r.longitude) > 180) continue;
       r.distanceKm = distanceKm(latitude, longitude, r.latitude, r.longitude);
@@ -54,6 +61,12 @@ function filterCatalog(records, options, dishRestaurantIds = new Set()) {
   const tie = (a, b) => String(a._id).localeCompare(String(b._id));
   if (sort === 'name') rows.sort((a, b) => normalized(a.name).localeCompare(normalized(b.name)) || tie(a, b));
   if (sort === 'highestRated') rows.sort((a, b) => (knownNumber(b.rating) ? b.rating : -1) - (knownNumber(a.rating) ? a.rating : -1) || tie(a, b));
+  if (sort === 'popular') rows.sort((a, b) => (knownNumber(b.reviewCount) ? b.reviewCount : -1) - (knownNumber(a.reviewCount) ? a.reviewCount : -1) || tie(a, b));
+  if (sort === 'priceAsc' || sort === 'priceDesc') rows.sort((a, b) => {
+    const x = prices(a)?.[0], y = prices(b)?.[0];
+    if (x == null || y == null) return x == null && y == null ? tie(a, b) : x == null ? 1 : -1;
+    return (sort === 'priceAsc' ? x - y : y - x) || tie(a, b);
+  });
   if (sort === 'distance') rows.sort((a, b) => a.distanceKm - b.distanceKm || tie(a, b));
   return rows;
 }
