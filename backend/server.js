@@ -216,6 +216,16 @@ mountReviewModule(app, {
   authenticate,
 });
 
+// Member B: additive recommendation API; existing post feed remains unchanged.
+app.use('/api/recommendations', require('./modules/feed/routes/recommendations').createRecommendationsRouter({
+  Dish: mongoose.models.Dish,
+  Review: mongoose.models.Review,
+  Restaurant,
+  User: require('./modules/accounts/models/User'),
+  connection: mongoose.connection,
+  authenticate,
+}));
+
 // =====================================================
 // 14. Restaurants API
 // =====================================================

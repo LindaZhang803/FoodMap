@@ -3,14 +3,14 @@ const restaurantService = require("../services/restaurant.service");
 // Get all restaurants
 async function getRestaurants(req, res) {
     try {
-        const restaurants = await restaurantService.getAllRestaurants();
+        const restaurants = await restaurantService.getAllRestaurants(req.query);
 
         res.status(200).json(restaurants);
     } catch (error) {
-        console.error("Error fetching restaurants:", error);
+        if (!error.status) console.error("Error fetching restaurants:", error);
 
-        res.status(500).json({
-            message: "Failed to fetch restaurants"
+        res.status(error.status || 500).json({
+            message: error.status ? error.message : "Failed to fetch restaurants"
         });
     }
 }
