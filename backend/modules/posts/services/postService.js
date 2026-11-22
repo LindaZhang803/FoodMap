@@ -9,7 +9,9 @@ const Restaurant = require(
 
 const Post = require("../models/Post");
 const PostLike = require("../models/PostLike");
+const { addPostNotification } = require("../../notifications/services/notificationService");
 const { readDishRanking } = require('../../feed/recommendations/readDishRanking');
+const { readSpicinessQuestionnaire } = require('../../accounts/validators/spicinessQuestionnaire');
 
 // =====================================================
 // Configuration
@@ -735,10 +737,11 @@ async function listPosts({
   }
 
   // ================================================
-  // User Cuisine Preferences
+  // For You Preferences
   // ================================================
 
   let cuisines = [];
+  let spicinessAnswers;
 
   if (
     category === "forYou" &&
@@ -747,9 +750,10 @@ async function listPosts({
     const user = await User.findById(
       userId
     )
-      .select("favoriteCuisines")
+      .select("favoriteCuisines spicinessQuestionnaire")
       .lean();
 
+    spicinessAnswers = readSpicinessQuestionnaire(user?.spicinessQuestionnaire)?.answers;
     cuisines =
       Array.isArray(
         user?.favoriteCuisines
@@ -811,7 +815,11 @@ async function listPosts({
 
   if (category === 'forYou' || category === 'trending') {
     const { Dish, Review } = getReviewModels();
-    const ranked = await readDishRanking({ Dish, Review, Restaurant, User, connection: mongoose.connection, userId, mode: category });
+    const ranked = await readDishRanking({
+      Dish, Review, Restaurant, User, connection: mongoose.connection, userId, mode: category,
+      favoriteCuisines: category === 'forYou' ? cuisines : undefined,
+      spicinessAnswers
+    });
     pipeline.push(
       { $lookup: { from: Review.collection.name, localField: 'reviewId', foreignField: '_id', as: '_rankingReview' } },
       { $addFields: { _rankingDish: { $arrayElemAt: ['$_rankingReview.dishId', 0] } } },
@@ -1649,6 +1657,11 @@ async function setPostLike({
       await PostLike.create({
         postId,
         userId,
+      });
+      await addPostNotification({
+        recipientId: post.authorId,
+        actorId: userId,
+        postId: post._id,
       });
     } catch (error) {
       if (

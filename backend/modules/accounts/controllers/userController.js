@@ -1,7 +1,23 @@
 const User = require("../models/User");
+const {
+    QUESTIONNAIRE_VERSION,
+    validateSpicinessQuestionnaire,
+    readSpicinessQuestionnaire
+} = require("../validators/spicinessQuestionnaire");
 
 const PROFILE_FIELDS =
     "username email profileImage bio favoriteCuisines foodPreferences createdAt";
+const QUESTIONNAIRE_FIELDS = "spicinessQuestionnaire spicinessQuestionnaireRevision";
+
+function questionnaireResponse(user) {
+    const questionnaire = readSpicinessQuestionnaire(user.spicinessQuestionnaire);
+    return {
+        questionnaire,
+        supportedVersion: QUESTIONNAIRE_VERSION,
+        questionnaireCompleted: questionnaire !== null,
+        spicinessQuestionnaireRevision: user.spicinessQuestionnaireRevision ?? 0
+    };
+}
 
 function publicProfile(user) {
     return {
@@ -114,7 +130,8 @@ async function getMyProfile(req, res) {
 
     try {
         const user = await User.findById(req.user.id)
-            .select(PROFILE_FIELDS);
+            .select(`${PROFILE_FIELDS} ${QUESTIONNAIRE_FIELDS}`)
+            .lean();
 
         if (!user) {
             return res.status(404).json({
@@ -122,9 +139,10 @@ async function getMyProfile(req, res) {
             });
         }
 
+        const { questionnaireCompleted, spicinessQuestionnaireRevision } = questionnaireResponse(user);
         return res.status(200).json({
             message: "Profile retrieved successfully",
-            user: publicProfile(user)
+            user: { ...publicProfile(user), questionnaireCompleted, spicinessQuestionnaireRevision }
         });
     } catch (error) {
         console.error("Get profile error:", error);
@@ -133,6 +151,38 @@ async function getMyProfile(req, res) {
             message: "Internal server error"
         });
     }
+}
+
+async function respondWithQuestionnaire(res, query) {
+    try {
+        const user = await query.select(QUESTIONNAIRE_FIELDS).lean();
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        return res.status(200).json(questionnaireResponse(user));
+    } catch (error) {
+        console.error("Spiciness questionnaire error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+function getMySpicinessQuestionnaire(req, res) {
+    return respondWithQuestionnaire(res, User.findById(req.user.id));
+}
+
+function putMySpicinessQuestionnaire(req, res) {
+    const error = validateSpicinessQuestionnaire(req.body);
+    if (error) {
+        return res.status(400).json(error);
+    }
+
+    const { version, answers } = req.body;
+    const query = User.findByIdAndUpdate(req.user.id, {
+        $set: { spicinessQuestionnaire: { version, answers, savedAt: new Date() } },
+        $inc: { spicinessQuestionnaireRevision: 1 }
+    }, { returnDocument: "after", runValidators: true, maxTimeMS: 5000 });
+
+    return respondWithQuestionnaire(res, query);
 }
 
 async function updateMyProfile(req, res) {
@@ -188,5 +238,7 @@ async function updateMyProfile(req, res) {
 
 module.exports = {
     getMyProfile,
-    updateMyProfile
+    updateMyProfile,
+    getMySpicinessQuestionnaire,
+    putMySpicinessQuestionnaire
 };

@@ -29,9 +29,10 @@ function handleError(error, res) {
 // =====================================================
 
 async function listPosts(req, res) {
+  const category = req.query.category || "forYou";
   try {
     const result = await service.listPosts({
-      category: req.query.category || "forYou",
+      category,
       limit:
         req.query.limit == null
           ? 12
@@ -42,6 +43,10 @@ async function listPosts(req, res) {
       longitude: req.query.longitude,
     });
 
+    if (category === "forYou") {
+      res.vary("Authorization");
+      if (req.user?.id) res.setHeader("Cache-Control", "private, no-store");
+    }
     return res.status(200).json(result);
   } catch (error) {
     return handleError(error, res);

@@ -12,6 +12,7 @@
     "test:node": "node --test modules/reviews/tests/*.test.js",
     "test:reviews": "node --test modules/reviews/tests/*.test.js",
     "demo:reviews": "node modules/reviews/scripts/startDemo.js",
+    "backfill:spiciness": "node modules/reviews/scripts/backfillSpicinessRanking.js",
     "audit:catalog": "node modules/reviews/scripts/auditCatalog.js",
     "test:reviews:db": "RUN_REVIEW_DB_TESTS=1 node --test modules/reviews/tests/database.integration.test.js modules/reviews/tests/catalog.integration.test.js"
   },

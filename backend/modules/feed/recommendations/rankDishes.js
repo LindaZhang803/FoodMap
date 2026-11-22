@@ -1,7 +1,8 @@
 const { distanceKm } = require('../../restaurants/services/catalogQuery');
+const { scoreForYouSpiciness } = require('./scoreForYouSpiciness');
 const normalize = v => typeof v === 'string' ? v.trim().toLowerCase() : '';
 const finite = v => typeof v === 'number' && Number.isFinite(v);
-function rankDishes({ dishes, restaurants, activity = [], favoriteCuisines = [], location = null, mode = 'forYou' }) {
+function rankDishes({ dishes, restaurants, activity = [], favoriteCuisines = [], location = null, mode = 'forYou', spicinessAnswers }) {
   const parents = new Map(restaurants.map(r => [String(r._id), r]));
   const counts = new Map(activity.map(a => [String(a.dishId), a]));
   const cuisines = new Set(favoriteCuisines.map(normalize).filter(Boolean));
@@ -18,7 +19,10 @@ function rankDishes({ dishes, restaurants, activity = [], favoriteCuisines = [],
       distance = distanceKm(location.latitude, location.longitude, restaurant.latitude, restaurant.longitude);
     }
     const cuisineMatch = cuisines.has(normalize(restaurant.cuisineType));
-    const score = mode === 'trending' ? popularity : (rating || 0) + Math.log1p(popularity) + (cuisineMatch ? 3 : 0) + (distance === null ? 0 : 2 / (1 + distance));
+    const rawScore = mode === 'trending' ? popularity : (rating || 0) + Math.log1p(popularity) + (cuisineMatch ? 3 : 0) + (distance === null ? 0 : 2 / (1 + distance));
+    const score = mode === 'forYou' && spicinessAnswers
+      ? scoreForYouSpiciness(rawScore, dish.spicinessRanking, spicinessAnswers)
+      : rawScore;
     ranked.push({
       dish: { id: String(dish._id), restaurantId: String(dish.restaurantId), name: dish.name, description: dish.description || '', imageUrl: dish.imageUrl || null, category: dish.category || 'other', price: dish.price ?? null, averageRating: rating, reviewCount: dish.reviewCount || 0 },
       restaurant: { id: String(restaurant._id), name: restaurant.name, cuisineType: restaurant.cuisineType || 'Unknown' },

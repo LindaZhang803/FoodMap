@@ -28,8 +28,10 @@ function profile(changes = {}) {
 }
 
 function queryResult(value) {
+    const selected = Promise.resolve(value);
+    selected.lean = jest.fn().mockResolvedValue(value);
     return {
-        select: jest.fn().mockResolvedValue(value)
+        select: jest.fn().mockReturnValue(selected)
     };
 }
 

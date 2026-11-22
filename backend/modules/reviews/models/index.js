@@ -10,6 +10,11 @@ function createModels(mongoose) {
     required
   });
 
+  const spicinessRankingSchema = new Schema({
+    median: { type: Number, default: null, min: 1, max: 5 },
+    sampleCount: { type: Number, required: true, min: 0, validate: Number.isInteger }
+  }, { _id: false });
+
   const dishSchema = new Schema({
     restaurantId: reference('Restaurant'),
 
@@ -77,7 +82,10 @@ function createModels(mongoose) {
       type: Number,
       default: 0,
       min: 0
-    }
+    },
+
+    spicinessRanking: spicinessRankingSchema,
+    statisticsRevision: { type: Number, default: 0 }
   }, { timestamps: true });
 
   dishSchema.index({ restaurantId: 1 });

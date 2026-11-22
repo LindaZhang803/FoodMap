@@ -75,6 +75,7 @@ const {
 const postRoutes = require(
   "./modules/posts/routes/postRoutes"
 );
+const notificationRoutes = require("./modules/notifications/routes/notificationRoutes");
 
 // =====================================================
 // 7. Express
@@ -259,6 +260,7 @@ app.use(
   "/api/posts",
   postRoutes
 );
+app.use("/api/notifications", notificationRoutes);
 
 // =====================================================
 // 16. Admin Photo Review API

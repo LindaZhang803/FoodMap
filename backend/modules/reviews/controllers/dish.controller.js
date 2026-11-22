@@ -10,7 +10,7 @@ function createDishController({
   Restaurant
 }) {
   const serialize = doc => {
-    const { _id, __v, ...fields } = doc;
+    const { _id, __v, spicinessRanking, statisticsRevision, ...fields } = doc;
 
     return {
       ...fields,

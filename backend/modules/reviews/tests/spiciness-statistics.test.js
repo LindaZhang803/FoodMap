@@ -1,7 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  calculateSpicinessStatistics
+  calculateSpicinessStatistics,
+  calculateSpicinessRanking
 } = require('../services/spiciness');
 
 test('calculates median and distribution for odd ratings', () => {
@@ -58,4 +59,35 @@ test('handles empty ratings and preserves the original array', () => {
   const ratings = [5, 1, 3];
   calculateSpicinessStatistics(ratings);
   assert.deepEqual(ratings, [5, 1, 3]);
+});
+test('ranking requires three distinct reviewers and uses the latest valid rating', () => {
+  const observations = [
+    { userId: 'first', spicinessRating: '5' },
+    { userId: 'first', spicinessRating: 2 },
+    { userId: 'first', spicinessRating: 5 },
+    { userId: 'second', spicinessRating: 3 }
+  ];
+
+  assert.deepEqual(calculateSpicinessRanking(observations), {
+    median: null,
+    sampleCount: 2
+  });
+  assert.deepEqual(calculateSpicinessRanking([
+    ...observations,
+    { userId: 'third', spicinessRating: 1 }
+  ]), { median: 2, sampleCount: 3 });
+});
+
+test('ranking averages even medians and trims outliers using interpolated quartiles', () => {
+  for (const [ratings, expected] of [
+    [[1, 2, 3, 5], { median: 2.5, sampleCount: 4 }],
+    [[2, 2, 2, 2, 5], { median: 2, sampleCount: 4 }],
+    [[1, 2, 2, 2, 3, 4], { median: 2, sampleCount: 5 }]
+  ]) {
+    const observations = ratings.map((spicinessRating, index) => ({
+      userId: String(index),
+      spicinessRating
+    }));
+    assert.deepEqual(calculateSpicinessRanking(observations), expected);
+  }
 });

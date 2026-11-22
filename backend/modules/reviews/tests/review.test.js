@@ -80,6 +80,10 @@ function harness() {
     for (const [key, value] of Object.entries(update.$inc || {})) {
       record[key] = (record[key] || 0) + value;
     }
+
+    for (const key of Object.keys(update.$unset || {})) {
+      delete record[key];
+    }
   };
 
   const count = getter => ({
@@ -136,6 +140,12 @@ function harness() {
           const rows = state.reviews.filter(row =>
             match(row, pipeline[0].$match)
           );
+
+          if (pipeline[2]?.$project) {
+            return rows.sort((a, b) =>
+              b.createdAt - a.createdAt || String(b._id).localeCompare(String(a._id))
+            );
+          }
 
           return rows.length ? [{
             averageRating:
@@ -233,9 +243,9 @@ function harness() {
         throw new Error('Database failure containing private details');
       }
 
-      Object.assign(
+      apply(
         state.dishes.find(dish => dish.id === filter._id),
-        update.$set
+        update
       );
     }
   };
@@ -298,6 +308,11 @@ test('create review uses authenticated identity and updates dish statistics', as
   assert.equal(state.reviews[0].comment, 'Good');
   assert.equal(state.dishes[0].averageRating, 4);
   assert.equal(state.dishes[0].reviewCount, 2);
+  assert.equal(state.dishes[0].statisticsRevision, 2);
+  assert.deepEqual(state.dishes[0].spicinessRanking, {
+    median: null,
+    sampleCount: 0
+  });
 });
 
 test('restaurant and dish reviews are separated; public results omit userId', async () => {
@@ -913,4 +928,42 @@ test('spiciness statistics update after creating, editing and deleting reviews',
   assert.deepEqual(empty.statistics, emptyStatistics);
   assert.equal(state.dishes[0].medianSpiciness, null);
   assert.equal(state.dishes[0].spicinessRatingCount, 0);
+});
+test('dish edits preserve omitted spiciness and can clear an observation', async () => {
+  const { service, state } = harness();
+  const { review } = await service.create({
+    ...payload,
+    spicinessRating: 4
+  }, userId);
+
+  const edited = await service.edit(review.id, { comment: 'Still good' }, userId);
+  assert.equal(edited.review.spicinessRating, 4);
+
+  const cleared = await service.edit(review.id, { spicinessRating: null }, userId);
+  assert.equal(cleared.review.spicinessRating, null);
+  assert.equal(Object.hasOwn(state.reviews[0], 'spicinessRating'), false);
+  assert.equal(cleared.statistics.spicinessRatingCount, 0);
+});
+
+test('restaurant reviews accept heat ratings but reject explicit null', async () => {
+  const { service } = harness();
+  const restaurantReview = {
+    ...payload,
+    reviewType: 'restaurant',
+    dishId: undefined
+  };
+
+  await assert.rejects(
+    service.create({ ...restaurantReview, spicinessRating: null }, userId),
+    error => error.status === 400
+  );
+  const { review, statistics } = await service.create({
+    ...restaurantReview,
+    spicinessRating: 3
+  }, userId);
+  assert.equal(statistics.medianSpiciness, 3);
+  await assert.rejects(
+    service.edit(review.id, { spicinessRating: null }, userId),
+    error => error.status === 400
+  );
 });

@@ -1,9 +1,20 @@
+const isSpicinessRating = value =>
+  Number.isInteger(value) && value >= 1 && value <= 5;
+
+function median(sortedValues) {
+  if (!sortedValues.length) {
+    return null;
+  }
+
+  const middle = Math.floor(sortedValues.length / 2);
+  return sortedValues.length % 2 === 1
+    ? sortedValues[middle]
+    : (sortedValues[middle - 1] + sortedValues[middle]) / 2;
+}
+
 function calculateSpicinessStatistics(values = []) {
-  // Only count integer ratings from 1 to 5.
   const ratings = values
-    .filter(value =>
-      Number.isInteger(value) && value >= 1 && value <= 5
-    )
+    .filter(isSpicinessRating)
     .sort((a, b) => a - b);
 
   const spicinessDistribution = {
@@ -18,21 +29,44 @@ function calculateSpicinessStatistics(values = []) {
     spicinessDistribution[`level${rating}`] += 1;
   }
 
-  let medianSpiciness = null;
-
-  if (ratings.length > 0) {
-    const middle = Math.floor(ratings.length / 2);
-
-    medianSpiciness = ratings.length % 2 === 1
-      ? ratings[middle]
-      : (ratings[middle - 1] + ratings[middle]) / 2;
-  }
-
   return {
-    medianSpiciness,
+    medianSpiciness: median(ratings),
     spicinessDistribution,
     spicinessRatingCount: ratings.length
   };
 }
 
-module.exports = { calculateSpicinessStatistics };
+function quartile(sortedValues, fraction) {
+  const position = (sortedValues.length - 1) * fraction;
+  const lower = Math.floor(position);
+  return sortedValues[lower] +
+    (sortedValues[Math.ceil(position)] - sortedValues[lower]) * (position - lower);
+}
+
+// Observations arrive in descending createdAt and _id order.
+function calculateSpicinessRanking(observations) {
+  const latestRatings = new Map();
+  for (const { userId, spicinessRating } of observations) {
+    if (userId != null && isSpicinessRating(spicinessRating)) {
+      const reviewer = String(userId);
+      if (!latestRatings.has(reviewer)) {
+        latestRatings.set(reviewer, spicinessRating);
+      }
+    }
+  }
+
+  let ratings = [...latestRatings.values()].sort((a, b) => a - b);
+  if (ratings.length >= 5) {
+    const q1 = quartile(ratings, 0.25);
+    const q3 = quartile(ratings, 0.75);
+    const margin = 1.5 * (q3 - q1);
+    ratings = ratings.filter(value => value >= q1 - margin && value <= q3 + margin);
+  }
+
+  return {
+    median: ratings.length >= 3 ? median(ratings) : null,
+    sampleCount: ratings.length
+  };
+}
+
+module.exports = { calculateSpicinessStatistics, calculateSpicinessRanking };
