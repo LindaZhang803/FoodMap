@@ -28,9 +28,15 @@ async function addPostNotification({ recipientId, actorId, postId, commentId }) 
   }
 }
 
-async function saveNotification(notification) {
+async function saveNotification(notification, legacyEventKey) {
   try {
     await ensureIndexes();
+    if (legacyEventKey && await Notification.exists({
+      recipientId: notification.recipientId,
+      type: notification.type,
+      eventKey: legacyEventKey,
+    })) return;
+
     await Notification.create(notification).catch(error => {
       if (error?.code !== 11000) throw error;
     });
@@ -56,13 +62,15 @@ async function addReviewNotification({ recipientId, actorId, reviewId, replyId, 
 async function addSystemNotification({ recipientId, title, message, eventKey }) {
   if (!recipientId) return;
 
+  // The same event can be delivered once to each recipient.
+  const recipientKey = String(recipientId).toLowerCase();
   return saveNotification({
     type: "system",
-    eventKey: eventKey || `system:${recipientId}:${randomUUID()}`,
+    eventKey: `system:${recipientKey}:${eventKey || randomUUID()}`,
     recipientId,
     title,
     message,
-  });
+  }, eventKey);
 }
 
 function unreadCount(recipientId) {

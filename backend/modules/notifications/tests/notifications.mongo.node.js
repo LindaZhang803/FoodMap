@@ -294,6 +294,41 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
     assert.deepEqual((await inbox().expect(200)).body.items, []);
   });
 
+  it("persists system notification read state across logout and login", async () => {
+    const credentials = { email: "inbox-session@example.test", password: "NewMember-2026!" };
+    const registration = await request(app).post("/api/auth/register").send({
+      username: "New member",
+      ...credentials,
+      confirmPassword: credentials.password,
+    }).expect(201);
+    await notificationService.addSystemNotification({
+      recipientId: registration.body.user.id,
+      title: "FoodMap update",
+      message: "The menu has been updated.",
+    });
+    const login = await request(app).post("/api/auth/login").send(credentials).expect(200);
+    const readInbox = token => request(app).get(inboxPath).auth(token, { type: "bearer" }).expect(200);
+    const { body } = await readInbox(login.body.token);
+    assert.equal(body.unreadCount, 1);
+    assert.equal(body.items[0].type, "system");
+    assert.equal(body.items[0].title, "FoodMap update");
+    assert.deepEqual((await inbox().expect(200)).body.items, []);
+
+    const readPath = `${inboxPath}/${body.items[0].id}/read`;
+    await request(app).patch(readPath).auth(login.body.token, { type: "bearer" }).expect(200);
+    await request(app).post("/api/auth/logout").auth(login.body.token, { type: "bearer" }).expect(200);
+    for (const token of ["invalid", login.body.token]) {
+      await request(app).get(inboxPath).auth(token, { type: "bearer" }).expect(401);
+      await request(app).patch(readPath).auth(token, { type: "bearer" }).expect(401);
+    }
+
+    const nextLogin = await request(app).post("/api/auth/login").send(credentials).expect(200);
+    const reopened = await readInbox(nextLogin.body.token);
+    assert.equal(reopened.body.unreadCount, 0);
+    assert.equal(reopened.body.items[0].id, body.items[0].id);
+    assert.equal(reopened.body.items[0].isRead, true);
+  });
+
   it("saves actorless system text and deduplicates an explicit event key", async () => {
     const alert = {
       recipientId: author._id,
@@ -343,6 +378,36 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
       "First system message",
       "Second system message",
     ]);
+  });
+
+  it("deduplicates the same system event separately for each recipient", async () => {
+    const event = { title: "Maintenance", message: "Tonight's update", eventKey: "system:release" };
+    await Promise.all([author, actor, author, actor].map(user =>
+      notificationService.addSystemNotification({ ...event, recipientId: user._id })
+    ));
+
+    for (const recipient of [author, actor]) {
+      const { body } = await inbox(recipient).expect(200);
+      assert.equal(body.unreadCount, 1);
+      assert.deepEqual(body.items.map(item => item.title), [event.title]);
+    }
+  });
+
+  it("keeps the read state of a system event stored with a legacy key", async () => {
+    const eventKey = "system:previous-release";
+    const readAt = new Date("2026-11-04T12:00:00.000Z");
+    const previous = await notifications.insertOne({
+      type: "system", recipientId: author._id, eventKey, title: "Previous release",
+      createdAt: readAt, readAt,
+    });
+    await notificationService.addSystemNotification({
+      recipientId: author._id, eventKey, title: "Previous release",
+    });
+
+    const { body } = await inbox().expect(200);
+    assert.equal(body.unreadCount, 0);
+    assert.deepEqual(body.items.map(item => item.id), [String(previous.insertedId)]);
+    assert.equal(body.items[0].readAt, readAt.toISOString());
   });
 
   it("scopes reads and writes to the authenticated recipient", async () => {
