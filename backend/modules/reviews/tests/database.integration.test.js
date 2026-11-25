@@ -492,6 +492,9 @@ test('MongoDB-backed review, photo, ownership and concurrent-like flow', {
 
         await models.Dish.deleteOne({ _id: ids.dish });
         await Restaurant.deleteOne({ _id: ids.restaurant });
+        await mongoose.connection.db.collection('notifications').deleteMany({
+          recipientId: { $in: ids.users }
+        });
         await User.deleteMany({ _id: { $in: ids.users } });
       }
     } finally {

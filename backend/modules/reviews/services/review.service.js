@@ -1,3 +1,4 @@
+const { addReviewNotification } = require('../../notifications/services/notificationService');
 const { validateReview } = require('../validators/review');
 const {
   calculateSpicinessStatistics,
@@ -539,9 +540,10 @@ function createReviewService({
       requireUser(userId);
       requireId(id);
 
+      let saved;
       for (let attempt = 0; ; attempt++) {
         try {
-          return await mongoose.connection.transaction(async session => {
+          saved = await mongoose.connection.transaction(async session => {
             const review = await Review.findById(id)
               .session(session)
               .lean();
@@ -579,14 +581,25 @@ function createReviewService({
               { session }
             );
 
-            return { likeCount, likedByMe: enabled };
+            return { likeCount, review };
           });
+          break;
         } catch (error) {
           if (error.code !== 11000 || attempt >= 1) {
             throw error;
           }
         }
       }
+
+      if (enabled) {
+        await addReviewNotification({
+          recipientId: saved.review.userId,
+          actorId: userId,
+          reviewId: saved.review._id,
+          type: 'review_like'
+        });
+      }
+      return { likeCount: saved.likeCount, likedByMe: enabled };
     }
   };
 }

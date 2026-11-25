@@ -6,6 +6,7 @@ const request = require("supertest");
 const User = require("../../accounts/models/User");
 const Post = require("../../posts/models/Post");
 const PostLike = require("../../posts/models/PostLike");
+const notificationService = require("../services/notificationService");
 const app = require("../../../server");
 
 const inboxPath = "/api/notifications";
@@ -23,6 +24,20 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
       title: "Noodles",
       imageUrls: ["https://example.test/noodles.jpg"],
     });
+  }
+
+  function makeReview() {
+    return mongoose.models.Review.create({
+      userId: author._id,
+      restaurantId: new mongoose.Types.ObjectId(),
+      reviewType: "restaurant",
+      rating: 5,
+      comment: "Loved the noodles",
+    });
+  }
+
+  function reply(review, user = actor) {
+    return as(user, "post", `/api/reviews/${review.id}/replies`).send({ comment: "Thanks for sharing!" });
   }
 
   function as(user, method, path) {
@@ -68,7 +83,7 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
       dbName: `foodmap_notifications_test_${process.pid}_${Date.now()}`,
       serverSelectionTimeoutMS: 5000,
     });
-    await PostLike.init();
+    await Promise.all([PostLike.init(), mongoose.models.ReviewLike.init()]);
     notifications = mongoose.connection.db.collection("notifications");
     [author, actor] = await User.create([
       { username: "Sam", email: "sam@example.test", passwordHash: "unused" },
@@ -82,6 +97,9 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
       Post.deleteMany({}),
       PostLike.deleteMany({}),
       mongoose.models.PostComment.deleteMany({}),
+      mongoose.models.ReviewReply.deleteMany({}),
+      mongoose.models.ReviewLike.deleteMany({}),
+      mongoose.models.Review.deleteMany({}),
     ]);
     post = await makePost(author._id);
   });
@@ -124,6 +142,7 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
         message: "Alex liked your post.",
         createdAt: item.createdAt,
         readAt: null,
+        isRead: false,
         postId: post.id,
       }],
       unreadCount: 1,
@@ -135,13 +154,13 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
       as(author, "patch", path).expect(200),
     ]);
     assert.ok(Number.isFinite(Date.parse(reads[0].body.readAt)));
-    assert.deepEqual(reads[0].body, { id: item.id, readAt: reads[0].body.readAt, unreadCount: 0 });
+    assert.deepEqual(reads[0].body, { id: item.id, readAt: reads[0].body.readAt, isRead: true, unreadCount: 0 });
     assert.deepEqual(reads[1].body, reads[0].body);
     await as(actor, "delete", `/api/posts/${post.id}/like`).expect(200);
     await as(actor, "put", `/api/posts/${post.id.toUpperCase()}/like`).expect(200);
     const after = await inbox().expect(200);
     assert.deepEqual(after.body, {
-      items: [{ ...item, readAt: reads[0].body.readAt }],
+      items: [{ ...item, readAt: reads[0].body.readAt, isRead: true }],
       unreadCount: 0,
       nextCursor: null,
     });
@@ -163,6 +182,167 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
         postId: post.id, readAt: null,
       });
     }
+  });
+
+  it("notifies only the review author about another user's reply", async () => {
+    const review = await makeReview();
+    await reply(review, author).expect(201);
+    assert.deepEqual((await inbox().expect(200)).body.items, []);
+
+    const { body: saved } = await reply(review).expect(201);
+    const { body } = await inbox().expect(200);
+    assert.equal(body.unreadCount, 1);
+    assert.equal(body.items.length, 1);
+    const [item] = body.items;
+    assert.equal(item.type, "review_reply");
+    assert.equal(item.title, "New Review Reply");
+    assert.equal(item.message, "Alex replied to your review.");
+    assert.equal(item.reviewId, review.id);
+    assert.equal(item.replyId, saved.reply.id);
+    assert.equal(item.readAt, null);
+    assert.equal(item.isRead, false);
+    assert.equal(Object.hasOwn(item, "postId"), false);
+    assert.deepEqual((await inbox(actor).expect(200)).body.items, []);
+
+    await notificationService.addReviewNotification({
+      type: "review_reply",
+      recipientId: author._id,
+      actorId: actor._id,
+      reviewId: review._id,
+      replyId: saved.reply.id,
+    });
+    assert.equal((await inbox().expect(200)).body.items.length, 1);
+
+    const read = await as(author, "patch", `${inboxPath}/${item.id}/read`).expect(200);
+    assert.ok(Number.isFinite(Date.parse(read.body.readAt)));
+    assert.equal(read.body.isRead, true);
+    const reread = await inbox().expect(200);
+    assert.equal(reread.body.unreadCount, 0);
+    assert.deepEqual(reread.body.items, [{ ...item, readAt: read.body.readAt, isRead: true }]);
+  });
+
+  it("notifies the review author once across repeated and concurrent likes", async () => {
+    const review = await makeReview();
+    const path = `/api/reviews/${review.id}/like`;
+    await as(author, "post", path).expect(200, { likeCount: 1, likedByMe: true });
+    await as(actor, "delete", path).expect(200, { likeCount: 1, likedByMe: false });
+    assert.deepEqual((await inbox().expect(200)).body.items, []);
+
+    await Promise.all(Array.from({ length: 6 }, () =>
+      as(actor, "post", path).expect(200, { likeCount: 2, likedByMe: true })
+    ));
+    const { body } = await inbox().expect(200);
+    assert.equal(body.unreadCount, 1);
+    assert.equal(body.items.length, 1);
+    const [item] = body.items;
+    assert.equal(item.type, "review_like");
+    assert.equal(item.title, "Review Liked");
+    assert.equal(item.message, "Alex liked your review.");
+    assert.equal(item.reviewId, review.id);
+    assert.equal(item.readAt, null);
+    assert.equal(item.isRead, false);
+    assert.equal(Object.hasOwn(item, "postId"), false);
+    assert.equal(Object.hasOwn(item, "replyId"), false);
+    assert.deepEqual((await inbox(actor).expect(200)).body.items, []);
+
+    const read = await as(author, "patch", `${inboxPath}/${item.id}/read`).expect(200);
+    assert.equal(read.body.isRead, true);
+    await as(actor, "delete", path).expect(200, { likeCount: 1, likedByMe: false });
+    const upperCasePath = `/api/reviews/${review.id.toUpperCase()}/like`;
+    await as(actor, "post", upperCasePath).expect(200, { likeCount: 2, likedByMe: true });
+    await notificationService.addReviewNotification({
+      type: "review_like",
+      recipientId: author._id,
+      actorId: actor._id,
+      reviewId: review._id,
+    });
+
+    const after = await inbox().expect(200);
+    assert.deepEqual(after.body.items, [{ ...item, readAt: read.body.readAt, isRead: true }]);
+    assert.equal(after.body.unreadCount, 0);
+  });
+
+  it("preserves committed review replies and likes if the alert write fails", async t => {
+    const review = await makeReview();
+    const log = t.mock.method(console, "error", () => {});
+    t.mock.method(mongoose.models.Notification.collection, "insertOne", async () => {
+      throw new Error("Notification write failed");
+    });
+
+    const { body: saved } = await reply(review).expect(201);
+    assert.ok(await mongoose.models.ReviewReply.exists({ _id: saved.reply.id }));
+    await as(actor, "post", `/api/reviews/${review.id}/like`).expect(200, { likeCount: 1, likedByMe: true });
+    assert.ok(await mongoose.models.ReviewLike.exists({ reviewId: review.id, userId: actor._id }));
+    assert.deepEqual((await inbox().expect(200)).body.items, []);
+    assert.equal(log.mock.callCount(), 2);
+  });
+
+  it("does not send review alerts when the transaction rolls back", async t => {
+    const review = await makeReview();
+    const transaction = mongoose.connection.transaction.bind(mongoose.connection);
+    t.mock.method(mongoose.connection, "transaction", callback =>
+      transaction(async session => {
+        await callback(session);
+        throw new Error("Abort after writing the reply");
+      })
+    );
+
+    await reply(review).expect(500);
+    await as(actor, "post", `/api/reviews/${review.id}/like`).expect(500);
+    assert.equal(await mongoose.models.ReviewReply.countDocuments({ reviewId: review.id }), 0);
+    assert.equal(await mongoose.models.ReviewLike.countDocuments({ reviewId: review.id }), 0);
+    assert.deepEqual((await inbox().expect(200)).body.items, []);
+  });
+
+  it("saves actorless system text and deduplicates an explicit event key", async () => {
+    const alert = {
+      recipientId: author._id,
+      title: "Scheduled maintenance",
+      message: "FoodMap will restart tonight.",
+      eventKey: "system:maintenance",
+    };
+    await Promise.all([
+      notificationService.addSystemNotification(alert),
+      notificationService.addSystemNotification(alert),
+    ]);
+
+    const { body } = await inbox().expect(200);
+    assert.equal(body.unreadCount, 1);
+    assert.equal(body.items.length, 1);
+    const [item] = body.items;
+    assert.equal(item.type, "system");
+    assert.equal(item.title, alert.title);
+    assert.equal(item.message, alert.message);
+    assert.equal(item.readAt, null);
+    assert.equal(item.isRead, false);
+    for (const target of ["postId", "commentId", "reviewId", "replyId"]) {
+      assert.equal(Object.hasOwn(item, target), false, target);
+    }
+    assert.equal(await notifications.countDocuments({ type: "system", actorId: null }), 1);
+    assert.deepEqual((await inbox(actor).expect(200)).body.items, []);
+  });
+
+  it("keeps separate system events generated at the same time", async t => {
+    const now = Date.now();
+    const clock = t.mock.method(Date, "now", () => now);
+    try {
+      await Promise.all(["First system message", "Second system message"].map(message =>
+        notificationService.addSystemNotification({
+          recipientId: author._id,
+          title: "FoodMap update",
+          message,
+        })
+      ));
+    } finally {
+      clock.mock.restore();
+    }
+
+    const { body } = await inbox().expect(200);
+    assert.equal(body.unreadCount, 2);
+    assert.deepEqual(body.items.map(item => item.message).sort(), [
+      "First system message",
+      "Second system message",
+    ]);
   });
 
   it("scopes reads and writes to the authenticated recipient", async () => {

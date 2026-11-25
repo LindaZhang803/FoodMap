@@ -1,3 +1,4 @@
+const { randomUUID } = require("node:crypto");
 const Notification = require("../models/Notification");
 
 let indexesReady;
@@ -27,23 +28,88 @@ async function addPostNotification({ recipientId, actorId, postId, commentId }) 
   }
 }
 
+async function saveNotification(notification) {
+  try {
+    await ensureIndexes();
+    await Notification.create(notification).catch(error => {
+      if (error?.code !== 11000) throw error;
+    });
+  } catch (error) {
+    console.error("Notification write failed:", notification.type, error);
+  }
+}
+
+async function addReviewNotification({ recipientId, actorId, reviewId, replyId, type }) {
+  if (!recipientId || String(recipientId) === String(actorId)) return;
+
+  const isReply = type === "review_reply" || Boolean(replyId);
+  return saveNotification({
+    type: isReply ? "review_reply" : "review_like",
+    eventKey: isReply ? `review_reply:${replyId}` : `review_like:${reviewId}:${actorId}`,
+    recipientId,
+    actorId,
+    reviewId,
+    replyId: isReply ? replyId : undefined,
+  });
+}
+
+async function addSystemNotification({ recipientId, title, message, eventKey }) {
+  if (!recipientId) return;
+
+  return saveNotification({
+    type: "system",
+    eventKey: eventKey || `system:${recipientId}:${randomUUID()}`,
+    recipientId,
+    title,
+    message,
+  });
+}
+
 function unreadCount(recipientId) {
   return Notification.countDocuments({ recipientId, readAt: null });
 }
 
 function serializeItem(notification) {
-  const { _id, type, actorId, createdAt, readAt, postId, commentId } = notification;
-  const isComment = type === "comment";
+  const { _id, type, actorId, createdAt, readAt = null, postId, commentId, reviewId, replyId } = notification;
   const actorName = actorId?.username ?? "Someone";
+  let title = "New Notification";
+  let message = "";
+
+  switch (type) {
+    case "like":
+      title = "New Like";
+      message = `${actorName} liked your post.`;
+      break;
+    case "comment":
+      title = "New Comment";
+      message = `${actorName} commented on your post.`;
+      break;
+    case "review_like":
+      title = "Review Liked";
+      message = `${actorName} liked your review.`;
+      break;
+    case "review_reply":
+      title = "New Review Reply";
+      message = `${actorName} replied to your review.`;
+      break;
+    case "system":
+      title = notification.title || "System Notification";
+      message = notification.message || "";
+      break;
+  }
+
   return {
     id: String(_id),
     type,
-    title: isComment ? "New Comment" : "New Like",
-    message: isComment ? `${actorName} commented on your post.` : `${actorName} liked your post.`,
+    title,
+    message,
     createdAt,
     readAt,
-    postId: String(postId),
-    ...(isComment && { commentId: String(commentId) }),
+    isRead: readAt !== null,
+    ...(postId && { postId: String(postId) }),
+    ...(commentId && { commentId: String(commentId) }),
+    ...(reviewId && { reviewId: String(reviewId) }),
+    ...(replyId && { replyId: String(replyId) }),
   };
 }
 
@@ -88,6 +154,7 @@ async function markRead(recipientId, id) {
   return {
     id: String(notification._id),
     readAt: notification.readAt,
+    isRead: notification.readAt != null,
     unreadCount: await unreadCount(recipientId),
   };
 }
@@ -100,4 +167,12 @@ async function markAllRead(recipientId, requestStart) {
   return unreadCount(recipientId);
 }
 
-module.exports = { addPostNotification, unreadCount, listInbox, markRead, markAllRead };
+module.exports = {
+  addPostNotification,
+  addReviewNotification,
+  addSystemNotification,
+  unreadCount,
+  listInbox,
+  markRead,
+  markAllRead,
+};

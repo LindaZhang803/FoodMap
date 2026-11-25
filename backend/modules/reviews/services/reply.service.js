@@ -1,3 +1,5 @@
+const { addReviewNotification } = require('../../notifications/services/notificationService');
+
 const isId = value =>
   typeof value === 'string' && /^[a-f0-9]{24}$/i.test(value);
 
@@ -106,8 +108,8 @@ function createReplyService({ mongoose, Review, ReviewReply }) {
         fail(400, 'comment must contain 1-1000 characters');
       }
 
-      return mongoose.connection.transaction(async session => {
-        await requireReview(reviewId, session);
+      const { review, reply } = await mongoose.connection.transaction(async session => {
+        const review = await requireReview(reviewId, session);
 
         // Coordinate reply creation with deletion of the parent review.
         await Review.updateOne(
@@ -125,10 +127,18 @@ function createReplyService({ mongoose, Review, ReviewReply }) {
           { session }
         );
 
-        return {
-          reply: serializeReply(reply, userId)
-        };
+        return { review, reply };
       });
+
+      await addReviewNotification({
+        recipientId: review.userId,
+        actorId: userId,
+        reviewId: review._id,
+        replyId: reply._id,
+        type: 'review_reply'
+      });
+
+      return { reply: serializeReply(reply, userId) };
     },
 
     async remove(reviewId, replyId, userId) {
