@@ -10,6 +10,7 @@ function createReviewRouter({ service, authenticate }) {
   router.get('/', optionalAuth, handle(async (req, res) => res.json(await service.list(req.query, req.user?.id))));
   router.get('/:id', optionalAuth, handle(async (req, res) => {
     res.set('Cache-Control', 'private, no-store');
+    res.vary('Authorization');
     res.json(await service.detail(req.params.id, req.user?.id));
   }));
   router.post('/', authenticate, handle(async (req, res) => res.status(201).json(await service.create(req.body, req.user?.id))));

@@ -460,13 +460,26 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
     assert.equal(Object.hasOwn(item, "reviewType"), false);
   });
 
+  it("varies review detail by authorization", async () => {
+    const review = await makeReview();
+    const path = `/api/reviews/${review.id}`;
+    for (const response of [request(app).get(path), as(author, "get", path)]) {
+      await response.expect(200)
+        .expect("Cache-Control", "private, no-store")
+        .expect("Vary", /(?:^|,\s*)Authorization(?:\s*,|$)/i);
+    }
+  });
+
   it("opens a public review and exposes only approved attached photos", async () => {
-    const ids = Array.from({ length: 4 }, () => new mongoose.Types.ObjectId());
-    const photoUrls = ids.map(id => `/api/review-photos/${id}/image`);
+    const uppercaseId = new mongoose.Types.ObjectId("abcdefabcdefabcdefabcdef");
+    const ids = [uppercaseId, ...Array.from({ length: 4 }, () => new mongoose.Types.ObjectId())];
+    const photoUrls = ids.map((id, index) =>
+      `/api/review-photos/${index === 0 ? String(id).toUpperCase() : id}/image`
+    );
     const dishId = new mongoose.Types.ObjectId();
     const review = await makeReview({ reviewType: "dish", dishId, photoUrls });
     await mongoose.models.ReviewPhoto.create(
-      ["approved", "pending", "rejected", "approved"].map((status, index) => ({
+      ["approved", "pending", "rejected", "approved", "approved"].map((status, index) => ({
         _id: ids[index], status, userId: author.id, data: Buffer.from("test photo"),
         reviewId: index === 3 ? new mongoose.Types.ObjectId() : review.id,
       }))
@@ -479,10 +492,10 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
     assert.equal(body.review.reviewType, "dish");
     assert.equal(body.review.dishId, String(dishId));
     assert.equal(body.review.isOwner, false);
-    assert.deepEqual(body.review.photoUrls, [photoUrls[0]]);
+    assert.deepEqual(body.review.photoUrls, [photoUrls[0], photoUrls[4]]);
     const owner = await as(author, "get", `/api/reviews/${review.id}`).expect(200);
     assert.equal(owner.body.review.isOwner, true);
-    assert.deepEqual(owner.body.review.photoUrls, [photoUrls[0]]);
+    assert.deepEqual(owner.body.review.photoUrls, [photoUrls[0], photoUrls[4]]);
     await request(app).get(`/api/reviews/${new mongoose.Types.ObjectId()}`).expect(404);
     await request(app).get("/api/reviews/invalid").expect(400);
 

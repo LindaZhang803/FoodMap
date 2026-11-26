@@ -301,21 +301,22 @@ function createReviewService({
       }
 
       const photoUrls = Array.isArray(review.photoUrls) ? review.photoUrls : [];
-      const photoIds = photoUrls.flatMap(url => {
+      const photoLinks = photoUrls.flatMap(url => {
         const match = typeof url === 'string' && /^\/api\/review-photos\/([a-f0-9]{24})\/image$/i.exec(url);
-        return match ? [match[1]] : [];
+        return match ? [{ url, id: match[1].toLowerCase() }] : [];
       });
-      const photos = ReviewPhoto && photoIds.length
+      const photos = ReviewPhoto && photoLinks.length
         ? await ReviewPhoto.find({
-            _id: { $in: photoIds },
+            _id: { $in: photoLinks.map(link => link.id) },
             reviewId: review._id,
             status: 'approved',
             $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }]
           }).select('_id').lean()
         : [];
-      const publicUrls = new Set(photos.map(photo => `/api/review-photos/${photo._id}/image`));
+      const approvedIds = new Set(photos.map(photo => String(photo._id).toLowerCase()));
+      const approvedUrls = photoLinks.filter(link => approvedIds.has(link.id)).map(link => link.url);
       const [item] = await decorate([review], viewerId);
-      return { review: { ...item, photoUrls: photoUrls.filter(url => publicUrls.has(url)) } };
+      return { review: { ...item, photoUrls: approvedUrls } };
     },
 
     async backfillSpicinessRanking(dishId) {
