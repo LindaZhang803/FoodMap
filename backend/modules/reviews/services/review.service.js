@@ -288,6 +288,36 @@ function createReviewService({
   }
 
   return {
+    async detail(id, viewerId) {
+      requireId(id);
+      // Reviews are public on creation unless the record has a moderation state.
+      const review = await Review.findOne({
+        _id: id,
+        status: { $in: [null, 'approved', 'published'] }
+      }).lean();
+
+      if (!review) {
+        fail(404, 'Review not found');
+      }
+
+      const photoUrls = Array.isArray(review.photoUrls) ? review.photoUrls : [];
+      const photoIds = photoUrls.flatMap(url => {
+        const match = typeof url === 'string' && /^\/api\/review-photos\/([a-f0-9]{24})\/image$/i.exec(url);
+        return match ? [match[1]] : [];
+      });
+      const photos = ReviewPhoto && photoIds.length
+        ? await ReviewPhoto.find({
+            _id: { $in: photoIds },
+            reviewId: review._id,
+            status: 'approved',
+            $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }]
+          }).select('_id').lean()
+        : [];
+      const publicUrls = new Set(photos.map(photo => `/api/review-photos/${photo._id}/image`));
+      const [item] = await decorate([review], viewerId);
+      return { review: { ...item, photoUrls: photoUrls.filter(url => publicUrls.has(url)) } };
+    },
+
     async backfillSpicinessRanking(dishId) {
       return mongoose.connection.transaction(async session => {
         const dish = await Dish.findById(dishId).session(session).lean();
@@ -596,6 +626,7 @@ function createReviewService({
           recipientId: saved.review.userId,
           actorId: userId,
           reviewId: saved.review._id,
+          ...reviewTarget(saved.review),
           type: 'review_like'
         });
       }

@@ -35,17 +35,19 @@ async function saveNotification(notification, legacyEventKey) {
       recipientId: notification.recipientId,
       type: notification.type,
       eventKey: legacyEventKey,
-    })) return;
+    })) return true;
 
     await Notification.create(notification).catch(error => {
       if (error?.code !== 11000) throw error;
     });
+    return true;
   } catch (error) {
     console.error("Notification write failed:", notification.type, error);
+    return false;
   }
 }
 
-async function addReviewNotification({ recipientId, actorId, reviewId, replyId, type }) {
+async function addReviewNotification({ recipientId, actorId, reviewId, replyId, type, restaurantId, dishId, reviewType }) {
   if (!recipientId || String(recipientId) === String(actorId)) return;
 
   const isReply = type === "review_reply" || Boolean(replyId);
@@ -55,11 +57,14 @@ async function addReviewNotification({ recipientId, actorId, reviewId, replyId, 
     recipientId,
     actorId,
     reviewId,
+    restaurantId,
+    dishId,
+    reviewType,
     replyId: isReply ? replyId : undefined,
   });
 }
 
-async function addSystemNotification({ recipientId, title, message, eventKey }) {
+async function addSystemNotification({ recipientId, title, message, eventKey, restaurantId, reviewId }) {
   if (!recipientId) return;
 
   // The same event can be delivered once to each recipient.
@@ -68,6 +73,8 @@ async function addSystemNotification({ recipientId, title, message, eventKey }) 
     type: "system",
     eventKey: `system:${recipientKey}:${eventKey || randomUUID()}`,
     recipientId,
+    restaurantId,
+    reviewId,
     title,
     message,
   }, eventKey);
@@ -78,7 +85,11 @@ function unreadCount(recipientId) {
 }
 
 function serializeItem(notification) {
-  const { _id, type, actorId, createdAt, readAt = null, postId, commentId, reviewId, replyId } = notification;
+  const {
+    _id, type, actorId, createdAt, readAt = null, postId, commentId,
+    reviewId, replyId, restaurantId, dishId, reviewType,
+  } = notification;
+  const actorObjectId = actorId?._id ?? actorId;
   const actorName = actorId?.username ?? "Someone";
   let title = "New Notification";
   let message = "";
@@ -114,10 +125,14 @@ function serializeItem(notification) {
     createdAt,
     readAt,
     isRead: readAt !== null,
+    ...(actorObjectId && { actorId: String(actorObjectId) }),
     ...(postId && { postId: String(postId) }),
     ...(commentId && { commentId: String(commentId) }),
     ...(reviewId && { reviewId: String(reviewId) }),
     ...(replyId && { replyId: String(replyId) }),
+    ...(restaurantId && { restaurantId: String(restaurantId) }),
+    ...(dishId && { dishId: String(dishId) }),
+    ...(reviewType && { reviewType }),
   };
 }
 
@@ -135,15 +150,19 @@ async function listInbox(recipientId, { limit, cursor }) {
     Notification.find(filter)
       .sort({ createdAt: -1, _id: -1 })
       .limit(limit + 1)
-      .populate("actorId", "username")
+      .populate({ path: "actorId", select: "username", transform: (user, id) => user ?? id })
       .lean(),
     unreadCount(recipientId),
   ]);
   const items = records.slice(0, limit).map(serializeItem);
   const last = items.at(-1);
-  const nextCursor = records.length > limit
-    ? Buffer.from(JSON.stringify([last.createdAt.toISOString(), last.id])).toString("base64url")
-    : null;
+  let nextCursor = null;
+  if (records.length > limit && last) {
+    const lastCreatedAt = last.createdAt instanceof Date ? last.createdAt : new Date(last.createdAt ?? NaN);
+    if (Number.isFinite(lastCreatedAt.getTime())) {
+      nextCursor = Buffer.from(JSON.stringify([lastCreatedAt.toISOString(), last.id])).toString("base64url");
+    }
+  }
 
   return { items, unreadCount: count, nextCursor };
 }

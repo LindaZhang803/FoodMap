@@ -39,12 +39,13 @@ test('real main app connects restaurant filters, dish details, recommendations a
   } finally { await fixture.cleanup(); }
 });
 
-test('Home reorders and paginates after saving a questionnaire and after clearing heat ratings', { skip: process.env.RUN_REVIEW_DB_TESTS !== '1', timeout: 120000 }, async () => {
+test('Home and dish recommendations personalize after a questionnaire save', { skip: process.env.RUN_REVIEW_DB_TESTS !== '1', timeout: 120000 }, async () => {
   const fixture = await createCatalogFixture();
   const mongoose = require('mongoose');
   const { User, Restaurant, Dish, Review, Post } = mongoose.models;
   const { ids } = fixture;
   const [postA, postB] = ids.posts.map(String);
+  const [dishA, dishB] = ids.dishes.map(String);
   const [nearLat, nearLon] = [33.98, -117.37];
   const old = new Date('2020-01-01T00:00:00Z');
   const otherReviewers = [new mongoose.Types.ObjectId(), new mongoose.Types.ObjectId()];
@@ -92,21 +93,30 @@ test('Home reorders and paginates after saving a questionnaire and after clearin
     const guest = await request(home, { auth: false });
     const signedIn = await request(home);
     assert.equal(firstPost(guest.data), postA);
+    assert.equal(guest.data.items[0].dish.spicinessCompatibility, 'Unknown');
     assert.deepEqual(signedIn.data, guest.data);
     assert.match(signedIn.headers.get('cache-control') || '', /\bprivate\b/);
     assert.match(guest.headers.get('vary') || '', /\bAuthorization\b/i);
 
     const trending = '/api/posts?category=trending';
     const nearby = `/api/posts?category=nearby&latitude=${nearLat}&longitude=${nearLon}`;
-    const recommendations = '/api/recommendations/dishes';
+    const recommendations = '/api/recommendations/dishes?mode=forYou';
+    const recommendedIds = dishes => dishes.map(({ dish }) => dish.id);
+    async function fixtureRecommendations(options) {
+      const { data } = await request(recommendations, options);
+      return data.dishes.filter(({ dish }) => dish.id === dishA || dish.id === dishB);
+    }
     const trendingBefore = postIds((await request(trending)).data);
     assert.deepEqual(postIds((await request(nearby)).data), [postA, postB]);
-    const recommendationsBefore = (await request(recommendations)).data;
+    const recommendationsBefore = await fixtureRecommendations();
+    assert.deepEqual(recommendedIds(recommendationsBefore), [dishA, dishB]);
+    assert.deepEqual(recommendationsBefore.map(item => item.spicinessCompatibility), ['Unknown', 'Unknown']);
 
     await User.collection.updateOne({ _id: ids.user }, {
       $set: { spicinessQuestionnaire: { ...questionnaireInput, version: 99, savedAt: new Date() } }
     });
     assert.deepEqual((await request(home)).data, signedIn.data);
+    assert.deepEqual(await fixtureRecommendations(), recommendationsBefore);
 
     const questionnairePath = '/api/users/me/spiciness-questionnaire';
     const saved = await request(questionnairePath, { method: 'PUT', body: questionnaireInput });
@@ -115,16 +125,24 @@ test('Home reorders and paginates after saving a questionnaire and after clearin
     const { data: first } = await request(home);
     assert.deepEqual(Object.keys(first).sort(), ['hasMore', 'items', 'nextCursor']);
     assert.equal(firstPost(first), postB);
+    assert.equal(first.items[0].dish.spicinessCompatibility, 'Within Preference');
     assert.equal(first.hasMore, true);
     assert.ok(first.nextCursor);
     const { data: second } = await request(`${home}&cursor=${encodeURIComponent(first.nextCursor)}`);
     assert.equal(firstPost(second), postA);
+    assert.equal(second.items[0].dish.spicinessCompatibility, 'Above Preference');
     assert.equal(second.hasMore, false);
     assert.equal(second.nextCursor, null);
     assert.deepEqual((await request(home, { auth: false })).data, guest.data);
     assert.deepEqual(postIds((await request(trending)).data), trendingBefore);
     assert.deepEqual(postIds((await request(nearby)).data), [postA, postB]);
-    assert.deepEqual((await request(recommendations)).data, recommendationsBefore);
+    const recommendationsAfter = await fixtureRecommendations();
+    assert.deepEqual(recommendedIds(recommendationsAfter), [dishB, dishA]);
+    assert.deepEqual(
+      recommendationsAfter.map(item => item.spicinessCompatibility),
+      ['Within Preference', 'Above Preference']
+    );
+    assert.deepEqual(await fixtureRecommendations({ auth: false }), recommendationsBefore);
 
     const clear = id => request(`/api/reviews/${id}`, { method: 'PUT', body: { spicinessRating: null } });
     await clear(ids.reviews[0]);

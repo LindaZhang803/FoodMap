@@ -20,12 +20,22 @@ const app = express();
 app.use(express.json());
 app.use("/api/users", userRoutes);
 
-function bearer(id = USER_ID) {
+function bearer(id = String(USER_ID)) {
     return "Bearer " + jwt.sign({ id, tokenVersion: 0 }, JWT_SECRET);
 }
 
 let users;
 let updateUser;
+
+function selectUser(user, options) {
+    const projection = options?.projection;
+    if (!user || !projection) return user;
+
+    const inclusive = Object.values(projection).includes(1);
+    return Object.fromEntries(Object.entries(user).filter(([key]) => (
+        inclusive ? key === "_id" || projection[key] === 1 : projection[key] !== 0
+    )));
+}
 
 beforeEach(() => {
     jest.replaceProperty(process, "env", { ...process.env, JWT_SECRET });
@@ -35,18 +45,22 @@ beforeEach(() => {
     ]);
 
     // Keep route, auth, Mongoose casting, and serialization in the test path.
-    jest.spyOn(User.collection, "findOne").mockImplementation(async filter => (
-        users.get(String(filter._id)) || null
+    jest.spyOn(User.collection, "findOne").mockImplementation(async (filter, options) => (
+        selectUser(users.get(String(filter._id)) || null, options)
     ));
     updateUser = jest.spyOn(User.collection, "findOneAndUpdate")
-        .mockImplementation(async (filter, update) => {
+        .mockImplementation(async (filter, update, options) => {
             const user = users.get(String(filter._id));
             if (!user) return null;
-            user.spicinessQuestionnaire = update.$set.spicinessQuestionnaire.toBSON();
+            const changes = { ...update.$set };
+            if (changes.spicinessQuestionnaire) {
+                changes.spicinessQuestionnaire = changes.spicinessQuestionnaire.toBSON();
+            }
+            Object.assign(user, changes);
             for (const [key, amount] of Object.entries(update.$inc || {})) {
                 user[key] = (user[key] ?? 0) + amount;
             }
-            return user;
+            return selectUser(user, options);
         });
 });
 
@@ -56,6 +70,15 @@ test("questionnaire reads and writes require authentication", async () => {
     await request(app).get(PATH).expect(401);
     await request(app).put(PATH).send({ version: 1, answers }).expect(401);
 });
+
+test.each(["malformed-id", "z".repeat(24), 42, null])(
+    "rejects an invalid signed user ID before querying MongoDB (%#)", async id => {
+        const response = await request(app).get(PATH).set("Authorization", bearer(id)).expect(401);
+
+        expect(response.body).toEqual({ message: "Invalid token" });
+        expect(User.collection.findOne).not.toHaveBeenCalled();
+    }
+);
 
 test("existing accounts have no questionnaire and start at revision zero", async () => {
     const response = await request(app).get(PATH).set("Authorization", bearer()).expect(200);
@@ -95,7 +118,7 @@ test("saves and replaces the authenticated user's questionnaire with an atomic r
 
     const self = await request(app).get(PATH).set("Authorization", bearer()).expect(200);
     expect(self.body).toEqual(second.body);
-    const other = await request(app).get(PATH).set("Authorization", bearer(OTHER_ID)).expect(200);
+    const other = await request(app).get(PATH).set("Authorization", bearer(String(OTHER_ID))).expect(200);
     expect(other.body.questionnaire).toBeNull();
     expect(other.body.spicinessQuestionnaireRevision).toBe(0);
 });
@@ -162,4 +185,37 @@ test("profile returns completion metadata without exposing the saved answers", a
     });
     expect(profile.body.user).not.toHaveProperty("spicinessQuestionnaire");
     expect(profile.body.user).not.toHaveProperty("answers");
+});
+
+test.each([{}, { bio: "Updated bio" }])(
+    "profile updates return questionnaire metadata without exposing the answers (%#)", async changes => {
+        Object.assign(users.get(String(USER_ID)), {
+            spicinessQuestionnaire: { version: 1, answers, savedAt },
+            spicinessQuestionnaireRevision: 2
+        });
+        const profile = await request(app).put("/api/users/me").set("Authorization", bearer())
+            .send(changes).expect(200);
+
+        expect(profile.body.user).toMatchObject({
+            bio: changes.bio ?? "",
+            questionnaireCompleted: true,
+            spicinessQuestionnaireRevision: 2
+        });
+        expect(profile.body.user).not.toHaveProperty("spicinessQuestionnaire");
+        expect(profile.body.user).not.toHaveProperty("answers");
+    }
+);
+
+test("profile updates preserve incomplete status for malformed stored answers", async () => {
+    Object.assign(users.get(String(USER_ID)), {
+        spicinessQuestionnaire: { version: 1, answers: { ...answers, maximumSpiciness: "4" }, savedAt },
+        spicinessQuestionnaireRevision: 2
+    });
+    const profile = await request(app).put("/api/users/me").set("Authorization", bearer())
+        .send({ bio: "Updated bio" }).expect(200);
+
+    expect(profile.body.user).toMatchObject({
+        questionnaireCompleted: false,
+        spicinessQuestionnaireRevision: 2
+    });
 });

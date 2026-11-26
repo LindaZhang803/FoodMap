@@ -10,6 +10,20 @@ const RestaurantPhoto = require(
 const Restaurant = require(
   "../../restaurants/models/Restaurant"
 );
+const { addSystemNotification } = require("../../notifications/services/notificationService");
+
+function notifyDecision(photo) {
+  if (!photo.uploadedBy) return;
+
+  const { _id, status, uploadedBy, restaurantId } = photo;
+  void addSystemNotification({
+    recipientId: uploadedBy,
+    restaurantId,
+    title: `Restaurant photo ${status}`,
+    message: `Your restaurant photo was ${status}.`,
+    eventKey: `restaurant-photo:${_id}:${status}`,
+  }).catch(error => console.error("Restaurant photo notification failed:", error));
+}
 
 async function getPhotos(req, res) {
   try {
@@ -49,7 +63,7 @@ async function approvePhoto(req, res) {
           rejectionReason: null,
         },
       },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!photo) {
@@ -58,6 +72,7 @@ async function approvePhoto(req, res) {
       });
     }
 
+    notifyDecision(photo);
     res.json(photo);
   } catch (error) {
     console.error(error);
@@ -79,10 +94,10 @@ async function rejectPhoto(req, res) {
         $set: {
           status: "rejected",
           reviewedAt: new Date(),
-          rejectionReason: req.body.reason || null,
+          rejectionReason: req.body?.reason || null,
         },
       },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!photo) {
@@ -91,6 +106,7 @@ async function rejectPhoto(req, res) {
       });
     }
 
+    notifyDecision(photo);
     res.json(photo);
   } catch (error) {
     console.error(error);

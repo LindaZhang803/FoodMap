@@ -7,7 +7,9 @@ const User = require("../models/User");
 
 const {
     getMyProfile,
-    updateMyProfile
+    updateMyProfile,
+    getMySpicinessQuestionnaire,
+    putMySpicinessQuestionnaire
 } = require("../controllers/userController");
 
 const USER_ID = "507f1f77bcf86cd799439011";
@@ -52,6 +54,28 @@ beforeEach(() => {
     User.findByIdAndUpdate.mockReturnValue(
         queryResult(profile())
     );
+});
+
+describe("Spiciness questionnaire controller", () => {
+    test.each([{}, { user: {} }])("rejects reading without an authenticated user ID (%#)", async req => {
+        const res = makeResponse();
+
+        await getMySpicinessQuestionnaire(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(401);
+        expect(res.json).toHaveBeenCalledWith({ message: "Authentication required" });
+        expect(User.findById).not.toHaveBeenCalled();
+    });
+
+    test.each([{}, { user: {} }])("rejects writing without an authenticated user ID (%#)", async req => {
+        const res = makeResponse();
+
+        await putMySpicinessQuestionnaire(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(401);
+        expect(res.json).toHaveBeenCalledWith({ message: "Authentication required" });
+        expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
 });
 
 describe("Account profile controller", () => {

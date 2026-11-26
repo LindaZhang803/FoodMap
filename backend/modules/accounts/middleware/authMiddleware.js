@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 const User = require("../models/User");
 
 async function authMiddleware(req, res, next) {
@@ -40,14 +41,14 @@ async function authMiddleware(req, res, next) {
         });
     }
 
+    if (typeof decoded?.id !== "string" || !mongoose.isValidObjectId(decoded.id)) {
+        return res.status(401).json({
+            message: "Invalid token"
+        });
+    }
+
     // 3. Find the logged-in user
     try {
-        if (!decoded.id) {
-            return res.status(401).json({
-                message: "Invalid token"
-            });
-        }
-
         const user = await User.findById(decoded.id);
 
         if (!user) {

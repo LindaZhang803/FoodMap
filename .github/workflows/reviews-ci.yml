@@ -1,7 +1,7 @@
 name: Dish and Review CI
 on:
   push:
-      branches: [skim1108, qsun036, qsuntest-Phase2, main]
+      branches: [skim1108, qsun036, qsuntest-Phase2, szang005-s2, main]
   pull_request:
     branches: [main]
 permissions:
@@ -43,6 +43,19 @@ jobs:
         working-directory: backend
         env:
           MONGO_URI: mongodb://127.0.0.1:27017/foodmap_reviews_ci?replicaSet=rs0
+      - name: Real MongoDB spiciness compatibility
+        run: npm run test:compatibility:db
+        working-directory: backend
+        env:
+          MONGO_URI: mongodb://127.0.0.1:27017/foodmap_reviews_ci?replicaSet=rs0
+      - name: Real MongoDB post and notification integrations
+        run: |
+          npm run test:posts
+          npm run test:notifications:db
+        working-directory: backend
+        env:
+          POSTS_TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+          NOTIFICATION_TEST_MONGO_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
       - name: MongoDB logs on failure
         if: failure()
         run: docker logs reviews-mongo

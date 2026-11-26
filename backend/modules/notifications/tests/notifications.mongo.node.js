@@ -1,20 +1,24 @@
 const assert = require("node:assert/strict");
 const { after, before, beforeEach, describe, it } = require("node:test");
+const { setTimeout: delay } = require("node:timers/promises");
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const request = require("supertest");
 const User = require("../../accounts/models/User");
+const RestaurantPhoto = require("../../restaurants/models/RestaurantPhoto");
 const Post = require("../../posts/models/Post");
 const PostLike = require("../../posts/models/PostLike");
 const notificationService = require("../services/notificationService");
 const app = require("../../../server");
 
 const inboxPath = "/api/notifications";
+const adminPath = "/api/admin/notifications";
+const testAdminKey = "test-photo-and-notification-admin";
 
 const testUri = process.env.NOTIFICATION_TEST_MONGO_URI;
 
 describe("notification inbox with MongoDB", { skip: !testUri }, () => {
-  let author, actor, post, notifications, previousSecret;
+  let author, actor, post, notifications, previousSecret, previousAdminKey;
 
   function makePost(authorId) {
     return Post.create({
@@ -26,13 +30,14 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
     });
   }
 
-  function makeReview() {
+  function makeReview(fields = {}) {
     return mongoose.models.Review.create({
       userId: author._id,
       restaurantId: new mongoose.Types.ObjectId(),
       reviewType: "restaurant",
       rating: 5,
       comment: "Loved the noodles",
+      ...fields,
     });
   }
 
@@ -47,6 +52,18 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
 
   function inbox(user = author, query = "") {
     return as(user, "get", inboxPath + query);
+  }
+
+  async function waitForInbox(user, count) {
+    const deadline = Date.now() + 2000;
+    let body;
+    do {
+      ({ body } = await inbox(user).expect(200));
+      if (body.items.length >= count) break;
+      await delay(20);
+    } while (Date.now() < deadline);
+    assert.equal(body.items.length, count);
+    return body;
   }
 
   function like(user = actor) {
@@ -79,6 +96,8 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
     }
     previousSecret = process.env.JWT_SECRET;
     process.env.JWT_SECRET = "notification-test-secret";
+    previousAdminKey = process.env.ADMIN_API_KEY;
+    process.env.ADMIN_API_KEY = testAdminKey;
     await mongoose.connect(testUri, {
       dbName: `foodmap_notifications_test_${process.pid}_${Date.now()}`,
       serverSelectionTimeoutMS: 5000,
@@ -100,6 +119,8 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
       mongoose.models.ReviewReply.deleteMany({}),
       mongoose.models.ReviewLike.deleteMany({}),
       mongoose.models.Review.deleteMany({}),
+      mongoose.models.ReviewPhoto.deleteMany({}),
+      RestaurantPhoto.deleteMany({}),
     ]);
     post = await makePost(author._id);
   });
@@ -111,6 +132,8 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
     }
     if (previousSecret === undefined) delete process.env.JWT_SECRET;
     else process.env.JWT_SECRET = previousSecret;
+    if (previousAdminKey === undefined) delete process.env.ADMIN_API_KEY;
+    else process.env.ADMIN_API_KEY = previousAdminKey;
   });
 
   it("a transient index build failure does not prevent later alerts", async t => {
@@ -143,6 +166,7 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
         createdAt: item.createdAt,
         readAt: null,
         isRead: false,
+        actorId: actor.id,
         postId: post.id,
       }],
       unreadCount: 1,
@@ -199,6 +223,10 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
     assert.equal(item.message, "Alex replied to your review.");
     assert.equal(item.reviewId, review.id);
     assert.equal(item.replyId, saved.reply.id);
+    assert.equal(item.actorId, actor.id);
+    assert.equal(item.restaurantId, String(review.restaurantId));
+    assert.equal(item.reviewType, "restaurant");
+    assert.equal(Object.hasOwn(item, "dishId"), false);
     assert.equal(item.readAt, null);
     assert.equal(item.isRead, false);
     assert.equal(Object.hasOwn(item, "postId"), false);
@@ -222,7 +250,8 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
   });
 
   it("notifies the review author once across repeated and concurrent likes", async () => {
-    const review = await makeReview();
+    const dishId = new mongoose.Types.ObjectId();
+    const review = await makeReview({ reviewType: "dish", dishId });
     const path = `/api/reviews/${review.id}/like`;
     await as(author, "post", path).expect(200, { likeCount: 1, likedByMe: true });
     await as(actor, "delete", path).expect(200, { likeCount: 1, likedByMe: false });
@@ -239,6 +268,10 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
     assert.equal(item.title, "Review Liked");
     assert.equal(item.message, "Alex liked your review.");
     assert.equal(item.reviewId, review.id);
+    assert.equal(item.actorId, actor.id);
+    assert.equal(item.restaurantId, String(review.restaurantId));
+    assert.equal(item.reviewType, "dish");
+    assert.equal(item.dishId, String(dishId));
     assert.equal(item.readAt, null);
     assert.equal(item.isRead, false);
     assert.equal(Object.hasOwn(item, "postId"), false);
@@ -408,6 +441,153 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
     assert.equal(body.unreadCount, 0);
     assert.deepEqual(body.items.map(item => item.id), [String(previous.insertedId)]);
     assert.equal(body.items[0].readAt, readAt.toISOString());
+  });
+
+  it("keeps legacy review alerts readable even if their actor no longer exists", async () => {
+    const absentActor = new mongoose.Types.ObjectId();
+    const review = await makeReview();
+    await notifications.insertOne({
+      recipientId: author._id, type: "review_like", actorId: absentActor,
+      reviewId: review._id, eventKey: "legacy:orphaned-review-like", createdAt: new Date(),
+    });
+    const { body } = await inbox().expect(200);
+    const [item] = body.items;
+    assert.equal(item.message, "Someone liked your review.");
+    assert.equal(item.actorId, String(absentActor));
+    assert.equal(item.reviewId, review.id);
+    assert.equal(Object.hasOwn(item, "restaurantId"), false);
+    assert.equal(Object.hasOwn(item, "dishId"), false);
+    assert.equal(Object.hasOwn(item, "reviewType"), false);
+  });
+
+  it("opens a public review and exposes only approved attached photos", async () => {
+    const ids = Array.from({ length: 4 }, () => new mongoose.Types.ObjectId());
+    const photoUrls = ids.map(id => `/api/review-photos/${id}/image`);
+    const dishId = new mongoose.Types.ObjectId();
+    const review = await makeReview({ reviewType: "dish", dishId, photoUrls });
+    await mongoose.models.ReviewPhoto.create(
+      ["approved", "pending", "rejected", "approved"].map((status, index) => ({
+        _id: ids[index], status, userId: author.id, data: Buffer.from("test photo"),
+        reviewId: index === 3 ? new mongoose.Types.ObjectId() : review.id,
+      }))
+    );
+
+    const { body } = await request(app).get(`/api/reviews/${review.id}`).expect(200);
+    assert.equal(body.review.id, review.id);
+    assert.equal(body.review.comment, review.comment);
+    assert.equal(body.review.restaurantId, String(review.restaurantId));
+    assert.equal(body.review.reviewType, "dish");
+    assert.equal(body.review.dishId, String(dishId));
+    assert.equal(body.review.isOwner, false);
+    assert.deepEqual(body.review.photoUrls, [photoUrls[0]]);
+    const owner = await as(author, "get", `/api/reviews/${review.id}`).expect(200);
+    assert.equal(owner.body.review.isOwner, true);
+    assert.deepEqual(owner.body.review.photoUrls, [photoUrls[0]]);
+    await request(app).get(`/api/reviews/${new mongoose.Types.ObjectId()}`).expect(404);
+    await request(app).get("/api/reviews/invalid").expect(400);
+
+    for (const status of ["pending", "rejected"]) {
+      await mongoose.models.Review.collection.updateOne({ _id: review._id }, { $set: { status } });
+      await request(app).get(`/api/reviews/${review.id}`).expect(404);
+    }
+  });
+
+  it("admin dispatch validates and sends a system event once per recipient", async () => {
+    const payload = {
+      recipientIds: [author.id, actor.id, author.id.toUpperCase()],
+      title: "  Maintenance  ", message: "  Tonight's update  ", eventKey: "  notice:release  ",
+    };
+    const dispatch = data => request(app).post(adminPath).set("x-admin-key", testAdminKey).send(data);
+    await request(app).post(adminPath).send(payload).expect(401);
+    await request(app).post(adminPath).set("x-admin-key", "incorrect").send(payload).expect(403);
+    for (const invalid of [
+      { recipientIds: [] }, { recipientIds: [author.id, "bad-id"] },
+      { recipientIds: Array(501).fill(author.id) },
+      { title: "  " }, { message: null }, { eventKey: "  " },
+      { title: "t".repeat(121) }, { message: "m".repeat(2001) }, { eventKey: "k".repeat(161) },
+    ]) {
+      await dispatch({ ...payload, ...invalid }).expect(400);
+    }
+    assert.equal(await notifications.countDocuments({}), 0);
+    await Promise.all([dispatch(payload).expect(201), dispatch(payload).expect(201)]);
+    for (const recipient of [author, actor]) {
+      const { body } = await inbox(recipient).expect(200);
+      assert.equal(body.unreadCount, 1);
+      assert.equal(body.items[0].title, "Maintenance");
+      assert.equal(body.items[0].message, "Tonight's update");
+      assert.equal(body.items[0].type, "system");
+    }
+  });
+
+  it("notifies the review photo owner once per saved approval or rejection", async () => {
+    const photo = await mongoose.models.ReviewPhoto.create({
+      userId: author.id, data: Buffer.from("test photo"),
+    });
+    const moderate = decision => request(app).patch(`/api/review-photo-moderation/${photo.id}/${decision}`)
+      .set("x-admin-key", testAdminKey);
+    await moderate("approve").expect(200);
+    await moderate("approve").expect(200);
+    await moderate("reject").expect(200);
+
+    const body = await waitForInbox(author, 2);
+    assert.equal(body.unreadCount, 2);
+    assert.deepEqual(body.items.map(item => item.title).sort(), ["Review photo approved", "Review photo rejected"]);
+    assert.ok(body.items.every(item => item.type === "system"));
+    assert.equal(await mongoose.models.ReviewPhoto.countDocuments({ _id: photo.id, status: "rejected" }), 1);
+    assert.deepEqual((await inbox(actor).expect(200)).body.items, []);
+  });
+
+  it("notifies identified restaurant photo owners and skips anonymous uploads", async () => {
+    const restaurantId = new mongoose.Types.ObjectId();
+    const [owned, anonymous, rejected] = await RestaurantPhoto.create([
+      { restaurantId, uploadedBy: author.id, imageUrl: "/uploads/restaurant/owned.jpg" },
+      { restaurantId, imageUrl: "/uploads/restaurant/anonymous.jpg" },
+      { restaurantId, uploadedBy: actor.id, imageUrl: "/uploads/restaurant/rejected.jpg" },
+    ]);
+    const moderate = (photo, decision) => request(app).patch(`/api/admin/photos/${photo.id}/${decision}`)
+      .set("x-admin-key", testAdminKey).send({});
+    await moderate(owned, "approve").expect(200);
+    await moderate(owned, "approve").expect(404);
+    await moderate(anonymous, "reject").expect(200);
+    await moderate(rejected, "reject").expect(200);
+
+    const approvedInbox = await waitForInbox(author, 1);
+    const rejectedInbox = await waitForInbox(actor, 1);
+    assert.deepEqual(approvedInbox.items.map(item => item.title), ["Restaurant photo approved"]);
+    assert.deepEqual(rejectedInbox.items.map(item => item.title), ["Restaurant photo rejected"]);
+    assert.equal(approvedInbox.items[0].restaurantId, String(restaurantId));
+    assert.equal(await notifications.countDocuments({}), 2);
+  });
+
+  it("preserves photo moderation when writing its notification fails and retries delivery", async t => {
+    t.mock.method(console, "error", () => {});
+    let startWrite, releaseWrite;
+    const writeStarted = new Promise(resolve => { startWrite = resolve; });
+    const writeReleased = new Promise(resolve => { releaseWrite = resolve; });
+    t.mock.method(mongoose.models.Notification.collection, "insertOne", async () => {
+      startWrite();
+      await writeReleased;
+      throw new Error("Notification write failed");
+    }, { times: 1 });
+    const photo = await mongoose.models.ReviewPhoto.create({
+      userId: author.id, data: Buffer.from("test photo"),
+    });
+    const approve = () => request(app).patch(`/api/review-photo-moderation/${photo.id}/approve`)
+      .set("x-admin-key", testAdminKey).expect(200);
+    try {
+      await approve().timeout({ response: 2000 });
+      await Promise.race([
+        writeStarted,
+        delay(2000, undefined, { ref: false }).then(() => assert.fail("No photo notification write was attempted")),
+      ]);
+      assert.equal(await mongoose.models.ReviewPhoto.countDocuments({ _id: photo.id, status: "approved" }), 1);
+      assert.deepEqual((await inbox().expect(200)).body.items, []);
+    } finally {
+      releaseWrite();
+    }
+    await approve();
+    const body = await waitForInbox(author, 1);
+    assert.equal(body.items[0].title, "Review photo approved");
   });
 
   it("scopes reads and writes to the authenticated recipient", async () => {

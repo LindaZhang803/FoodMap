@@ -2,7 +2,7 @@ name: Feed CI
 
 on:
   push:
-    branches: [szang005, szang005-test]
+    branches: [szang005, szang005-test, szang005-s2]
   pull_request:
     branches: [main]
   workflow_dispatch:

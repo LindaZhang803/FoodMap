@@ -6,7 +6,7 @@ const connectDB = require("../../../database/connect");
 const authRoutes = require("../routes/authRoutes");
 const authMiddleware = require("../middleware/authMiddleware");
 const userRoutes = require("../routes/userRoutes");
-const reviewHistoryRoutes = require("../routes/reviewHistoryRoutes");
+const legacyReviewHistoryRoutes = require("./legacyReviewHistoryRoutes");
 
 const {
     AVATAR_DIRECTORY
@@ -74,7 +74,7 @@ app.use(
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/reviews", reviewHistoryRoutes);
+app.use("/api/reviews", legacyReviewHistoryRoutes);
 
 app.get("/api/auth/test", authMiddleware, (req, res) => {
     res.status(200).json({

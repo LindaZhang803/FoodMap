@@ -119,6 +119,18 @@ describe("Avatar upload controller", () => {
     });
 
     test("updates only the avatar and preserves profile fields", async () => {
+        execute.mockResolvedValue(previousProfile({
+            spicinessQuestionnaire: {
+                version: 1,
+                answers: {
+                    preferredSpiciness: 2,
+                    maximumSpiciness: 4,
+                    spicyFoodFrequency: "sometimes"
+                },
+                savedAt: new Date("2026-11-01T00:00:00.000Z")
+            },
+            spicinessQuestionnaireRevision: 3
+        }));
         const res = makeResponse();
 
         await uploadMyAvatar(makeRequest(), res);
@@ -147,6 +159,9 @@ describe("Avatar upload controller", () => {
             "Japanese"
         ]);
         expect(result.user.foodPreferences).toEqual(["Mild"]);
+        expect(result.user.questionnaireCompleted).toBe(true);
+        expect(result.user.spicinessQuestionnaireRevision).toBe(3);
+        expect(result.user).not.toHaveProperty("spicinessQuestionnaire");
         expect(result.user).not.toHaveProperty("passwordHash");
     });
 
@@ -226,5 +241,7 @@ describe("Avatar upload controller", () => {
         expect(result.user.bio).toBe("");
         expect(result.user.favoriteCuisines).toEqual([]);
         expect(result.user.foodPreferences).toEqual([]);
+        expect(result.user.questionnaireCompleted).toBe(false);
+        expect(result.user.spicinessQuestionnaireRevision).toBe(0);
     });
 });

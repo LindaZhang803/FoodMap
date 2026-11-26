@@ -1,5 +1,8 @@
 const { distanceKm } = require('../../restaurants/services/catalogQuery');
 const { scoreForYouSpiciness } = require('./scoreForYouSpiciness');
+const {
+  getSpicinessCompatibility, resolveDishHeatSummary, SPICINESS_COMPATIBILITY_NOTE
+} = require('../../accounts/services/spicinessCompatibility');
 const normalize = v => typeof v === 'string' ? v.trim().toLowerCase() : '';
 const finite = v => typeof v === 'number' && Number.isFinite(v);
 function rankDishes({ dishes, restaurants, activity = [], favoriteCuisines = [], location = null, mode = 'forYou', spicinessAnswers }) {
@@ -23,12 +26,15 @@ function rankDishes({ dishes, restaurants, activity = [], favoriteCuisines = [],
     const score = mode === 'forYou' && spicinessAnswers
       ? scoreForYouSpiciness(rawScore, dish.spicinessRanking, spicinessAnswers)
       : rawScore;
+    const { median, sampleCount } = resolveDishHeatSummary(dish);
+    const spicinessCompatibility = getSpicinessCompatibility(spicinessAnswers, median, sampleCount);
     ranked.push({
       dish: { id: String(dish._id), restaurantId: String(dish.restaurantId), name: dish.name, description: dish.description || '', imageUrl: dish.imageUrl || null, category: dish.category || 'other', price: dish.price ?? null, averageRating: rating, reviewCount: dish.reviewCount || 0 },
       restaurant: { id: String(restaurant._id), name: restaurant.name, cuisineType: restaurant.cuisineType || 'Unknown' },
       score, distanceKm: distance,
       signals: { recentReviews: count(a.recentReviews), likesOnRecentReviews: count(a.likes), favorites: count(a.favorites), cuisineMatch },
-      spicinessCompatibility: 'Unknown'
+      spicinessCompatibility,
+      spicinessCompatibilityNote: SPICINESS_COMPATIBILITY_NOTE
     });
   }
   return ranked.sort((a, b) => b.score - a.score || a.dish.id.localeCompare(b.dish.id));

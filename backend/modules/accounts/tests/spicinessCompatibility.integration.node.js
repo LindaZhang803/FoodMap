@@ -1,7 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { createCatalogFixture } = require("../../reviews/tests/catalogIntegrationFixture");
-const { getDishSpicinessCompatibility } = require("../services/spicinessCompatibility");
 
 const questionnairePath = "/api/users/me/spiciness-questionnaire";
 
@@ -25,7 +24,7 @@ test("saved heat preferences compare with real public dish ratings per account",
         });
 
         const origin = await fixture.listen();
-        async function request(path, { method = "GET", token, body } = {}) {
+        async function request(path, { method = "GET", token, body, status = 200 } = {}) {
             const headers = {};
             if (token) headers.Authorization = `Bearer ${token}`;
             if (body) headers["Content-Type"] = "application/json";
@@ -33,7 +32,14 @@ test("saved heat preferences compare with real public dish ratings per account",
                 method, headers, body: JSON.stringify(body)
             });
             const data = await response.json();
-            assert.equal(response.status, 200, `${method} ${path}: ${JSON.stringify(data)}`);
+            assert.equal(response.status, status, `${method} ${path}: ${JSON.stringify(data)}`);
+            if (path.startsWith("/api/dishes") || path.startsWith("/api/recommendations/dishes")) {
+                assert.match(response.headers.get("vary") || "", /\bAuthorization\b/i);
+                if (token) {
+                    assert.match(response.headers.get("cache-control") || "", /\bprivate\b/);
+                    assert.match(response.headers.get("cache-control") || "", /\bno-store\b/);
+                }
+            }
             return data;
         }
 
@@ -48,7 +54,9 @@ test("saved heat preferences compare with real public dish ratings per account",
 
         const token = await login(fixture.email);
         const otherToken = await login(otherEmail);
-        const dishPath = `/api/dishes/${fixture.ids.dishes[0]}`;
+        const dishId = String(fixture.ids.dishes[0]);
+        const dishPath = `/api/dishes/${dishId}`;
+        const listPath = `/api/dishes?restaurantId=${fixture.ids.restaurants[0]}`;
         const reviewPath = `/api/reviews/${fixture.ids.reviews[0]}`;
 
         function savePreference(sessionToken, preferredSpiciness) {
@@ -64,24 +72,42 @@ test("saved heat preferences compare with real public dish ratings per account",
 
         async function setReviewSpiciness(spicinessRating) {
             await request(reviewPath, { method: "PUT", token, body: { spicinessRating } });
-            return request(dishPath);
+            return request(dishPath, { token });
+        }
+
+        async function assertCompatibility(sessionToken, label) {
+            const options = { token: sessionToken };
+            const menu = await request(listPath, options);
+            const dish = await request(dishPath, options);
+            assert.equal(menu.find(item => item.id === dishId).spicinessCompatibility, label);
+            assert.equal(dish.spicinessCompatibility, label);
+            assert.match(dish.spicinessCompatibilityNote, /community ratings/);
+            assert.equal(Object.hasOwn(dish, "spicinessRanking"), false);
+            assert.equal(Object.hasOwn(dish, "statisticsRevision"), false);
+
+            const recommendation = await request("/api/recommendations/dishes?limit=50", options);
+            const rankedDish = recommendation.dishes.find(item => item.dish.id === dishId);
+            assert.equal(rankedDish.spicinessCompatibility, label);
         }
 
         const ratedDish = await setReviewSpiciness(3);
         assert.equal(ratedDish.medianSpiciness, 3);
         assert.equal(ratedDish.spicinessRatingCount, 1);
         assert.equal(Object.hasOwn(ratedDish, "spicinessRanking"), false);
-        assert.equal(getDishSpicinessCompatibility(null, ratedDish), "Unknown");
+        await assertCompatibility(undefined, "Unknown");
+        await assertCompatibility(token, "Unknown");
+        await request(listPath, { token: "invalid", status: 401 });
+        await request(dishPath, { token: "invalid", status: 401 });
 
         const first = await savePreference(token, 2);
         assert.equal(first.spicinessQuestionnaireRevision, 1);
         assert.deepEqual(await request(questionnairePath, { token }), first);
-        assert.equal(getDishSpicinessCompatibility(first.questionnaire.answers, ratedDish), "Above Preference");
+        await assertCompatibility(token, "Above Preference");
 
         const otherBeforeSave = await request(questionnairePath, { token: otherToken });
         assert.equal(otherBeforeSave.questionnaire, null);
         assert.equal(otherBeforeSave.spicinessQuestionnaireRevision, 0);
-        assert.equal(getDishSpicinessCompatibility(otherBeforeSave.questionnaire?.answers, ratedDish), "Unknown");
+        await assertCompatibility(otherToken, "Unknown");
 
         const other = await savePreference(otherToken, 1);
         assert.equal(other.spicinessQuestionnaireRevision, 1);
@@ -89,16 +115,18 @@ test("saved heat preferences compare with real public dish ratings per account",
         const retake = await savePreference(token, 3);
         assert.equal(retake.spicinessQuestionnaireRevision, 2);
         assert.deepEqual(await request(questionnairePath, { token }), retake);
-        assert.equal(getDishSpicinessCompatibility(retake.questionnaire.answers, ratedDish), "Within Preference");
+        await assertCompatibility(token, "Within Preference");
+        await assertCompatibility(undefined, "Unknown");
 
         const otherAfterRetake = await request(questionnairePath, { token: otherToken });
         assert.deepEqual(otherAfterRetake, other);
-        assert.equal(getDishSpicinessCompatibility(otherAfterRetake.questionnaire.answers, ratedDish), "Above Preference");
+        await assertCompatibility(otherToken, "Above Preference");
 
         const clearedDish = await setReviewSpiciness(null);
         assert.equal(clearedDish.medianSpiciness, null);
         assert.equal(clearedDish.spicinessRatingCount, 0);
-        assert.equal(getDishSpicinessCompatibility(retake.questionnaire.answers, clearedDish), "Unknown");
+        await assertCompatibility(token, "Unknown");
+        await assertCompatibility(otherToken, "Unknown");
     } finally {
         try {
             await User.deleteOne({ _id: otherId });

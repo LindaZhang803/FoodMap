@@ -134,6 +134,9 @@ function createReplyService({ mongoose, Review, ReviewReply }) {
         recipientId: review.userId,
         actorId: userId,
         reviewId: review._id,
+        restaurantId: review.restaurantId,
+        dishId: review.dishId,
+        reviewType: review.reviewType,
         replyId: reply._id,
         type: 'review_reply'
       });

@@ -28,8 +28,14 @@ function handleError(error, res) {
 // Read Public Posts
 // =====================================================
 
+function setPostReadCacheHeaders(req, res) {
+  res.vary("Authorization");
+  if (req.user?.id) res.setHeader("Cache-Control", "private, no-store");
+}
+
 async function listPosts(req, res) {
   const category = req.query.category || "forYou";
+  setPostReadCacheHeaders(req, res);
   try {
     const result = await service.listPosts({
       category,
@@ -43,10 +49,6 @@ async function listPosts(req, res) {
       longitude: req.query.longitude,
     });
 
-    if (category === "forYou") {
-      res.vary("Authorization");
-      if (req.user?.id) res.setHeader("Cache-Control", "private, no-store");
-    }
     return res.status(200).json(result);
   } catch (error) {
     return handleError(error, res);
@@ -58,6 +60,7 @@ async function listPosts(req, res) {
 // =====================================================
 
 async function getPost(req, res) {
+  setPostReadCacheHeaders(req, res);
   try {
     const post = await service.getPost(
       req.params.id,

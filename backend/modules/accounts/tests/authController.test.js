@@ -164,6 +164,16 @@ describe("Account authentication controller", () => {
         expect(response).not.toHaveProperty("token");
     });
 
+    test.each([{}, { user: {} }])("logout requires an authenticated user ID (%#)", async req => {
+        const res = makeResponse();
+
+        await logout(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(401);
+        expect(res.json).toHaveBeenCalledWith({ message: "Authentication required" });
+        expect(User.findByIdAndUpdate).not.toHaveBeenCalled();
+    });
+
     test("logout increments the authenticated user's token version", async () => {
         User.findByIdAndUpdate.mockResolvedValue({
             _id: USER_ID,
@@ -181,7 +191,7 @@ describe("Account authentication controller", () => {
         expect(User.findByIdAndUpdate).toHaveBeenCalledWith(
             USER_ID,
             { $inc: { tokenVersion: 1 } },
-            expect.any(Object)
+            { returnDocument: "after" }
         );
     });
 });

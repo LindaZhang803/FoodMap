@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const express = require('express');
 const request = require('supertest');
+const notifications = require('../../notifications/services/notificationService');
 
 const {
   createReviewPhotoRouter
@@ -98,7 +99,8 @@ test('photo visibility follows approval status and ownership', async () => {
   );
 });
 
-test('only an administrator can preview, approve and reject photos', async () => {
+test('only an administrator can preview, approve and reject photos', async t => {
+  t.mock.method(notifications, 'addSystemNotification', async () => true);
   const previousKey = process.env.ADMIN_API_KEY;
   const adminKey = crypto.randomBytes(32).toString('hex');
 
