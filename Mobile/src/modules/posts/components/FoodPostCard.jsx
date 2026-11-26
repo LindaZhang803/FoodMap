@@ -11,6 +11,9 @@ import {
 } from "react-native";
 
 import AppIcon from "../../../shared/components/AppIcon";
+import SpicinessCompatibility, {
+  describeSpicinessCompatibility,
+} from "../../../shared/components/SpicinessCompatibility";
 
 import {
   colors,
@@ -75,7 +78,10 @@ export default function FoodPostCard({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open post: ${post.title}`}
+      accessibilityLabel={[
+        `Open post: ${post.title}`,
+        describeSpicinessCompatibility(post.dish),
+      ].filter(Boolean).join(". ")}
       onPress={() =>
         onPress?.(post)
       }
@@ -146,6 +152,8 @@ export default function FoodPostCard({
             </Text>
           </View>
         ) : null}
+
+        <SpicinessCompatibility dish={post.dish} />
 
         {/* Author + Likes */}
         <View style={styles.footer}>

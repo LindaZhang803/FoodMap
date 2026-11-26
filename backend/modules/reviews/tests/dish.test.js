@@ -135,7 +135,8 @@ test('dish list uses one signed-in questionnaire for all dishes', async () => {
   });
   const res = response();
   await controller.list({ query: {}, user: { id: 'session-user' } }, res);
-  assert.deepEqual(res.body.map(dish => dish.spicinessCompatibility), ['Above Preference', 'Within Preference']);
+  assert.equal(res.body[1].medianSpiciness, 2.5);
+  assert.deepEqual(res.body.map(dish => dish.spicinessCompatibility), ['Above Preference', 'Above Preference']);
   assert.match(res.body[0].spicinessCompatibilityNote, /community ratings/);
   assert.equal(Object.hasOwn(res.body[0], 'spicinessRanking'), false);
   assert.equal(Object.hasOwn(res.body[0], 'statisticsRevision'), false);

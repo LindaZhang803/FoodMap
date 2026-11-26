@@ -414,7 +414,7 @@ async function getPostReviewData(post) {
       restaurantId,
     })
       .select(
-        "_id restaurantId name medianSpiciness spicinessRatingCount spicinessRanking"
+        "_id restaurantId name medianSpiciness spicinessRatingCount"
       )
       .lean();
   }
@@ -1012,9 +1012,10 @@ async function listPosts({
   return {
     items: enrichedPosts.map((post) => {
       const item = normalizePost(post, likedIds.has(String(post._id)));
-      if (spicinessByDish && item.dish) {
+      if (item.dish) {
         item.dish.spicinessCompatibility =
-          spicinessByDish.get(item.dish.id) ?? SPICINESS_COMPATIBILITY.UNKNOWN;
+          spicinessByDish?.get(item.dish.id) ?? SPICINESS_COMPATIBILITY.UNKNOWN;
+        item.dish.spicinessCompatibilityNote = SPICINESS_COMPATIBILITY_NOTE;
       }
       return item;
     }),

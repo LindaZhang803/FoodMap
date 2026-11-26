@@ -69,8 +69,9 @@ describe("posts against disposable MongoDB", { skip: !mongoUri }, () => {
     const dish = await Dish.create({
       restaurantId: restaurant.id,
       name: "Chili noodles",
-      medianSpiciness: 3,
-      spicinessRatingCount: 1,
+      medianSpiciness: 5,
+      spicinessRatingCount: 7,
+      spicinessRanking: { median: 1, sampleCount: 3 },
     });
     const review = await Review.create({
       userId: owner.id,
@@ -122,6 +123,13 @@ describe("posts against disposable MongoDB", { skip: !mongoUri }, () => {
       assert.match(reader.headers.vary ?? "", /\bAuthorization\b/i);
       assert.equal(reader.headers["cache-control"], "private, no-store");
       assert.equal(reader.body.items[0].review.spicinessRating, 3);
+
+      const guestDish = guest.body.items[0].dish;
+      const readerDish = reader.body.items[0].dish;
+      assert.equal(guestDish.spicinessCompatibility, "Unknown");
+      assert.equal(readerDish.spicinessCompatibility, category === "forYou" ? "Above Preference" : "Unknown");
+      assert.match(guestDish.spicinessCompatibilityNote, /community ratings.*not a medical or allergen safety guarantee/);
+      assert.equal(readerDish.spicinessCompatibilityNote, guestDish.spicinessCompatibilityNote);
     });
   }
 

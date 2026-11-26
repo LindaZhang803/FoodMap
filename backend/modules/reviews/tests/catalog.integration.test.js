@@ -67,7 +67,12 @@ test('Home and dish recommendations personalize after a questionnaire save', { s
         ...target, userId, rating: 5 - i, spicinessRating, comment: 'Historic heat rating.', createdAt: old
       })));
       await Dish.collection.updateOne({ _id: ids.dishes[i] }, {
-        $set: { reviewCount: 3, spicinessRanking: { median: spicinessRating, sampleCount: 3 } }
+        $set: {
+          reviewCount: 3,
+          medianSpiciness: spicinessRating,
+          spicinessRatingCount: 3,
+          spicinessRanking: { median: spicinessRating, sampleCount: 3 }
+        }
       });
     }
     const origin = await fixture.listen();

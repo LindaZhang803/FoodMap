@@ -20,11 +20,7 @@ function getSpicinessCompatibility(answers, median, sampleCount = 0) {
 }
 
 function resolveDishHeatSummary(dish) {
-  const { median, sampleCount } = dish?.spicinessRanking || {};
-  if (isMedianHeat(median) && Number.isInteger(sampleCount) && sampleCount >= 3) {
-    return { median, sampleCount };
-  }
-
+  // Use the same heat data the dish API exposes.
   return {
     median: dish?.medianSpiciness ?? null,
     sampleCount: dish?.spicinessRatingCount ?? 0

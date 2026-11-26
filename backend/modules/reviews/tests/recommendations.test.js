@@ -22,12 +22,12 @@ test('recommendations use cuisine and proximity, exclude orphans and handle unkn
   assert.equal(near[0].dish.id, 'd1');
   assert.equal(near[0].distanceKm, 0);
 });
-test('recommendations label heat using both ranking and legacy dish evidence', () => {
+test('recommendations rank with ranking evidence and label with public heat ratings', () => {
   const ranked = rankDishes({
     dishes: [
-      { ...dishes[0], spicinessRanking: { median: 3, sampleCount: 3 } },
-      { ...dishes[1], medianSpiciness: 2, spicinessRatingCount: 1, spicinessRanking: { median: 4, sampleCount: 2 } },
-      { ...dishes[0], _id: 'no-public-count', medianSpiciness: 2, spicinessRanking: { median: null, sampleCount: 3 } },
+      { ...dishes[0], medianSpiciness: 5, spicinessRatingCount: 7, spicinessRanking: { median: 1, sampleCount: 3 } },
+      { ...dishes[1], medianSpiciness: 2, spicinessRatingCount: 7, spicinessRanking: { median: 4, sampleCount: 3 } },
+      { ...dishes[0], _id: 'no-public-count', medianSpiciness: 2, spicinessRanking: { median: 2, sampleCount: 3 } },
       { ...dishes[0], _id: 'unrated', medianSpiciness: 2, spicinessRatingCount: 0 }
     ],
     restaurants,
@@ -36,6 +36,7 @@ test('recommendations label heat using both ranking and legacy dish evidence', (
 
   const labels = Object.fromEntries(ranked.map(item => [item.dish.id, item.spicinessCompatibility]));
   assert.deepEqual(labels, { d1: 'Above Preference', d2: 'Within Preference', 'no-public-count': 'Unknown', unrated: 'Unknown' });
+  assert.ok(ranked.find(item => item.dish.id === 'd1').score > ranked.find(item => item.dish.id === 'd2').score);
 });
 
 test('trending responds to review, like and favorite counts and has a deterministic zero-data fallback', () => {

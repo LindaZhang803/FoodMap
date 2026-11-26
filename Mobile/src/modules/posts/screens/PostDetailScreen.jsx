@@ -24,6 +24,7 @@ import {
 } from "../services/postApi";
 
 import AppIcon from "../../../shared/components/AppIcon";
+import SpicinessCompatibility from "../../../shared/components/SpicinessCompatibility";
 
 import {
   AppButton,
@@ -1214,6 +1215,8 @@ export default function PostDetailScreen({
                 color={colors.textMuted}
               />
             </Pressable>
+
+            <SpicinessCompatibility dish={dish} showNote />
           </View>
         )}
 

@@ -7,6 +7,10 @@ import React, {
 import {
   createDishRepository,
 } from "../../reviews/services/dishRepository";
+import SpicinessCompatibility, {
+  describeSpicinessCompatibility,
+  SpicinessCompatibilityNote,
+} from "../../../shared/components/SpicinessCompatibility";
 
 import {
   View,
@@ -169,6 +173,7 @@ function MenuDishImage({ uri }) {
 
 export default function RestaurantDetailScreen({
   restaurantId,
+  token = null,
   onBack,
   onViewDishes,
   renderRestaurantActions,
@@ -193,7 +198,7 @@ export default function RestaurantDetailScreen({
   // Menu State
   // =====================================================
 
-  const [dishes, setDishes] = useState([]);
+  const [menuResult, setMenuResult] = useState(null);
 
   const [menuLoading, setMenuLoading] = useState(true);
 
@@ -208,9 +213,15 @@ export default function RestaurantDetailScreen({
     () =>
       createDishRepository({
         origin: API_ORIGIN,
+        token,
       }),
-    []
+    [token]
   );
+
+  const dishes =
+    menuResult?.repository === dishRepository && menuResult.restaurantId === restaurantId
+      ? menuResult.dishes
+      : null;
 
   // =====================================================
   // 1. Load restaurant
@@ -286,7 +297,7 @@ export default function RestaurantDetailScreen({
     async function loadMenu() {
       setMenuLoading(true);
       setMenuError(null);
-      setDishes([]);
+      setMenuResult(null);
       setSelectedCategory("popular");
 
       if (!restaurantId) {
@@ -307,7 +318,7 @@ export default function RestaurantDetailScreen({
           throw new Error("Invalid menu response");
         }
 
-        setDishes(result);
+        setMenuResult({ repository: dishRepository, restaurantId, dishes: result });
       } catch (err) {
         if (!active) return;
 
@@ -339,7 +350,7 @@ export default function RestaurantDetailScreen({
   // =====================================================
 
   const sortedDishes = useMemo(() => {
-    return [...dishes].sort((a, b) => {
+    return [...(dishes ?? [])].sort((a, b) => {
       const reviewDifference =
         (Number(b.reviewCount) || 0) -
         (Number(a.reviewCount) || 0);
@@ -670,7 +681,7 @@ export default function RestaurantDetailScreen({
                 setMenuRetry((current) => current + 1)
               }
             />
-          ) : dishes.length === 0 ? (
+          ) : !dishes?.length ? (
             <EmptyState
               title="No dishes available"
               description="No dishes have been added for this restaurant yet."
@@ -682,6 +693,8 @@ export default function RestaurantDetailScreen({
               <Text style={styles.dishCount}>
                 {visibleDishes.length} dishes
               </Text>
+
+              <SpicinessCompatibilityNote dishes={visibleDishes} />
 
               {visibleDishes.length === 0 ? (
                 <Text style={styles.emptyCategoryText}>
@@ -721,7 +734,10 @@ export default function RestaurantDetailScreen({
                       <Pressable
                         style={styles.dishMain}
                         accessibilityRole="button"
-                        accessibilityLabel={`View ${dish.name}`}
+                        accessibilityLabel={[
+                          `View ${dish.name}`,
+                          describeSpicinessCompatibility(dish),
+                        ].filter(Boolean).join(". ")}
                         onPress={() =>
                           onViewDishes?.(dishId, restaurant.name)
                         }
@@ -763,6 +779,8 @@ export default function RestaurantDetailScreen({
                               Spiciness: {String(spice)}
                             </Text>
                           )}
+
+                          <SpicinessCompatibility dish={dish} />
                         </View>
                       </Pressable>
 

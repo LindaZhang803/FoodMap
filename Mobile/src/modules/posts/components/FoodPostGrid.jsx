@@ -8,6 +8,10 @@ import {
 } from "react-native";
 
 import FoodPostCard from "./FoodPostCard";
+import {
+  describeSpicinessCompatibility,
+  SpicinessCompatibilityNote,
+} from "../../../shared/components/SpicinessCompatibility";
 
 import {
   spacing,
@@ -35,7 +39,11 @@ function estimateHeight(post) {
   const titleHeight =
     titleLength > 25 ? 45 : 25;
 
-  return imageHeight + titleHeight + 75;
+  const compatibilityHeight = describeSpicinessCompatibility(post.dish)
+    ? 24
+    : 0;
+
+  return imageHeight + titleHeight + 75 + compatibilityHeight;
 }
 
 // =====================================================
@@ -100,13 +108,17 @@ export default function FoodPostGrid({
   }
 
   return (
-    <View style={styles.grid}>
-      <View style={styles.column}>
-        {renderColumn(columns.left)}
-      </View>
+    <View style={styles.feed}>
+      <SpicinessCompatibilityNote dishes={posts.map((post) => post.dish)} />
 
-      <View style={styles.column}>
-        {renderColumn(columns.right)}
+      <View style={styles.grid}>
+        <View style={styles.column}>
+          {renderColumn(columns.left)}
+        </View>
+
+        <View style={styles.column}>
+          {renderColumn(columns.right)}
+        </View>
       </View>
     </View>
   );
@@ -117,6 +129,10 @@ export default function FoodPostGrid({
 // =====================================================
 
 const styles = StyleSheet.create({
+  feed: {
+    gap: spacing.sm,
+  },
+
   grid: {
     flexDirection: "row",
     alignItems: "flex-start",

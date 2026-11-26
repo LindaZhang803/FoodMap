@@ -723,6 +723,7 @@ function FoodMapApp() {
     if (selectedPostRestaurantId) {
       return (
         <RestaurantDetailScreen
+          token={token}
           isDishFavorite={isDishFavorite}
           onToggleDishFavorite={toggleDishFavorite}
           isDishFavoriteLoading={isDishFavoriteLoading}

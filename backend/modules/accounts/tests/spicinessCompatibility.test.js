@@ -15,15 +15,11 @@ test("compares the public median to preferred heat without a minimum sample size
         .toBe("Within Preference");
 });
 
-test("uses ranking evidence only when its median and sample count are usable together", () => {
-    expect(resolveDishHeatSummary({ ...dish, spicinessRanking: { median: 1, sampleCount: 3 } }))
-        .toEqual({ median: 1, sampleCount: 3 });
-    expect(resolveDishHeatSummary({ ...dish, spicinessRanking: { median: null, sampleCount: 3 } }))
-        .toEqual({ median: 3, sampleCount: 1 });
-    expect(resolveDishHeatSummary({ ...dish, spicinessRanking: { median: 1, sampleCount: 2 } }))
-        .toEqual({ median: 3, sampleCount: 1 });
-    expect(resolveDishHeatSummary({ medianSpiciness: 1, spicinessRanking: { median: null, sampleCount: 3 } }))
-        .toEqual({ median: 1, sampleCount: 0 });
+test("labels the public median even when the ranking median disagrees", () => {
+    const spicinessRanking = { median: 1, sampleCount: 3 };
+    expect(classify(answers, { medianSpiciness: 5, spicinessRatingCount: 7, spicinessRanking }))
+        .toBe("Above Preference");
+    expect(classify(answers, { spicinessRanking })).toBe("Unknown");
 });
 
 test("returns Unknown when a median is supplied without a count", () => {

@@ -186,6 +186,7 @@ export default function RestaurantBrowser({
         />
       ) : selectedRestaurantId ? (
         <RestaurantDetailScreen
+          token={token}
           isDishFavorite={isDishFavorite}
           onToggleDishFavorite={onToggleDishFavorite}
           isDishFavoriteLoading={isDishFavoriteLoading}
