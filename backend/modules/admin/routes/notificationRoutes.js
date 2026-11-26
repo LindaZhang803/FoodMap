@@ -1,5 +1,6 @@
 const express = require("express");
 const requireAdmin = require("../middleware/requireAdmin");
+const User = require("../../accounts/models/User");
 const { systemNotificationLimits } = require("../../notifications/models/Notification");
 const { addSystemNotification } = require("../../notifications/services/notificationService");
 
@@ -25,6 +26,11 @@ router.post("/", requireAdmin, async (req, res) => {
   }
 
   const recipients = [...new Set(recipientIds.map(id => id.toLowerCase()))];
+  const existingCount = await User.countDocuments({ _id: { $in: recipients } });
+  if (existingCount !== recipients.length) {
+    return res.status(400).json({ message: "recipientIds must refer to existing users." });
+  }
+
   const delivered = await Promise.all(recipients.map(recipientId =>
     addSystemNotification({ ...notification, recipientId })
   ));

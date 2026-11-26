@@ -13,10 +13,12 @@ test.each([
 });
 
 test.each([
-  ["2026-11-04T12:00:00.000Z", "2026-11-04T12:00:00.000Z"],
-  ["not a timestamp", null],
-])("handles a legacy inbox timestamp of %s", async (createdAt, expectedDate) => {
+  [new Date("2026-11-04T12:00:00.000Z"), "2026-11-04T12:00:00.000Z", "2026-11-04T12:00:00.000Z"],
+  ["2026-11-04T12:00:00.000Z", "2026-11-04T12:00:00.000Z", null],
+  ["not a timestamp", null, null],
+])("paginates an inbox timestamp of %s", async (createdAt, displayedDate, cursorDate) => {
   const id = "507f1f77bcf86cd799439011";
+  const cursor = cursorDate === null ? { createdAt: null, id: "507f1f77bcf86cd799439012" } : undefined;
   const find = jest.spyOn(Notification, "find").mockReturnValue({
     sort() { return this; },
     limit() { return this; },
@@ -26,13 +28,10 @@ test.each([
   const count = jest.spyOn(Notification, "countDocuments").mockResolvedValue(2);
 
   try {
-    const { items, nextCursor } = await listInbox(id, { limit: 1 });
+    const { items, nextCursor } = await listInbox(id, { limit: 1, cursor });
     expect(items).toHaveLength(1);
-    if (expectedDate) {
-      expect(JSON.parse(Buffer.from(nextCursor, "base64url").toString())).toEqual([expectedDate, id]);
-    } else {
-      expect(nextCursor).toBeNull();
-    }
+    expect(JSON.parse(JSON.stringify(items[0])).createdAt).toBe(displayedDate);
+    expect(JSON.parse(Buffer.from(nextCursor, "base64url").toString())).toEqual([cursorDate, id]);
   } finally {
     find.mockRestore();
     count.mockRestore();

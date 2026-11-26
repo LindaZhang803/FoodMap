@@ -13,7 +13,9 @@ function parseCursor(value) {
     if (!Array.isArray(fields) || fields.length !== 2) return null;
 
     const [date, id] = fields;
-    if (typeof date !== "string" || typeof id !== "string" || !idPattern.test(id)) return null;
+    if (typeof id !== "string" || !idPattern.test(id)) return null;
+    if (date === null) return { createdAt: null, id };
+    if (typeof date !== "string") return null;
 
     const createdAt = new Date(date);
     if (!Number.isFinite(createdAt.getTime()) || createdAt.toISOString() !== date) return null;

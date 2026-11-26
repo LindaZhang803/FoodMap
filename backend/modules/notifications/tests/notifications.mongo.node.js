@@ -82,7 +82,7 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
       actorId: actor._id,
       type: "like",
       postId: post._id,
-      createdAt,
+      ...(createdAt !== undefined && { createdAt }),
       readAt: null,
       eventKey: `fixture:${_id}`,
     });
@@ -509,7 +509,10 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
       await dispatch({ ...payload, ...invalid }).expect(400);
     }
     assert.equal(await notifications.countDocuments({}), 0);
-    await Promise.all([dispatch(payload).expect(201), dispatch(payload).expect(201)]);
+    await Promise.all([
+      dispatch(payload).expect(201, { recipientCount: 2 }),
+      dispatch(payload).expect(201, { recipientCount: 2 }),
+    ]);
     for (const recipient of [author, actor]) {
       const { body } = await inbox(recipient).expect(200);
       assert.equal(body.unreadCount, 1);
@@ -517,6 +520,15 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
       assert.equal(body.items[0].message, "Tonight's update");
       assert.equal(body.items[0].type, "system");
     }
+  });
+
+  it("rejects a batch with a missing recipient before sending any alerts", async () => {
+    await request(app).post(adminPath).set("x-admin-key", testAdminKey).send({
+      recipientIds: [author.id, String(new mongoose.Types.ObjectId())],
+      title: "Maintenance", message: "Tonight's update", eventKey: "notice:missing-recipient",
+    }).expect(400);
+
+    assert.equal(await notifications.countDocuments({}), 0);
   });
 
   it("notifies the review photo owner once per saved approval or rejection", async () => {
@@ -622,11 +634,44 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
     assert.equal(next.body.unreadCount, 3);
   });
 
+  it("paginates undated alerts after dated alerts without dropping any items", async () => {
+    const date = new Date("2026-11-02T00:00:00.000Z");
+    const legacyDate = "2026-11-03T00:00:00.000Z";
+    const dated = await addLikeAlert(date);
+    const missing = await addLikeAlert(undefined);
+    const nullDate = await addLikeAlert(null);
+    const stringDate = await addLikeAlert(legacyDate);
+    const malformed = await addLikeAlert("not a timestamp");
+    const array = await addLikeAlert([date]);
+    await addLikeAlert(null, actor);
+
+    const expected = [
+      [dated, date.toISOString()], [array, null], [malformed, null], [stringDate, legacyDate],
+      [nullDate, null], [missing, null],
+    ];
+    let query = "?limit=1";
+    for (const [index, [id, createdAt]] of expected.entries()) {
+      const { body } = await inbox(author, query).expect(200);
+      assert.deepEqual(body.items.map(item => [item.id, item.createdAt]), [[id, createdAt]]);
+      assert.equal(body.unreadCount, expected.length);
+      if (index === expected.length - 1) {
+        assert.equal(body.nextCursor, null);
+      } else {
+        assert.ok(body.nextCursor);
+        query = `?limit=1&cursor=${body.nextCursor}`;
+      }
+    }
+  });
+
   it("mark-all covers older pages and preserves alerts arriving during authentication", async t => {
     await addLikeAlert(new Date("2026-11-01T00:00:00.000Z"));
     await addLikeAlert(new Date("2026-11-02T00:00:00.000Z"));
+    await addLikeAlert(null);
+    await addLikeAlert(undefined);
+    await addLikeAlert("not a timestamp");
+    await addLikeAlert(null, actor);
     const previous = await inbox(author, "?limit=1").expect(200);
-    assert.equal(previous.body.unreadCount, 2);
+    assert.equal(previous.body.unreadCount, 5);
 
     let newer;
     const findUser = User.findById.bind(User);
@@ -641,6 +686,7 @@ describe("notification inbox with MongoDB", { skip: !testUri }, () => {
       after.body.items.filter(item => item.readAt === null).map(item => item.id),
       [newer],
     );
+    await as(actor, "get", inboxPath + "/unread-count").expect(200, { unreadCount: 1 });
   });
 
   for (const query of [

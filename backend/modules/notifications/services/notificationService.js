@@ -1,6 +1,7 @@
 const { randomUUID } = require("node:crypto");
 const Notification = require("../models/Notification");
 
+const createdAtType = { $type: "$createdAt" };
 let indexesReady;
 
 function ensureIndexes() {
@@ -91,6 +92,8 @@ function serializeItem(notification) {
   } = notification;
   const actorObjectId = actorId?._id ?? actorId;
   const actorName = actorId?.username ?? "Someone";
+  const hasDisplayDate = createdAt instanceof Date ||
+    (typeof createdAt === "string" && Number.isFinite(Date.parse(createdAt)));
   let title = "New Notification";
   let message = "";
 
@@ -122,7 +125,7 @@ function serializeItem(notification) {
     type,
     title,
     message,
-    createdAt,
+    createdAt: hasDisplayDate ? createdAt : null,
     readAt,
     isRead: readAt !== null,
     ...(actorObjectId && { actorId: String(actorObjectId) }),
@@ -136,32 +139,48 @@ function serializeItem(notification) {
   };
 }
 
-async function listInbox(recipientId, { limit, cursor }) {
-  const filter = { recipientId };
-  if (cursor) {
-    const { createdAt, id } = cursor;
-    filter.$or = [
-      { createdAt: { $lt: createdAt } },
-      { createdAt, _id: { $lt: id } },
-    ];
+function findInboxRecords(filter, sort, limit) {
+  return Notification.find(filter).sort(sort).limit(limit)
+    .populate({ path: "actorId", select: "username", transform: (user, id) => user ?? id })
+    .lean();
+}
+
+async function findInboxPage(recipientId, limit, cursor) {
+  const undatedCursor = cursor?.createdAt === null;
+  let records = [];
+  if (!undatedCursor) {
+    const filter = { recipientId, $expr: { $eq: [createdAtType, "date"] } };
+    if (cursor) {
+      const { createdAt, id } = cursor;
+      filter.$or = [
+        { createdAt: { $lt: createdAt } },
+        { createdAt, _id: { $lt: id } },
+      ];
+    }
+    records = await findInboxRecords(filter, { createdAt: -1, _id: -1 }, limit);
   }
 
+  // Date comparisons cannot seek across BSON types. Continue undated alerts by ID.
+  if (records.length < limit) {
+    const filter = { recipientId, $expr: { $ne: [createdAtType, "date"] } };
+    if (undatedCursor) filter._id = { $lt: cursor.id };
+    const undated = await findInboxRecords(filter, { _id: -1 }, limit - records.length);
+    records.push(...undated);
+  }
+  return records;
+}
+
+async function listInbox(recipientId, { limit, cursor }) {
   const [records, count] = await Promise.all([
-    Notification.find(filter)
-      .sort({ createdAt: -1, _id: -1 })
-      .limit(limit + 1)
-      .populate({ path: "actorId", select: "username", transform: (user, id) => user ?? id })
-      .lean(),
+    findInboxPage(recipientId, limit + 1, cursor),
     unreadCount(recipientId),
   ]);
   const items = records.slice(0, limit).map(serializeItem);
-  const last = items.at(-1);
   let nextCursor = null;
-  if (records.length > limit && last) {
-    const lastCreatedAt = last.createdAt instanceof Date ? last.createdAt : new Date(last.createdAt ?? NaN);
-    if (Number.isFinite(lastCreatedAt.getTime())) {
-      nextCursor = Buffer.from(JSON.stringify([lastCreatedAt.toISOString(), last.id])).toString("base64url");
-    }
+  if (records.length > limit) {
+    const { createdAt, id } = items.at(-1);
+    const date = createdAt instanceof Date ? createdAt.toJSON() : null;
+    nextCursor = Buffer.from(JSON.stringify([date, id])).toString("base64url");
   }
 
   return { items, unreadCount: count, nextCursor };
@@ -188,7 +207,14 @@ async function markRead(recipientId, id) {
 
 async function markAllRead(recipientId, requestStart) {
   await Notification.updateMany(
-    { recipientId, readAt: null, createdAt: { $lte: requestStart } },
+    {
+      recipientId,
+      readAt: null,
+      $or: [
+        { createdAt: { $lte: requestStart } },
+        { $expr: { $ne: [createdAtType, "date"] } },
+      ],
+    },
     { $set: { readAt: new Date() } }
   );
   return unreadCount(recipientId);
