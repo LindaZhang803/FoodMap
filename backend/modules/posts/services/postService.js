@@ -9,7 +9,15 @@ const Restaurant = require(
 
 const Post = require("../models/Post");
 const PostLike = require("../models/PostLike");
+const { addPostNotification } = require("../../notifications/services/notificationService");
 const { readDishRanking } = require('../../feed/recommendations/readDishRanking');
+const {
+  SPICINESS_COMPATIBILITY,
+  SPICINESS_COMPATIBILITY_NOTE,
+  getSpicinessCompatibility,
+  resolveDishHeatSummary,
+} = require('../../accounts/services/spicinessCompatibility');
+const { readSpicinessQuestionnaire } = require('../../accounts/validators/spicinessQuestionnaire');
 
 // =====================================================
 // Configuration
@@ -383,7 +391,7 @@ async function getPostReviewData(post) {
     restaurantId,
   })
     .select(
-      "_id userId restaurantId dishId reviewType rating comment"
+      "_id userId restaurantId dishId reviewType rating comment spicinessRating"
     )
     .lean();
 
@@ -406,7 +414,7 @@ async function getPostReviewData(post) {
       restaurantId,
     })
       .select(
-        "_id restaurantId name"
+        "_id restaurantId name medianSpiciness spicinessRatingCount"
       )
       .lean();
   }
@@ -534,6 +542,9 @@ function normalizePost(
 
           rating:
             reviewRating,
+
+          spicinessRating:
+            review.spicinessRating ?? null,
 
           comment:
             review.comment || "",
@@ -735,10 +746,11 @@ async function listPosts({
   }
 
   // ================================================
-  // User Cuisine Preferences
+  // For You Preferences
   // ================================================
 
   let cuisines = [];
+  let spicinessAnswers;
 
   if (
     category === "forYou" &&
@@ -747,9 +759,11 @@ async function listPosts({
     const user = await User.findById(
       userId
     )
-      .select("favoriteCuisines")
+      .select("favoriteCuisines spicinessQuestionnaire")
       .lean();
 
+    const questionnaire = readSpicinessQuestionnaire(user?.spicinessQuestionnaire);
+    spicinessAnswers = questionnaire?.answers ?? null;
     cuisines =
       Array.isArray(
         user?.favoriteCuisines
@@ -809,9 +823,19 @@ async function listPosts({
   // For You
   // ================================================
 
+  let spicinessByDish;
   if (category === 'forYou' || category === 'trending') {
     const { Dish, Review } = getReviewModels();
-    const ranked = await readDishRanking({ Dish, Review, Restaurant, User, connection: mongoose.connection, userId, mode: category });
+    const ranked = await readDishRanking({
+      Dish, Review, Restaurant, User, connection: mongoose.connection, userId, mode: category,
+      favoriteCuisines: category === 'forYou' ? cuisines : undefined,
+      spicinessAnswers
+    });
+    if (category === 'forYou') {
+      spicinessByDish = new Map(
+        ranked.map(({ dish, spicinessCompatibility }) => [dish.id, spicinessCompatibility])
+      );
+    }
     pipeline.push(
       { $lookup: { from: Review.collection.name, localField: 'reviewId', foreignField: '_id', as: '_rankingReview' } },
       { $addFields: { _rankingDish: { $arrayElemAt: ['$_rankingReview.dishId', 0] } } },
@@ -986,15 +1010,15 @@ async function listPosts({
   // ================================================
 
   return {
-    items: enrichedPosts.map(
-      (post) =>
-        normalizePost(
-          post,
-          likedIds.has(
-            String(post._id)
-          )
-        )
-    ),
+    items: enrichedPosts.map((post) => {
+      const item = normalizePost(post, likedIds.has(String(post._id)));
+      if (item.dish) {
+        item.dish.spicinessCompatibility =
+          spicinessByDish?.get(item.dish.id) ?? SPICINESS_COMPATIBILITY.UNKNOWN;
+        item.dish.spicinessCompatibilityNote = SPICINESS_COMPATIBILITY_NOTE;
+      }
+      return item;
+    }),
 
     nextCursor: hasMore
       ? makeCursor(
@@ -1071,25 +1095,31 @@ async function getPost(
   post.dish = dish;
 
   // ================================================
-  // Read Current User Like Status
+  // Read Current User Like Status and Heat Preferences
   // ================================================
 
-  const likedIds =
-    await getLikedIds(
-      [post],
-      userId
-    );
+  const [likedIds, user] = await Promise.all([
+    getLikedIds([post], userId),
+    dish && userId ? User.findById(userId).select("spicinessQuestionnaire").lean() : null,
+  ]);
 
   // ================================================
   // Return Full Post Details
   // ================================================
 
-  return normalizePost(
+  const item = normalizePost(
     post,
     likedIds.has(
       String(post._id)
     )
   );
+  if (item.dish) {
+    const answers = readSpicinessQuestionnaire(user?.spicinessQuestionnaire)?.answers;
+    const { median, sampleCount } = resolveDishHeatSummary(dish);
+    item.dish.spicinessCompatibility = getSpicinessCompatibility(answers, median, sampleCount);
+    item.dish.spicinessCompatibilityNote = SPICINESS_COMPATIBILITY_NOTE;
+  }
+  return item;
 }
 
 // =====================================================
@@ -1649,6 +1679,11 @@ async function setPostLike({
       await PostLike.create({
         postId,
         userId,
+      });
+      await addPostNotification({
+        recipientId: post.authorId,
+        actorId: userId,
+        postId: post._id,
       });
     } catch (error) {
       if (

@@ -11,7 +11,12 @@
     "test:coverage": "jest --runInBand --coverage",
     "test:node": "node --test modules/reviews/tests/*.test.js",
     "test:reviews": "node --test modules/reviews/tests/*.test.js",
+    "test:posts": "node --test modules/posts/tests/posts.test.js",
+    "test:notifications": "jest --runInBand modules/notifications/tests/notifications.test.js",
+    "test:notifications:db": "node --test modules/notifications/tests/notifications.mongo.node.js",
+    "test:compatibility:db": "RUN_REVIEW_DB_TESTS=1 node --test modules/accounts/tests/spicinessCompatibility.integration.node.js",
     "demo:reviews": "node modules/reviews/scripts/startDemo.js",
+    "backfill:spiciness": "node modules/reviews/scripts/backfillSpicinessRanking.js",
     "audit:catalog": "node modules/reviews/scripts/auditCatalog.js",
     "test:reviews:db": "RUN_REVIEW_DB_TESTS=1 node --test modules/reviews/tests/database.integration.test.js modules/reviews/tests/catalog.integration.test.js"
   },
@@ -37,7 +42,8 @@
   "jest": {
     "testPathIgnorePatterns": [
       "/node_modules/",
-      "/modules/reviews/tests/"
+      "/modules/reviews/tests/",
+      "/modules/posts/tests/posts.test.js$"
     ]
   }
 }

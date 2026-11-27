@@ -5,7 +5,9 @@ const authMiddleware = require("../middleware/authMiddleware");
 
 const {
     getMyProfile,
-    updateMyProfile
+    updateMyProfile,
+    getMySpicinessQuestionnaire,
+    putMySpicinessQuestionnaire
 } = require("../controllers/userController");
 
 const {
@@ -19,6 +21,8 @@ const {
 
 router.get("/me", authMiddleware, getMyProfile);
 router.put("/me", authMiddleware, updateMyProfile);
+router.get("/me/spiciness-questionnaire", authMiddleware, getMySpicinessQuestionnaire);
+router.put("/me/spiciness-questionnaire", authMiddleware, putMySpicinessQuestionnaire);
 
 router.post(
     "/me/avatar",

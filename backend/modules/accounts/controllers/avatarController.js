@@ -1,30 +1,11 @@
 const User = require("../models/User");
+const { PROFILE_FIELDS, publicProfile } = require("../serializers/profile");
 
 const {
     AvatarInputError,
     createAvatar,
     deleteAvatar
 } = require("../services/avatarService");
-
-const PROFILE_FIELDS =
-    "username email profileImage bio favoriteCuisines foodPreferences createdAt";
-
-function publicProfile(user, profileImage) {
-    return {
-        id: user._id.toString(),
-        username: user.username,
-        email: user.email,
-        profileImage,
-        bio: typeof user.bio === "string" ? user.bio : "",
-        favoriteCuisines: Array.isArray(user.favoriteCuisines)
-            ? [...user.favoriteCuisines]
-            : [],
-        foodPreferences: Array.isArray(user.foodPreferences)
-            ? [...user.foodPreferences]
-            : [],
-        createdAt: user.createdAt
-    };
-}
 
 async function removeAvatarSafely(userId, profileImage) {
     if (typeof profileImage !== "string" || !profileImage) {
@@ -119,7 +100,7 @@ async function uploadMyAvatar(req, res) {
 
         return res.status(200).json({
             message: "Avatar updated successfully",
-            user: publicProfile(previous, avatar.profileImage)
+            user: publicProfile({ ...previous, profileImage: avatar.profileImage })
         });
     } catch (error) {
         if (error instanceof AvatarInputError) {

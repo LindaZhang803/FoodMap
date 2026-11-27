@@ -47,7 +47,8 @@ test('controller scopes list, serializes IDs, and handles database failures', as
   const res = response();
   await controller.list({ query: { restaurantId: fixtures.dishes[0].restaurantId } }, res);
   assert.deepEqual(filter, { restaurantId: fixtures.dishes[0].restaurantId });
-  assert.deepEqual(res.body, [{ id, name: 'Ramen' }]);
+  assert.deepEqual(res.body.map(dish => ({ id: dish.id, name: dish.name })), [{ id, name: 'Ramen' }]);
+  assert.equal(res.body[0].spicinessCompatibility, 'Unknown');
   const failing = createDishController({ Dish: { find() { throw new Error('private database information'); } } });
   const failure = response();
   await failing.list({ query: {} }, failure);
@@ -110,4 +111,34 @@ test('dish controller applies only supported sort orders', async () => {
   assert.deepEqual(ordering, { reviewCount: -1, averageRating: -1, _id: 1 });
   const invalid = response(); await controller.list({ query: { sort: '__proto__' } }, invalid);
   assert.equal(invalid.statusCode, 400);
+});
+
+test('dish list uses one signed-in questionnaire for all dishes', async () => {
+  let profileReads = 0;
+  const controller = createDishController({
+    Dish: { find: () => ({ sort: () => ({ lean: async () => [
+      { _id: id, medianSpiciness: 3, spicinessRatingCount: 1,
+        spicinessRanking: { median: null, sampleCount: 3 }, statisticsRevision: 7 },
+      { _id: fixtures.dishes[1].id, medianSpiciness: 2.5, spicinessRatingCount: 3,
+        spicinessRanking: { median: 2, sampleCount: 3 } }
+    ] }) }) },
+    User: { findById(userId) {
+      assert.equal(userId, 'session-user');
+      profileReads++;
+      return { select: () => ({ lean: async () => ({
+        spicinessQuestionnaire: {
+          version: 1, savedAt: new Date(),
+          answers: { preferredSpiciness: 2, maximumSpiciness: 4, spicyFoodFrequency: 'sometimes' }
+        }
+      }) }) };
+    } }
+  });
+  const res = response();
+  await controller.list({ query: {}, user: { id: 'session-user' } }, res);
+  assert.equal(res.body[1].medianSpiciness, 2.5);
+  assert.deepEqual(res.body.map(dish => dish.spicinessCompatibility), ['Above Preference', 'Above Preference']);
+  assert.match(res.body[0].spicinessCompatibilityNote, /community ratings/);
+  assert.equal(Object.hasOwn(res.body[0], 'spicinessRanking'), false);
+  assert.equal(Object.hasOwn(res.body[0], 'statisticsRevision'), false);
+  assert.equal(profileReads, 1);
 });

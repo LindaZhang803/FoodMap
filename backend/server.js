@@ -29,6 +29,7 @@ const Restaurant = require(
 const photoReviewRoutes = require(
   "./modules/admin/routes/photoReview.routes"
 );
+const adminNotificationRoutes = require("./modules/admin/routes/notificationRoutes");
 
 // =====================================================
 // 3. Accounts Module
@@ -45,6 +46,7 @@ const userRoutes = require(
 const authenticate = require(
   "./modules/accounts/middleware/authMiddleware"
 );
+const User = require("./modules/accounts/models/User");
 
 const {
   AVATAR_DIRECTORY,
@@ -75,6 +77,7 @@ const {
 const postRoutes = require(
   "./modules/posts/routes/postRoutes"
 );
+const notificationRoutes = require("./modules/notifications/routes/notificationRoutes");
 
 // =====================================================
 // 7. Express
@@ -214,6 +217,7 @@ mountReviewModule(app, {
   mongoose,
   Restaurant,
   authenticate,
+  User,
 });
 
 // Member B: additive recommendation API; existing post feed remains unchanged.
@@ -221,7 +225,7 @@ app.use('/api/recommendations', require('./modules/feed/routes/recommendations')
   Dish: mongoose.models.Dish,
   Review: mongoose.models.Review,
   Restaurant,
-  User: require('./modules/accounts/models/User'),
+  User,
   connection: mongoose.connection,
   authenticate,
 }));
@@ -259,6 +263,8 @@ app.use(
   "/api/posts",
   postRoutes
 );
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/admin/notifications", adminNotificationRoutes);
 
 // =====================================================
 // 16. Admin Photo Review API

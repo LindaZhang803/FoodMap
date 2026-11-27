@@ -1,10 +1,13 @@
 // Inject fetch and fixtures so the same contract can be checked without Expo.
-function createDishRepository({ origin = '', fetchImpl = globalThis.fetch, fixtures = null } = {}) {
+function createDishRepository({ origin = '', fetchImpl = globalThis.fetch, fixtures = null, token = null } = {}) {
   async function request(path) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
     try {
-      const response = await fetchImpl(`${origin}${path}`, { signal: controller.signal });
+      const response = await fetchImpl(`${origin}${path}`, {
+        signal: controller.signal,
+        ...(token && { headers: { Authorization: `Bearer ${token}` } })
+      });
       if (!response.ok) throw new Error(response.status === 404 ? 'Dish not found' : 'Unable to load dishes. Please retry.');
       return await response.json();
     } finally {

@@ -44,6 +44,7 @@ const {
 function mountReviewModule(app, {
   mongoose,
   Restaurant,
+  User,
   authenticate
 }) {
   const models = {
@@ -118,13 +119,21 @@ function mountReviewModule(app, {
 
   const controller = createDishController({
     ...models,
-    Restaurant
+    Restaurant,
+    User
   });
 
   const dishes = express.Router();
 
-  dishes.get('/', controller.list);
-  dishes.get('/:id', controller.detail);
+  const optionalAuth = (req, res, next) => {
+    res.vary('Authorization');
+    if (req.headers.authorization === undefined) return next();
+    res.set('Cache-Control', 'private, no-store');
+    return authenticate(req, res, next);
+  };
+
+  dishes.get('/', optionalAuth, controller.list);
+  dishes.get('/:id', optionalAuth, controller.detail);
 
   app.use('/api/dishes', dishes);
 

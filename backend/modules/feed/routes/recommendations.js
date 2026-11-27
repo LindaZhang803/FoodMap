@@ -3,7 +3,12 @@ const { readDishRanking } = require('../recommendations/readDishRanking');
 const { parseCatalogQuery } = require('../../restaurants/services/catalogQuery');
 function createRecommendationsRouter({ Dish, Restaurant, Review, User, connection, authenticate, now = () => new Date() }) {
   const router = express.Router();
-  const optionalAuth = (req, res, next) => req.headers.authorization ? authenticate(req, res, next) : next();
+  const optionalAuth = (req, res, next) => {
+    res.vary('Authorization');
+    if (!req.headers.authorization) return next();
+    res.set('Cache-Control', 'private, no-store');
+    return authenticate(req, res, next);
+  };
   router.get('/dishes', optionalAuth, async (req, res) => {
     let page, limit, mode, location;
     try {

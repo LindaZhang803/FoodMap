@@ -1,11 +1,13 @@
 const express = require('express');
 const requireAdmin = require('../../admin/middleware/requireAdmin');
+const notifications = require('../../notifications/services/notificationService');
 
 const isId = value =>
   typeof value === 'string' && /^[a-f0-9]{24}$/i.test(value);
 
 function createPhotoModerationRouter({ ReviewPhoto }) {
   const router = express.Router();
+  const photoSummary = '_id userId reviewId status reviewedAt createdAt';
 
   // Reuse the project's existing administrator authentication.
   router.use(requireAdmin);
@@ -34,7 +36,7 @@ function createPhotoModerationRouter({ ReviewPhoto }) {
 
       const [photos, total] = await Promise.all([
         ReviewPhoto.find(filter)
-          .select('_id userId reviewId status reviewedAt createdAt')
+          .select(photoSummary)
           .sort({ createdAt: 1, _id: 1 })
           .skip((page - 1) * limit)
           .limit(limit)
@@ -104,9 +106,9 @@ function createPhotoModerationRouter({ ReviewPhoto }) {
               reviewedAt: new Date()
             }
           },
-          { new: true, runValidators: true }
+          { returnDocument: 'after', runValidators: true }
         )
-          .select('_id userId reviewId status reviewedAt createdAt')
+          .select(photoSummary)
           .lean();
 
         if (!photo) {
@@ -114,6 +116,14 @@ function createPhotoModerationRouter({ ReviewPhoto }) {
             message: 'Photo not found'
           });
         }
+
+        void notifications.addSystemNotification({
+          recipientId: photo.userId,
+          reviewId: photo.reviewId,
+          title: `Review photo ${status}`,
+          message: `Your review photo was ${status}.`,
+          eventKey: `review-photo:${photo._id}:${status}`
+        }).catch(error => console.error('Review photo notification failed:', error));
 
         return res.json({ photo });
       } catch {

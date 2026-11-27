@@ -1,24 +1,11 @@
 const User = require("../models/User");
-
-const PROFILE_FIELDS =
-    "username email profileImage bio favoriteCuisines foodPreferences createdAt";
-
-function publicProfile(user) {
-    return {
-        id: user._id.toString(),
-        username: user.username,
-        email: user.email,
-        profileImage: user.profileImage || "",
-        bio: user.bio || "",
-        favoriteCuisines: Array.isArray(user.favoriteCuisines)
-            ? [...user.favoriteCuisines]
-            : [],
-        foodPreferences: Array.isArray(user.foodPreferences)
-            ? [...user.foodPreferences]
-            : [],
-        createdAt: user.createdAt
-    };
-}
+const { validateSpicinessQuestionnaire } = require("../validators/spicinessQuestionnaire");
+const {
+    PROFILE_FIELDS,
+    QUESTIONNAIRE_FIELDS,
+    questionnaireResponse,
+    publicProfile
+} = require("../serializers/profile");
 
 function readChanges(data) {
     if (
@@ -114,7 +101,8 @@ async function getMyProfile(req, res) {
 
     try {
         const user = await User.findById(req.user.id)
-            .select(PROFILE_FIELDS);
+            .select(PROFILE_FIELDS)
+            .lean();
 
         if (!user) {
             return res.status(404).json({
@@ -135,6 +123,46 @@ async function getMyProfile(req, res) {
     }
 }
 
+async function respondWithQuestionnaire(res, query) {
+    try {
+        const user = await query.select(QUESTIONNAIRE_FIELDS).lean();
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        return res.status(200).json(questionnaireResponse(user));
+    } catch (error) {
+        console.error("Spiciness questionnaire error:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+function getMySpicinessQuestionnaire(req, res) {
+    if (!req.user?.id) {
+        return res.status(401).json({ message: "Authentication required" });
+    }
+
+    return respondWithQuestionnaire(res, User.findById(req.user.id));
+}
+
+function putMySpicinessQuestionnaire(req, res) {
+    if (!req.user?.id) {
+        return res.status(401).json({ message: "Authentication required" });
+    }
+
+    const error = validateSpicinessQuestionnaire(req.body);
+    if (error) {
+        return res.status(400).json(error);
+    }
+
+    const { version, answers } = req.body;
+    const query = User.findByIdAndUpdate(req.user.id, {
+        $set: { spicinessQuestionnaire: { version, answers, savedAt: new Date() } },
+        $inc: { spicinessQuestionnaireRevision: 1 }
+    }, { returnDocument: "after", runValidators: true, maxTimeMS: 5000 });
+
+    return respondWithQuestionnaire(res, query);
+}
+
 async function updateMyProfile(req, res) {
     if (!req.user?.id) {
         return res.status(401).json({
@@ -153,10 +181,9 @@ async function updateMyProfile(req, res) {
 
         const changes = input.changes;
 
-        const user = Object.keys(changes).length === 0
-            ? await User.findById(req.user.id)
-                .select(PROFILE_FIELDS)
-            : await User.findByIdAndUpdate(
+        const query = Object.keys(changes).length === 0
+            ? User.findById(req.user.id)
+            : User.findByIdAndUpdate(
                 req.user.id,
                 { $set: changes },
                 {
@@ -165,7 +192,8 @@ async function updateMyProfile(req, res) {
                     upsert: false,
                     maxTimeMS: 5000
                 }
-            ).select(PROFILE_FIELDS);
+            );
+        const user = await query.select(PROFILE_FIELDS).lean();
 
         if (!user) {
             return res.status(404).json({
@@ -188,5 +216,7 @@ async function updateMyProfile(req, res) {
 
 module.exports = {
     getMyProfile,
-    updateMyProfile
+    updateMyProfile,
+    getMySpicinessQuestionnaire,
+    putMySpicinessQuestionnaire
 };

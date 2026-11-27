@@ -141,11 +141,17 @@ async function login(req, res) {
 }
 
 async function logout(req, res) {
+    if (!req.user?.id) {
+        return res.status(401).json({
+            message: "Authentication required"
+        });
+    }
+
     try {
         const user = await User.findByIdAndUpdate(
             req.user.id,
             { $inc: { tokenVersion: 1 } },
-            { new: true }
+            { returnDocument: "after" }
         );
 
         if (!user) {

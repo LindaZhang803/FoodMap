@@ -1,4 +1,10 @@
 const { parseDishQuery } = require('../services/dishQuery');
+const { readSpicinessQuestionnaire } = require('../../accounts/validators/spicinessQuestionnaire');
+const {
+  getSpicinessCompatibility,
+  resolveDishHeatSummary,
+  SPICINESS_COMPATIBILITY_NOTE
+} = require('../../accounts/services/spicinessCompatibility');
 
 const isId = value =>
   typeof value === 'string' && /^[a-f0-9]{24}$/i.test(value);
@@ -7,15 +13,31 @@ function createDishController({
   Dish,
   Review,
   ReviewPhoto,
-  Restaurant
+  Restaurant,
+  User
 }) {
   const serialize = doc => {
-    const { _id, __v, ...fields } = doc;
+    const { _id, __v, spicinessRanking, statisticsRevision, ...fields } = doc;
 
     return {
       ...fields,
       id: String(_id)
     };
+  };
+
+  const serializeDish = (dish, answers) => {
+    const { median, sampleCount } = resolveDishHeatSummary(dish);
+    return {
+      ...serialize(dish),
+      spicinessCompatibility: getSpicinessCompatibility(answers, median, sampleCount),
+      spicinessCompatibilityNote: SPICINESS_COMPATIBILITY_NOTE
+    };
+  };
+
+  const readAnswers = async userId => {
+    if (!userId || !User) return undefined;
+    const user = await User.findById(userId).select('spicinessQuestionnaire').lean();
+    return readSpicinessQuestionnaire(user?.spicinessQuestionnaire)?.answers;
   };
 
   return {
@@ -35,7 +57,8 @@ function createDishController({
           .sort(parsed.order)
           .lean();
 
-        return res.json(dishes.map(serialize));
+        const answers = await readAnswers(req.user?.id);
+        return res.json(dishes.map(dish => serializeDish(dish, answers)));
       } catch {
         return res.status(500).json({
           message: 'Failed to load dishes'
@@ -101,8 +124,9 @@ function createDishController({
               .lean()
           : null;
 
+        const answers = await readAnswers(req.user?.id);
         return res.json({
-          ...serialize(dish),
+          ...serializeDish(dish, answers),
           ...(Restaurant
             ? { restaurantName: restaurant?.name || null }
             : {}),

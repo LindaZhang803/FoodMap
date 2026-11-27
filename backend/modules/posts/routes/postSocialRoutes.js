@@ -6,6 +6,7 @@ const authenticate = require(
 );
 
 const Post = require("../models/Post");
+const { addPostNotification } = require("../../notifications/services/notificationService");
 
 const router = express.Router();
 
@@ -104,7 +105,7 @@ async function findPublishedPost(req, res, next) {
     const post = await Post.findOne({
       _id: req.params.id,
       status: "published",
-    }).select("_id");
+    }).select("_id authorId");
 
     if (!post) {
       return res.status(404).json({
@@ -112,6 +113,7 @@ async function findPublishedPost(req, res, next) {
       });
     }
 
+    res.locals.publishedPost = post;
     return next();
   } catch (error) {
     return next(error);
@@ -207,6 +209,14 @@ router.post(
         postId: req.params.id,
         authorId: req.user.id,
         content,
+      });
+
+      const post = res.locals.publishedPost;
+      await addPostNotification({
+        recipientId: post.authorId,
+        actorId: req.user.id,
+        postId: post._id,
+        commentId: comment._id,
       });
 
       await comment.populate(

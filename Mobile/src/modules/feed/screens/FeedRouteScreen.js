@@ -161,6 +161,7 @@ export default function FeedRouteScreen({
       <RestaurantDetailScreen
         key={`restaurant-${restaurantId}`}
         restaurantId={restaurantId}
+        token={auth?.token ?? null}
         onBack={backToFeed}
         onViewDishes={openDishes}
         renderRestaurantActions={

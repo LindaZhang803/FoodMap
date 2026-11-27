@@ -1,3 +1,5 @@
+// Legacy fixture for the standalone accounts server. Production review
+// history is mounted by the reviews module.
 const express = require("express");
 const mongoose = require("mongoose");
 const authMiddleware = require("../middleware/authMiddleware");

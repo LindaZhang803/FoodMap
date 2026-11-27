@@ -128,15 +128,45 @@ describe('Member 4 mount with real Accounts, Restaurants, Reviews and disposable
     assert.equal((await Favorite.findOne().lean()).userId.toString(), A);
   });
 
-  it('keeps deleted dish records removable with repeated deletion', async () => {
+  it('offers saved catalog targets to the wheel and keeps a deleted dish removable', async () => {
+    const { dishChoice, restaurantChoice, uniqueChoices } = await import(
+      '../../../../Mobile/src/modules/feed/wheel/wheelCandidates.js'
+    );
+    await request(context.app).put(`/api/favorites/restaurant/${R}`).auth(tokenA, { type: 'bearer' }).expect(200);
     await request(context.app).put(`/api/favorites/dish/${D}`).auth(tokenA, { type: 'bearer' }).expect(200);
+    const list = async () => {
+      const response = await request(context.app).get('/api/favorites').auth(tokenA, { type: 'bearer' }).expect(200);
+      return response.body.items;
+    };
+
+    function toWheelChoices(items) {
+      const restaurants = items.filter(item => item.targetType === 'restaurant').map(item => item.target);
+      return {
+        restaurants: uniqueChoices(restaurants.map(target => restaurantChoice(target, true))),
+        dishes: uniqueChoices(items.filter(item => item.targetType === 'dish')
+          .map(item => dishChoice(item.target, restaurants, true)))
+      };
+    }
+
+    const initialChoices = toWheelChoices(await list());
+    assert.deepEqual(initialChoices.restaurants.map(choice => choice.id), [R]);
+    assert.deepEqual(initialChoices.dishes.map(choice => choice.id), [D]);
+    assert.equal(initialChoices.dishes[0].parentRestaurant._id, R);
+    assert.equal(initialChoices.dishes[0].private, true);
+
     await context.Dish.deleteOne({ _id: D });
-    const response = await request(context.app).get('/api/favorites').auth(tokenA, { type: 'bearer' }).expect(200);
-    assert.equal(response.body.items[0].target, null);
+    const items = await list();
+    assert.equal(items.find(item => item.targetId === D).target, null);
+    const remainingChoices = toWheelChoices(items);
+    assert.deepEqual(remainingChoices.restaurants.map(choice => choice.id), [R]);
+    assert.equal(remainingChoices.restaurants[0].private, true);
+    assert.deepEqual(remainingChoices.dishes, []);
+
     for (let i = 0; i < 2; i += 1) {
       await request(context.app).delete(`/api/favorites/dish/${D}`).auth(tokenA, { type: 'bearer' }).expect(204);
     }
-    assert.equal(await Favorite.countDocuments(), 0);
+    assert.equal(await Favorite.countDocuments({ targetType: 'dish' }), 0);
+    assert.deepEqual((await list()).map(item => item.targetId), [R]);
   });
 
   it('rejects a revoked Accounts token while a fresh login retains the account saved records', async () => {

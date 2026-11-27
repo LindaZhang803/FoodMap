@@ -33,7 +33,7 @@ const {
     createReviewService
 } = require("../../reviews/services/review.service");
 
-const router = require("../routes/reviewHistoryRoutes");
+const router = require("./legacyReviewHistoryRoutes");
 const service = createReviewService.mock.results[0].value;
 
 const app = express();

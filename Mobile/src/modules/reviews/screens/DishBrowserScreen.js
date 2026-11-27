@@ -17,6 +17,10 @@ import { API_ORIGIN } from "../../../config/api";
 import { resolveCatalogImageUrl } from '../../feed/services/liveSources';
 
 import { createDishRepository } from "../services/dishRepository";
+import SpicinessCompatibility, {
+  describeSpicinessCompatibility,
+  SpicinessCompatibilityNote,
+} from "../../../shared/components/SpicinessCompatibility";
 import fixtures from "../mocks/fixtures.json";
 import { createReviewRepository } from "../services/reviewRepository";
 import ReviewPanel from "../components/ReviewPanel";
@@ -189,12 +193,23 @@ export default function DishBrowserScreen({
 
   const [ratingUpdate, setRatingUpdate] = useState(null);
 
+  // Real account credentials take priority for live dishes and reviews.
+  // Synthetic demo credentials are kept separate.
+  const reviewToken = demo
+    ? token
+    : syntheticSession
+      ? token
+      : isAuthenticated && authToken
+        ? authToken
+        : token;
+
   const liveRepository = useMemo(
     () =>
       createDishRepository({
         origin: apiOrigin,
+        token: reviewToken,
       }),
-    [apiOrigin]
+    [apiOrigin, reviewToken]
   );
 
   const demoFixtures = useMemo(
@@ -228,16 +243,6 @@ export default function DishBrowserScreen({
       ? "100000000000000000000002"
       : restaurantId;
 
-  // Real account credentials take priority for live reviews.
-  // Synthetic demo credentials are kept separate.
-  const reviewToken = demo
-    ? token
-    : syntheticSession
-      ? token
-      : isAuthenticated && authToken
-        ? authToken
-        : token;
-
   const requestKey = [
     targetRestaurant,
     dishId || "list",
@@ -247,15 +252,12 @@ export default function DishBrowserScreen({
     dishSort,
   ].join(":");
 
-  const data =
-    resource?.key === requestKey
-      ? resource.data
+  const currentResource =
+    resource?.key === requestKey && resource.repository === repository
+      ? resource
       : null;
-
-  const error =
-    resource?.key === requestKey
-      ? resource.error
-      : null;
+  const data = currentResource?.data ?? null;
+  const error = currentResource?.error ?? null;
 
   // =====================================================
   // Load dishes
@@ -288,6 +290,7 @@ export default function DishBrowserScreen({
         if (active) {
           setResource({
             key: requestKey,
+            repository,
             data: result,
             error: null,
           });
@@ -297,6 +300,7 @@ export default function DishBrowserScreen({
         if (active) {
           setResource({
             key: requestKey,
+            repository,
             data: null,
             error:
               err.message ||
@@ -549,6 +553,8 @@ export default function DishBrowserScreen({
                     ? String(getMedianSpiciness(data))
                     : "Spiciness data unavailable"}
                 </Text>
+
+                <SpicinessCompatibility dish={data} showNote />
               </View>
 
               {/* Spiciness Distribution */}
@@ -690,6 +696,8 @@ export default function DishBrowserScreen({
                 Menu
               </Text>
 
+              <SpicinessCompatibilityNote dishes={data} />
+
               {data.length === 0 ? (
                 <EmptyState
                   title="No dishes available"
@@ -702,7 +710,10 @@ export default function DishBrowserScreen({
                     key={dish.id}
                     style={styles.dishCard}
                     accessibilityRole="button"
-                    accessibilityLabel={`View ${dish.name}`}
+                    accessibilityLabel={[
+                      `View ${dish.name}`,
+                      describeSpicinessCompatibility(dish),
+                    ].filter(Boolean).join(". ")}
                     onPress={() =>
                       setDishId(dish.id)
                     }
@@ -730,6 +741,8 @@ export default function DishBrowserScreen({
                       <Text style={styles.dishRating}>
                         {getRatingText(dish)}
                       </Text>
+
+                      <SpicinessCompatibility dish={dish} />
                     </View>
 
                     <Text style={styles.arrow}>

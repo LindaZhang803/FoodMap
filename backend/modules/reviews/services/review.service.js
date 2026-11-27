@@ -1,6 +1,8 @@
+const { addReviewNotification } = require('../../notifications/services/notificationService');
 const { validateReview } = require('../validators/review');
 const {
-  calculateSpicinessStatistics
+  calculateSpicinessStatistics,
+  calculateSpicinessRanking
 } = require('./spiciness');
 
 const isId = value =>
@@ -225,15 +227,32 @@ function createReviewService({
     }));
   }
 
+  async function writeDishStatistics(target, session, stats) {
+    const observations = await Review.aggregate([
+      {
+        $match: {
+          ...matchTarget(target),
+          spicinessRating: { $in: [1, 2, 3, 4, 5] }
+        }
+      },
+      { $sort: { createdAt: -1, _id: -1 } },
+      { $project: { _id: 0, userId: 1, spicinessRating: 1 } }
+    ]).session(session);
+    const spicinessRanking = calculateSpicinessRanking(observations);
+
+    // Force a shared write even when the statistics are unchanged.
+    await Dish.updateOne(
+      { _id: target.dishId, restaurantId: target.restaurantId },
+      { $set: { ...stats, spicinessRanking }, $inc: { statisticsRevision: 1 } },
+      { session, runValidators: true, timestamps: stats !== undefined }
+    );
+    return spicinessRanking;
+  }
+
   async function updateStatistics(target, session) {
     const stats = await statistics(target, session);
-
     if (target.dishId) {
-      await Dish.updateOne(
-        { _id: target.dishId },
-        { $set: stats },
-        { session, runValidators: true }
-      );
+      await writeDishStatistics(target, session, stats);
     }
 
     return stats;
@@ -269,6 +288,53 @@ function createReviewService({
   }
 
   return {
+    async detail(id, viewerId) {
+      requireId(id);
+      // Reviews are public on creation unless the record has a moderation state.
+      const review = await Review.findOne({
+        _id: id,
+        status: { $in: [null, 'approved', 'published'] }
+      }).lean();
+
+      if (!review) {
+        fail(404, 'Review not found');
+      }
+
+      const photoUrls = Array.isArray(review.photoUrls) ? review.photoUrls : [];
+      const photoLinks = photoUrls.flatMap(url => {
+        const match = typeof url === 'string' && /^\/api\/review-photos\/([a-f0-9]{24})\/image$/i.exec(url);
+        return match ? [{ url, id: match[1].toLowerCase() }] : [];
+      });
+      const photos = ReviewPhoto && photoLinks.length
+        ? await ReviewPhoto.find({
+            _id: { $in: photoLinks.map(link => link.id) },
+            reviewId: review._id,
+            status: 'approved',
+            $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }]
+          }).select('_id').lean()
+        : [];
+      const approvedIds = new Set(photos.map(photo => String(photo._id).toLowerCase()));
+      const approvedUrls = photoLinks.filter(link => approvedIds.has(link.id)).map(link => link.url);
+      const [item] = await decorate([review], viewerId);
+      return { review: { ...item, photoUrls: approvedUrls } };
+    },
+
+    async backfillSpicinessRanking(dishId) {
+      return mongoose.connection.transaction(async session => {
+        const dish = await Dish.findById(dishId).session(session).lean();
+        const restaurantId = String(dish?.restaurantId);
+        if (!isId(restaurantId)) {
+          return null;
+        }
+
+        return writeDishStatistics({
+          restaurantId,
+          dishId: String(dish._id),
+          reviewType: 'dish'
+        }, session);
+      });
+    },
+
     async list(query, viewerId) {
       const target = parseTarget(query);
       const page = pageNumber(query.page);
@@ -403,6 +469,8 @@ function createReviewService({
       return mongoose.connection.transaction(async session => {
         const old = await findOwned(id, userId, session);
         const target = reviewTarget(old);
+        const clearSpiciness = target.reviewType === 'dish' &&
+          input.spicinessRating === null;
 
         const payload = {
           ...target,
@@ -412,6 +480,9 @@ function createReviewService({
           photoUrls: old.photoUrls,
           ...input
         };
+        if (clearSpiciness) {
+          delete payload.spicinessRating;
+        }
 
         const errors = validateReview(payload);
 
@@ -432,7 +503,10 @@ function createReviewService({
 
         await Review.updateOne(
           { _id: id, userId },
-          { $set: changes },
+          {
+            $set: changes,
+            ...(clearSpiciness ? { $unset: { spicinessRating: 1 } } : {})
+          },
           { session, runValidators: true }
         );
 
@@ -497,9 +571,10 @@ function createReviewService({
       requireUser(userId);
       requireId(id);
 
+      let saved;
       for (let attempt = 0; ; attempt++) {
         try {
-          return await mongoose.connection.transaction(async session => {
+          saved = await mongoose.connection.transaction(async session => {
             const review = await Review.findById(id)
               .session(session)
               .lean();
@@ -537,14 +612,26 @@ function createReviewService({
               { session }
             );
 
-            return { likeCount, likedByMe: enabled };
+            return { likeCount, review };
           });
+          break;
         } catch (error) {
           if (error.code !== 11000 || attempt >= 1) {
             throw error;
           }
         }
       }
+
+      if (enabled) {
+        await addReviewNotification({
+          recipientId: saved.review.userId,
+          actorId: userId,
+          reviewId: saved.review._id,
+          ...reviewTarget(saved.review),
+          type: 'review_like'
+        });
+      }
+      return { likeCount: saved.likeCount, likedByMe: enabled };
     }
   };
 }

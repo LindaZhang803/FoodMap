@@ -8,6 +8,11 @@ function createReviewRouter({ service, authenticate }) {
   const optionalAuth = (req, res, next) => req.headers.authorization ? authenticate(req, res, next) : next();
   router.get('/mine', authenticate, handle(async (req, res) => res.json(await service.mine(req.query, req.user?.id))));
   router.get('/', optionalAuth, handle(async (req, res) => res.json(await service.list(req.query, req.user?.id))));
+  router.get('/:id', optionalAuth, handle(async (req, res) => {
+    res.set('Cache-Control', 'private, no-store');
+    res.vary('Authorization');
+    res.json(await service.detail(req.params.id, req.user?.id));
+  }));
   router.post('/', authenticate, handle(async (req, res) => res.status(201).json(await service.create(req.body, req.user?.id))));
   router.put('/:id', authenticate, handle(async (req, res) => res.json(await service.edit(req.params.id, req.body, req.user?.id))));
   router.delete('/:id', authenticate, handle(async (req, res) => res.json(await service.remove(req.params.id, req.user?.id))));

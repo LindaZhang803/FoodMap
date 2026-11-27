@@ -492,6 +492,9 @@ test('MongoDB-backed review, photo, ownership and concurrent-like flow', {
 
         await models.Dish.deleteOne({ _id: ids.dish });
         await Restaurant.deleteOne({ _id: ids.restaurant });
+        await mongoose.connection.db.collection('notifications').deleteMany({
+          recipientId: { $in: ids.users }
+        });
         await User.deleteMany({ _id: { $in: ids.users } });
       }
     } finally {
@@ -508,6 +511,127 @@ test('MongoDB-backed review, photo, ownership and concurrent-like flow', {
       } else {
         process.env.ADMIN_API_KEY = previousAdminKey;
       }
+    }
+  }
+});
+test('dish spiciness ranking updates transactionally and backfills historical reviews', {
+  skip: process.env.RUN_REVIEW_DB_TESTS !== '1',
+  timeout: 120000
+}, async () => {
+  const uri = process.env.MONGO_URI;
+  assert.match(uri || '', /\/(foodmap_reviews_ci|foodmap_reviews_test)(\?|$)/);
+
+  const mongoose = require('mongoose');
+  const Restaurant = require('../../restaurants/models/Restaurant');
+  const { createModels } = require('../models');
+  const { createReviewService } = require('../services/review.service');
+  const models = createModels(mongoose);
+  const { Dish, Review } = models;
+  const service = createReviewService({ mongoose, Restaurant, ...models });
+  const objectId = () => new mongoose.Types.ObjectId();
+  const restaurantId = objectId();
+  const currentDishId = objectId();
+  const historicalDishId = objectId();
+  const reviewers = Array.from({ length: 3 }, () => String(objectId()));
+  const observation = dishId => ({
+    restaurantId: String(restaurantId),
+    dishId: String(dishId),
+    reviewType: 'dish',
+    rating: 4,
+    comment: 'Synthetic heat observation'
+  });
+  const ranking = async dishId =>
+    (await Dish.findById(dishId).lean()).spicinessRanking;
+
+  try {
+    await mongoose.connect(uri, { serverSelectionTimeoutMS: 15000 });
+    await Promise.all(Object.values(models).map(model => model.init()));
+    await Restaurant.create({
+      _id: restaurantId, name: 'Synthetic spicy restaurant', latitude: 0, longitude: 0
+    });
+    await Dish.insertMany([
+      { _id: currentDishId, restaurantId, name: 'Current reviews' },
+      { _id: historicalDishId, restaurantId, name: 'Historical reviews' }
+    ]);
+
+    const current = [];
+    for (const reviewer of reviewers) {
+      current.push(await service.create({
+        ...observation(currentDishId), spicinessRating: 2
+      }, reviewer));
+    }
+    assert.deepEqual(await ranking(currentDishId), { median: 2, sampleCount: 3 });
+
+    await Promise.all([
+      service.edit(current[0].review.id, { spicinessRating: 5 }, reviewers[0]),
+      service.edit(current[1].review.id, { spicinessRating: 5 }, reviewers[1])
+    ]);
+    assert.deepEqual(await ranking(currentDishId), { median: 5, sampleCount: 3 });
+
+    const present = new Date('2026-01-02T00:00:00Z');
+    const sameDay = (reviewer, spicinessRating) => ({
+      ...observation(historicalDishId),
+      _id: objectId(),
+      restaurantId,
+      dishId: historicalDishId,
+      userId: new mongoose.Types.ObjectId(reviewer),
+      createdAt: present,
+      spicinessRating,
+      photoUrls: []
+    });
+    const earlier = sameDay(reviewers[0], 5);
+    const latest = sameDay(reviewers[0], 2);
+    const invalid = sameDay(reviewers[0], '5');
+    const second = sameDay(reviewers[1], 2);
+    const third = sameDay(reviewers[2], 5);
+    const wrongRestaurant = {
+      ...sameDay(reviewers[0], 5),
+      restaurantId: objectId(),
+      createdAt: new Date('2026-01-03T00:00:00Z')
+    };
+    await Review.collection.insertMany([earlier, latest, invalid, second, third, wrongRestaurant]);
+
+    assert.equal(await ranking(historicalDishId), undefined);
+    assert.deepEqual(
+      await service.backfillSpicinessRanking(String(historicalDishId)),
+      { median: 2, sampleCount: 3 }
+    );
+    assert.deepEqual(await ranking(historicalDishId), { median: 2, sampleCount: 3 });
+
+    await Promise.all([
+      service.backfillSpicinessRanking(String(historicalDishId)),
+      service.edit(String(second._id), { spicinessRating: 3 }, reviewers[1])
+    ]);
+    const stored = await ranking(historicalDishId);
+    assert.deepEqual(stored, { median: 3, sampleCount: 3 });
+    assert.deepEqual(await service.backfillSpicinessRanking(String(historicalDishId)), stored);
+    assert.deepEqual(await ranking(historicalDishId), stored);
+    assert.deepEqual(await ranking(currentDishId), { median: 5, sampleCount: 3 });
+
+    await service.edit(String(earlier._id), { comment: 'Older review edited' }, reviewers[0]);
+    assert.deepEqual(await ranking(historicalDishId), { median: 3, sampleCount: 3 });
+
+    const cleared = await service.edit(String(latest._id), { spicinessRating: null }, reviewers[0]);
+    assert.equal(cleared.review.spicinessRating, null);
+    assert.equal(Object.hasOwn(await Review.findById(latest._id).lean(), 'spicinessRating'), false);
+    assert.equal(cleared.statistics.spicinessRatingCount, 3);
+    assert.deepEqual(await ranking(historicalDishId), { median: 5, sampleCount: 3 });
+
+    await service.edit(String(latest._id), { spicinessRating: 2 }, reviewers[0]);
+    assert.deepEqual(await ranking(historicalDishId), { median: 3, sampleCount: 3 });
+    await service.remove(String(latest._id), reviewers[0]);
+    assert.deepEqual(await ranking(historicalDishId), { median: 5, sampleCount: 3 });
+    await service.remove(String(third._id), reviewers[2]);
+    assert.deepEqual(await ranking(historicalDishId), { median: null, sampleCount: 2 });
+  } finally {
+    try {
+      if (mongoose.connection.readyState === 1) {
+        await Review.deleteMany({ dishId: { $in: [currentDishId, historicalDishId] } });
+        await Dish.deleteMany({ restaurantId });
+        await Restaurant.deleteOne({ _id: restaurantId });
+      }
+    } finally {
+      await mongoose.disconnect();
     }
   }
 });
