@@ -14,15 +14,30 @@ import {
 } from "react-native";
 
 import { API_ORIGIN } from "../../../config/api";
-import { resolveCatalogImageUrl } from '../../feed/services/liveSources';
 
-import { createDishRepository } from "../services/dishRepository";
+import {
+  resolveCatalogImageUrl,
+} from "../../feed/services/liveSources";
+
+import {
+  getDishImageSource,
+} from "../../../assets/images/dishes/dishImages";
+
+import {
+  createDishRepository,
+} from "../services/dishRepository";
+
 import SpicinessCompatibility, {
   describeSpicinessCompatibility,
   SpicinessCompatibilityNote,
 } from "../../../shared/components/SpicinessCompatibility";
+
 import fixtures from "../mocks/fixtures.json";
-import { createReviewRepository } from "../services/reviewRepository";
+
+import {
+  createReviewRepository,
+} from "../services/reviewRepository";
+
 import ReviewPanel from "../components/ReviewPanel";
 
 import {
@@ -38,11 +53,19 @@ import {
   ErrorState,
 } from "../../../shared/design/UIComponents";
 
+// =====================================================
+// Sorting
+// =====================================================
+
 const SORT_OPTIONS = [
   ["name", "Name"],
   ["highestRated", "Highest Rated"],
   ["mostReviewed", "Most Reviewed"],
 ];
+
+// =====================================================
+// Rating
+// =====================================================
 
 function getRatingText(dish) {
   if (
@@ -57,6 +80,10 @@ function getRatingText(dish) {
 
   return `${average.toFixed(1)} / 5 · ${count} reviews`;
 }
+
+// =====================================================
+// Price
+// =====================================================
 
 function getPriceText(dish) {
   const raw = dish?.price;
@@ -73,6 +100,10 @@ function getPriceText(dish) {
 
   return `$${price.toFixed(2)}`;
 }
+
+// =====================================================
+// Spiciness
+// =====================================================
 
 function getMedianSpiciness(dish) {
   const value =
@@ -118,17 +149,32 @@ function getSpicinessDistribution(dish) {
     );
 }
 
+// =====================================================
+// Dish Image
+// Supports local and remote images
+// =====================================================
+
 function DishImage({
   uri,
+  apiOrigin = API_ORIGIN,
   large = false,
 }) {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     setFailed(false);
-  }, [uri]);
+  }, [uri, apiOrigin]);
 
-  if (!uri || failed) {
+  // Use the shared image mapping.
+  // This supports Sushi House, Pizza Palace,
+  // and any future restaurants added to dishImages.js.
+  const source = getDishImageSource(
+    uri,
+    apiOrigin,
+    resolveCatalogImageUrl
+  );
+
+  if (!source || failed) {
     return (
       <View
         style={[
@@ -145,7 +191,7 @@ function DishImage({
 
   return (
     <Image
-      source={{ uri }}
+      source={source}
       style={[
         styles.image,
         large && styles.largeImage,
@@ -156,6 +202,10 @@ function DishImage({
     />
   );
 }
+
+// =====================================================
+// Dish Browser Screen
+// =====================================================
 
 export default function DishBrowserScreen({
   restaurantId,
@@ -185,6 +235,7 @@ export default function DishBrowserScreen({
     setDishId(initialDishId);
     setRatingUpdate(null);
   }, [restaurantId, initialDishId]);
+
   const [resource, setResource] = useState(null);
 
   const [scenario, setScenario] = useState("normal");
@@ -253,9 +304,11 @@ export default function DishBrowserScreen({
   ].join(":");
 
   const currentResource =
-    resource?.key === requestKey && resource.repository === repository
+    resource?.key === requestKey &&
+    resource.repository === repository
       ? resource
       : null;
+
   const data = currentResource?.data ?? null;
   const error = currentResource?.error ?? null;
 
@@ -494,7 +547,8 @@ export default function DishBrowserScreen({
             {/* Dish details */}
             <View style={styles.heroImageContainer}>
               <DishImage
-                uri={resolveCatalogImageUrl(data.imageUrl, apiOrigin)}
+                uri={data.imageUrl}
+                apiOrigin={apiOrigin}
                 large
               />
             </View>
@@ -502,13 +556,11 @@ export default function DishBrowserScreen({
             <View style={styles.detailCard}>
 
               {/* Dish Name */}
-
               <Text style={styles.dishTitle}>
                 {data.name}
               </Text>
 
               {/* Restaurant Name */}
-
               <Text style={styles.restaurantName}>
                 {restaurantName ||
                   data.restaurantName ||
@@ -517,13 +569,11 @@ export default function DishBrowserScreen({
               </Text>
 
               {/* Price */}
-
               <Text style={styles.dishPrice}>
                 {getPriceText(data)}
               </Text>
 
               {/* Overall Rating */}
-
               <View style={styles.statisticsSection}>
                 <Text style={styles.statisticsTitle}>
                   Overall Rating
@@ -542,7 +592,6 @@ export default function DishBrowserScreen({
               </View>
 
               {/* Median Spiciness */}
-
               <View style={styles.statisticsSection}>
                 <Text style={styles.statisticsTitle}>
                   Median Spiciness
@@ -554,11 +603,13 @@ export default function DishBrowserScreen({
                     : "Spiciness data unavailable"}
                 </Text>
 
-                <SpicinessCompatibility dish={data} showNote />
+                <SpicinessCompatibility
+                  dish={data}
+                  showNote
+                />
               </View>
 
               {/* Spiciness Distribution */}
-
               <View style={styles.statisticsSection}>
                 <Text style={styles.statisticsTitle}>
                   Spiciness Distribution
@@ -589,7 +640,6 @@ export default function DishBrowserScreen({
               </View>
 
               {/* Description */}
-
               <View style={styles.statisticsSection}>
                 <Text style={styles.sectionTitle}>
                   About This Dish
@@ -602,7 +652,6 @@ export default function DishBrowserScreen({
               </View>
 
               {/* Favorite and Wheel Actions */}
-
               <View style={styles.dishActionRow}>
 
                 <Pressable
@@ -719,7 +768,10 @@ export default function DishBrowserScreen({
                     }
                   >
                     <View style={styles.thumbnail}>
-                      <DishImage uri={resolveCatalogImageUrl(dish.imageUrl, apiOrigin)} />
+                      <DishImage
+                        uri={dish.imageUrl}
+                        apiOrigin={apiOrigin}
+                      />
                     </View>
 
                     <View style={styles.dishInfo}>
@@ -760,6 +812,10 @@ export default function DishBrowserScreen({
     </View>
   );
 }
+
+// =====================================================
+// Styles
+// =====================================================
 
 const styles = StyleSheet.create({
   container: {
@@ -1000,7 +1056,7 @@ const styles = StyleSheet.create({
     minHeight: 220,
   },
 
-    restaurantName: {
+  restaurantName: {
     ...typography.body,
     color: colors.textSecondary,
     marginBottom: spacing.md,

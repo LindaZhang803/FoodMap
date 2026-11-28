@@ -7,6 +7,7 @@ import React, {
 import {
   createDishRepository,
 } from "../../reviews/services/dishRepository";
+
 import SpicinessCompatibility, {
   describeSpicinessCompatibility,
   SpicinessCompatibilityNote,
@@ -26,7 +27,15 @@ import getRestaurantImage from "../utils/getRestaurantImage";
 import PhotoUploadButton from "../components/PhotoUploadButton";
 
 import { API_ORIGIN } from "../../../config/api";
-import { resolveCatalogImageUrl } from '../../feed/services/liveSources';
+
+import {
+  resolveCatalogImageUrl,
+} from "../../feed/services/liveSources";
+
+// Local dish image support
+import {
+  getDishImageSource,
+} from "../../../assets/images/dishes/dishImages";
 
 import {
   colors,
@@ -43,6 +52,10 @@ import {
 
 import AppIcon from "../../../shared/components/AppIcon";
 
+// =====================================================
+// Menu Categories
+// =====================================================
+
 const MENU_CATEGORIES = [
   { label: "Popular", value: "popular" },
   { label: "Main Dishes", value: "main" },
@@ -51,6 +64,10 @@ const MENU_CATEGORIES = [
   { label: "Drinks", value: "drink" },
   { label: "Desserts", value: "dessert" },
 ];
+
+// =====================================================
+// Dish Category
+// =====================================================
 
 function getDishCategory(dish) {
   const raw = String(
@@ -65,42 +82,67 @@ function getDishCategory(dish) {
   if (!raw) return "uncategorized";
 
   if (
-    ["main", "main dish", "main dishes", "entree", "entrée", "entrees", "mains"]
-      .includes(raw)
+    [
+      "main",
+      "main dish",
+      "main dishes",
+      "entree",
+      "entrée",
+      "entrees",
+      "mains",
+    ].includes(raw)
   ) {
     return "main";
   }
 
   if (
-    ["appetizer", "appetizers", "starter", "starters"]
-      .includes(raw)
+    [
+      "appetizer",
+      "appetizers",
+      "starter",
+      "starters",
+    ].includes(raw)
   ) {
     return "appetizer";
   }
 
   if (
-    ["side", "sides", "side dish", "side dishes"]
-      .includes(raw)
+    [
+      "side",
+      "sides",
+      "side dish",
+      "side dishes",
+    ].includes(raw)
   ) {
     return "side";
   }
 
   if (
-    ["drink", "drinks", "beverage", "beverages"]
-      .includes(raw)
+    [
+      "drink",
+      "drinks",
+      "beverage",
+      "beverages",
+    ].includes(raw)
   ) {
     return "drink";
   }
 
   if (
-    ["dessert", "desserts"]
-      .includes(raw)
+    [
+      "dessert",
+      "desserts",
+    ].includes(raw)
   ) {
     return "dessert";
   }
 
   return "uncategorized";
 }
+
+// =====================================================
+// Dish Rating
+// =====================================================
 
 function getDishRating(dish) {
   const count = Number(dish.reviewCount);
@@ -118,6 +160,10 @@ function getDishRating(dish) {
 
   return `★ ${rating.toFixed(1)} (${count})`;
 }
+
+// =====================================================
+// Dish Price
+// =====================================================
 
 function getDishPrice(dish) {
   if (
@@ -139,14 +185,29 @@ function getDishPrice(dish) {
   return `$${price.toFixed(2)}`;
 }
 
-function MenuDishImage({ uri }) {
+// =====================================================
+// Menu Dish Image
+// Supports local PNG images and existing network images
+// =====================================================
+
+function MenuDishImage({
+  uri,
+  apiOrigin = API_ORIGIN,
+}) {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     setFailed(false);
-  }, [uri]);
+  }, [uri, apiOrigin]);
 
-  if (!uri || failed) {
+  // Resolve local image identifiers before network URLs.
+  const source = getDishImageSource(
+    uri,
+    apiOrigin,
+    resolveCatalogImageUrl
+  );
+
+  if (!source || failed) {
     return (
       <View style={styles.dishImageFallback}>
         <Text style={styles.dishImageFallbackText}>
@@ -158,7 +219,7 @@ function MenuDishImage({ uri }) {
 
   return (
     <Image
-      source={{ uri }}
+      source={source}
       style={styles.dishImage}
       resizeMode="cover"
       accessibilityLabel="Dish photo"
@@ -219,7 +280,8 @@ export default function RestaurantDetailScreen({
   );
 
   const dishes =
-    menuResult?.repository === dishRepository && menuResult.restaurantId === restaurantId
+    menuResult?.repository === dishRepository &&
+    menuResult.restaurantId === restaurantId
       ? menuResult.dishes
       : null;
 
@@ -305,21 +367,56 @@ export default function RestaurantDetailScreen({
         return;
       }
 
-      try {
-        const result =
-          await dishRepository.getDishes(
-            restaurantId,
-            "name"
+     try {
+        const url =
+          `${API_ORIGIN}/api/dishes?restaurantId=${encodeURIComponent(restaurantId)}`;
+
+        console.log("[Menu] API URL:", url);
+
+        const response = await fetch(url, {
+          headers: token
+            ? { Authorization: `Bearer ${token}` }
+            : {},
+        });
+
+        const responseText = await response.text();
+
+        console.log("========== MENU DEBUG ==========");
+        console.log("Restaurant ID:", restaurantId);
+        console.log("Request URL:", url);
+        console.log("HTTP Status:", response.status);
+        console.log("Raw API Response:", responseText);
+        console.log("================================");
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to load menu: HTTP ${response.status}`
           );
+        }
+
+        const rawDishes = JSON.parse(responseText);
 
         if (!active) return;
 
-        if (!Array.isArray(result)) {
+        if (!Array.isArray(rawDishes)) {
           throw new Error("Invalid menu response");
         }
 
-        setMenuResult({ repository: dishRepository, restaurantId, dishes: result });
-      } catch (err) {
+        const result = rawDishes.map((dish) => ({
+          ...dish,
+          id: String(dish.id ?? dish._id),
+        }));
+
+        console.log("[Menu] restaurantId:", restaurantId);
+        console.log("[Menu] dishes:", result);
+        console.log("[Menu] count:", result.length);
+
+        setMenuResult({
+          repository: dishRepository,
+          restaurantId,
+          dishes: result,
+        });
+      }catch (err) {
         if (!active) return;
 
         setMenuError(
@@ -445,7 +542,9 @@ export default function RestaurantDetailScreen({
             error ||
             "Restaurant information is unavailable."
           }
-          onRetry={() => setRetry((value) => value + 1)}
+          onRetry={() =>
+            setRetry((value) => value + 1)
+          }
         />
       </View>
     );
@@ -694,7 +793,9 @@ export default function RestaurantDetailScreen({
                 {visibleDishes.length} dishes
               </Text>
 
-              <SpicinessCompatibilityNote dishes={visibleDishes} />
+              <SpicinessCompatibilityNote
+                dishes={visibleDishes}
+              />
 
               {visibleDishes.length === 0 ? (
                 <Text style={styles.emptyCategoryText}>
@@ -737,14 +838,20 @@ export default function RestaurantDetailScreen({
                         accessibilityLabel={[
                           `View ${dish.name}`,
                           describeSpicinessCompatibility(dish),
-                        ].filter(Boolean).join(". ")}
+                        ]
+                          .filter(Boolean)
+                          .join(". ")}
                         onPress={() =>
-                          onViewDishes?.(dishId, restaurant.name)
+                          onViewDishes?.(
+                            dishId,
+                            restaurant.name
+                          )
                         }
                       >
                         <View style={styles.dishImageWrapper}>
                           <MenuDishImage
-                            uri={resolveCatalogImageUrl(dish.imageUrl, API_ORIGIN)}
+                            uri={dish.imageUrl}
+                            apiOrigin={API_ORIGIN}
                           />
                         </View>
 
@@ -774,13 +881,16 @@ export default function RestaurantDetailScreen({
                             {getDishRating(dish)}
                           </Text>
 
-                          {spice !== null && spice !== "" && (
-                            <Text style={styles.dishSpice}>
-                              Spiciness: {String(spice)}
-                            </Text>
-                          )}
+                          {spice !== null &&
+                            spice !== "" && (
+                              <Text style={styles.dishSpice}>
+                                Spiciness: {String(spice)}
+                              </Text>
+                            )}
 
-                          <SpicinessCompatibility dish={dish} />
+                          <SpicinessCompatibility
+                            dish={dish}
+                          />
                         </View>
                       </Pressable>
 
@@ -1094,7 +1204,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
 
-    menuContainer: {
+  menuContainer: {
     backgroundColor: colors.surface,
     marginBottom: spacing.md,
     paddingBottom: spacing.lg,
