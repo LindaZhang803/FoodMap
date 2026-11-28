@@ -379,22 +379,13 @@ export default function RestaurantDetailScreen({
             : {},
         });
 
-        const responseText = await response.text();
-
-        console.log("========== MENU DEBUG ==========");
-        console.log("Restaurant ID:", restaurantId);
-        console.log("Request URL:", url);
-        console.log("HTTP Status:", response.status);
-        console.log("Raw API Response:", responseText);
-        console.log("================================");
-
         if (!response.ok) {
           throw new Error(
             `Failed to load menu: HTTP ${response.status}`
           );
         }
 
-        const rawDishes = JSON.parse(responseText);
+       const rawDishes = await response.json();
 
         if (!active) return;
 
