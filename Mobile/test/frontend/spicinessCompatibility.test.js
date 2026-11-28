@@ -21,7 +21,20 @@ const dish = {
   reviewCount: 7,
   medianSpiciness: 5,
   spicinessRatingCount: 7,
+
+  // Added: Spiciness Distribution
+  spicinessDistribution: {
+    level1: 0,
+    level2: 0,
+    level3: 0,
+    level4: 0,
+    level5: 7,
+  },
+
   reviews: [],
+
+    spicinessCompatibility: "Above Preference",
+  spicinessCompatibilityNote: note,
 };
 
 const originalFetch = global.fetch;
@@ -67,11 +80,23 @@ test("dish list and detail display the signed-in label and reset to a guest resu
   expect(await screen.findByText("Above Preference")).toBeOnTheScreen();
   expect(screen.getByText(note)).toBeOnTheScreen();
 
-  fireEvent.press(screen.getByText("Chili noodles"));
-  expect(await screen.findByText("Median Spiciness")).toBeOnTheScreen();
-  expect(screen.getByText("5")).toBeOnTheScreen();
-  expect(screen.getByText("Above Preference")).toBeOnTheScreen();
-  expect(screen.getByText(note)).toBeOnTheScreen();
+fireEvent.press(screen.getByText("Chili noodles"));
+
+expect(
+  await screen.findByText("Median Spiciness")
+).toBeOnTheScreen();
+
+expect(
+  screen.getByText("5 / 5")
+).toBeOnTheScreen();
+
+expect(
+  screen.getByText("Above Preference")
+).toBeOnTheScreen();
+
+expect(
+  screen.getByText(note)
+).toBeOnTheScreen();
 
   rerender(<DishBrowserScreen restaurantId="r1" />);
   expect(screen.queryByText("Above Preference")).toBeNull();
