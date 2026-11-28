@@ -20,6 +20,15 @@ function makeRepository() {
       statistics: {
         averageRating: null,
         reviewCount: 0,
+        medianSpiciness: null,
+        spicinessRatingCount: 0,
+        spicinessDistribution: {
+          level1: 0,
+          level2: 0,
+          level3: 0,
+          level4: 0,
+          level5: 0,
+        },
       },
       pagination: {
         page: 1,
@@ -81,6 +90,75 @@ test("overall rating and optional spiciness controls can be selected independent
   render(
     <ReviewPanel
       restaurantId="r-1"
+      dishId="d-1"
+      repository={repository}
+      token="test-token"
+      origin="https://example.test"
+    />
+  );
+
+  await waitFor(() =>
+    expect(
+      screen.getByText("Write a dish review")
+    ).toBeTruthy()
+  );
+
+  // Select Overall Rating: 4 stars
+  fireEvent.press(
+    screen.getByRole("button", {
+      name: "4 stars",
+    })
+  );
+
+  // Select Spiciness Rating: 2
+  fireEvent.press(
+    screen.getByRole("button", {
+      name: "2 spiciness",
+    })
+  );
+
+  // Overall Rating should be 4
+  expect(
+    screen.getByRole("button", {
+      name: "4 stars",
+    }).props.accessibilityState.selected
+  ).toBe(true);
+
+  // Spiciness Rating should be 2
+  expect(
+    screen.getByRole("button", {
+      name: "2 spiciness",
+    }).props.accessibilityState.selected
+  ).toBe(true);
+
+  // Clear the optional Spiciness Rating
+  fireEvent.press(
+    screen.getByRole("button", {
+      name: "Clear spiciness rating",
+    })
+  );
+
+  // Spiciness Rating should be cleared
+  expect(
+    screen.getByRole("button", {
+      name: "2 spiciness",
+    }).props.accessibilityState.selected
+  ).toBe(false);
+
+  // Overall Rating should remain unchanged
+  expect(
+    screen.getByRole("button", {
+      name: "4 stars",
+    }).props.accessibilityState.selected
+  ).toBe(true);
+});
+
+test("restaurant reviews do not display spiciness controls", async () => {
+  const repository = makeRepository();
+
+  render(
+    <ReviewPanel
+      restaurantId="r-1"
       repository={repository}
       token="test-token"
       origin="https://example.test"
@@ -93,39 +171,19 @@ test("overall rating and optional spiciness controls can be selected independent
     ).toBeTruthy()
   );
 
-  fireEvent.press(
-    screen.getByRole("button", {
-      name: "4 stars",
-    })
-  );
+  // Overall Rating must be available.
+  expect(
+    screen.getByText("Overall Rating (Required)")
+  ).toBeTruthy();
 
-  fireEvent.press(
-    screen.getByRole("button", {
-      name: "2 spiciness",
-    })
-  );
+  // Spiciness controls must not appear.
+  expect(
+    screen.queryByText("Spiciness Rating (Optional)")
+  ).toBeNull();
 
   expect(
-    screen.getByRole("button", {
-      name: "4 stars",
-    }).props.accessibilityState.selected
-  ).toBe(true);
-
-  expect(
-    screen.getByRole("button", {
+    screen.queryByRole("button", {
       name: "2 spiciness",
-    }).props.accessibilityState.selected
-  ).toBe(true);
-
-  fireEvent.press(
-    screen.getByRole("button", {
-      name: "Clear spiciness rating",
     })
-  );
-
-  expect(
-    screen.getByRole("button", {
-      name: "2 spiciness",
-    }).props.accessibilityState.selected
-  ).toBe(false);
+  ).toBeNull();
 });
