@@ -20,6 +20,7 @@ function validateReview(input) {
     errors.push('Restaurant reviews cannot include dishId');
   }
 
+  // Overall Rating: required for all reviews.
   if (
     !Number.isInteger(input.rating) ||
     input.rating < 1 ||
@@ -28,16 +29,25 @@ function validateReview(input) {
     errors.push('rating must be an integer from 1 to 5');
   }
 
-  // Spiciness is optional, but must be an integer from 1 to 5 if provided.
-  if (
-    input.spicinessRating !== undefined &&
-    (
+  // Spiciness Rating: required for dish reviews.
+  if (input.reviewType === 'dish') {
+    if (
       !Number.isInteger(input.spicinessRating) ||
       input.spicinessRating < 1 ||
       input.spicinessRating > 5
-    )
+    ) {
+      errors.push(
+        'spicinessRating must be an integer from 1 to 5 for dish reviews'
+      );
+    }
+  }
+
+  // Restaurant reviews must not include a spiciness rating.
+  if (
+    input.reviewType === 'restaurant' &&
+    input.spicinessRating != null
   ) {
-    errors.push('spicinessRating must be an integer from 1 to 5');
+    errors.push('Restaurant reviews cannot include spicinessRating');
   }
 
   if (

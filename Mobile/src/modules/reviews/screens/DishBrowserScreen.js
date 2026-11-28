@@ -64,7 +64,7 @@ const SORT_OPTIONS = [
 ];
 
 // =====================================================
-// Rating
+// Overall Rating
 // =====================================================
 
 function getRatingText(dish) {
@@ -102,7 +102,7 @@ function getPriceText(dish) {
 }
 
 // =====================================================
-// Spiciness
+// Median Spiciness
 // =====================================================
 
 function getMedianSpiciness(dish) {
@@ -121,6 +121,18 @@ function getMedianSpiciness(dish) {
   return Number(value);
 }
 
+// =====================================================
+// Spiciness Distribution
+// Backend format:
+// {
+//   level1: 0,
+//   level2: 0,
+//   level3: 0,
+//   level4: 0,
+//   level5: 0
+// }
+// =====================================================
+
 function getSpicinessDistribution(dish) {
   const distribution = dish?.spicinessDistribution;
 
@@ -132,26 +144,39 @@ function getSpicinessDistribution(dish) {
     return [];
   }
 
-  return Object.entries(distribution)
-    .map(([level, count]) => ({
+  const ratings = [1, 2, 3, 4, 5].map((level) => {
+    const raw = distribution[`level${level}`];
+
+    return {
       level,
-      count: Number(count),
-    }))
-    .filter(
-      (item) =>
-        Number.isFinite(Number(item.level)) &&
-        Number.isFinite(item.count) &&
-        item.count >= 0
-    )
-    .sort(
-      (a, b) =>
-        Number(a.level) - Number(b.level)
-    );
+      count: Number(raw ?? 0),
+    };
+  });
+
+  const valid = ratings.every(
+    ({ count }) =>
+      Number.isInteger(count) &&
+      count >= 0
+  );
+
+  if (!valid) {
+    return [];
+  }
+
+  const total = ratings.reduce(
+    (sum, item) => sum + item.count,
+    0
+  );
+
+  if (total === 0) {
+    return [];
+  }
+
+  return ratings;
 }
 
 // =====================================================
 // Dish Image
-// Supports local and remote images
 // =====================================================
 
 function DishImage({
@@ -165,9 +190,6 @@ function DishImage({
     setFailed(false);
   }, [uri, apiOrigin]);
 
-  // Use the shared image mapping.
-  // This supports Sushi House, Pizza Palace,
-  // and any future restaurants added to dishImages.js.
   const source = getDishImageSource(
     uri,
     apiOrigin,
@@ -219,22 +241,17 @@ export default function DishBrowserScreen({
   isDishFavoriteLoading,
 
   onAddDishToWheel,
+
   demo = false,
   token = null,
   apiOrigin = API_ORIGIN,
   syntheticSession = false,
 
-  // Optional shared account session.
   authToken = null,
   isAuthenticated = false,
   onLoginPress,
 }) {
   const [dishId, setDishId] = useState(initialDishId);
-
-  useEffect(() => {
-    setDishId(initialDishId);
-    setRatingUpdate(null);
-  }, [restaurantId, initialDishId]);
 
   const [resource, setResource] = useState(null);
 
@@ -244,8 +261,15 @@ export default function DishBrowserScreen({
 
   const [ratingUpdate, setRatingUpdate] = useState(null);
 
-  // Real account credentials take priority for live dishes and reviews.
-  // Synthetic demo credentials are kept separate.
+  useEffect(() => {
+    setDishId(initialDishId);
+    setRatingUpdate(null);
+  }, [restaurantId, initialDishId]);
+
+  // =====================================================
+  // Authentication
+  // =====================================================
+
   const reviewToken = demo
     ? token
     : syntheticSession
@@ -253,6 +277,10 @@ export default function DishBrowserScreen({
       : isAuthenticated && authToken
         ? authToken
         : token;
+
+  // =====================================================
+  // Repositories
+  // =====================================================
 
   const liveRepository = useMemo(
     () =>
@@ -289,6 +317,10 @@ export default function DishBrowserScreen({
     ? demoRepository
     : liveRepository;
 
+  // =====================================================
+  // Target Restaurant
+  // =====================================================
+
   const targetRestaurant =
     demo && scenario === "unrated"
       ? "100000000000000000000002"
@@ -313,7 +345,7 @@ export default function DishBrowserScreen({
   const error = currentResource?.error ?? null;
 
   // =====================================================
-  // Load dishes
+  // Load Dishes
   // =====================================================
 
   useEffect(() => {
@@ -375,23 +407,33 @@ export default function DishBrowserScreen({
     requestKey,
   ]);
 
+  // =====================================================
+  // Navigation
+  // =====================================================
+
   function handleBack() {
     if (dishId) {
       setDishId(null);
+      setRatingUpdate(null);
     } else {
       onBack?.();
     }
   }
 
-  function handleReviewCreated(
-    target,
-    statistics
-  ) {
+  // =====================================================
+  // Review Statistics Update
+  // =====================================================
+
+  function handleReviewCreated(target, statistics) {
     if (target?.dishId) {
       setRatingUpdate({
         dishId: target.dishId,
         statistics,
       });
+
+      // Reload dish data so the card, median,
+      // distribution and compatibility stay in sync.
+      setRetry((current) => current + 1);
     }
   }
 
@@ -427,7 +469,7 @@ export default function DishBrowserScreen({
   );
 
   // =====================================================
-  // Demo controls
+  // Demo Controls
   // =====================================================
 
   const demoContent = (
@@ -512,6 +554,24 @@ export default function DishBrowserScreen({
   );
 
   // =====================================================
+  // Effective Dish Statistics
+  // =====================================================
+
+  // Keep the latest review statistics visible immediately
+  // after creating, editing or deleting a review.
+  const detailDish =
+    dishId &&
+    data &&
+    !Array.isArray(data) &&
+    ratingUpdate?.dishId === data.id &&
+    ratingUpdate.statistics
+      ? {
+          ...data,
+          ...ratingUpdate.statistics,
+        }
+      : data;
+
+  // =====================================================
   // Render
   // =====================================================
 
@@ -544,130 +604,139 @@ export default function DishBrowserScreen({
           />
         ) : dishId ? (
           <>
-            {/* Dish details */}
+            {/* Dish Details */}
+
             <View style={styles.heroImageContainer}>
               <DishImage
-                uri={data.imageUrl}
+                uri={detailDish.imageUrl}
                 apiOrigin={apiOrigin}
                 large
               />
             </View>
 
             <View style={styles.detailCard}>
-
               {/* Dish Name */}
+
               <Text style={styles.dishTitle}>
-                {data.name}
+                {detailDish.name}
               </Text>
 
               {/* Restaurant Name */}
+
               <Text style={styles.restaurantName}>
                 {restaurantName ||
-                  data.restaurantName ||
-                  data.restaurant?.name ||
+                  detailDish.restaurantName ||
+                  detailDish.restaurant?.name ||
                   "Restaurant name unavailable"}
               </Text>
 
               {/* Price */}
+
               <Text style={styles.dishPrice}>
-                {getPriceText(data)}
+                {getPriceText(detailDish)}
               </Text>
 
               {/* Overall Rating */}
+
               <View style={styles.statisticsSection}>
                 <Text style={styles.statisticsTitle}>
                   Overall Rating
                 </Text>
 
                 <Text style={styles.overallRating}>
-                  {getRatingText(
-                    ratingUpdate?.dishId === data.id
-                      ? {
-                          ...data,
-                          ...ratingUpdate.statistics,
-                        }
-                      : data
-                  )}
+                  {getRatingText(detailDish)}
                 </Text>
               </View>
 
               {/* Median Spiciness */}
+
               <View style={styles.statisticsSection}>
                 <Text style={styles.statisticsTitle}>
                   Median Spiciness
                 </Text>
 
                 <Text style={styles.spicinessValue}>
-                  {getMedianSpiciness(data) !== null
-                    ? String(getMedianSpiciness(data))
+                  {getMedianSpiciness(detailDish) !== null
+                    ? `${getMedianSpiciness(detailDish)} / 5`
                     : "Spiciness data unavailable"}
                 </Text>
 
                 <SpicinessCompatibility
-                  dish={data}
+                  dish={detailDish}
                   showNote
                 />
               </View>
 
               {/* Spiciness Distribution */}
+
               <View style={styles.statisticsSection}>
                 <Text style={styles.statisticsTitle}>
                   Spiciness Distribution
                 </Text>
 
-                {getSpicinessDistribution(data).length === 0 ? (
+                {getSpicinessDistribution(detailDish)
+                  .length === 0 ? (
                   <Text style={styles.unavailableText}>
-                    Spiciness data unavailable
+                    No spiciness ratings yet
                   </Text>
                 ) : (
-                  getSpicinessDistribution(data).map(
-                    ({ level, count }) => (
-                      <View
-                        key={level}
-                        style={styles.distributionRow}
+                  getSpicinessDistribution(
+                    detailDish
+                  ).map(({ level, count }) => (
+                    <View
+                      key={level}
+                      style={styles.distributionRow}
+                    >
+                      <Text
+                        style={styles.distributionLabel}
                       >
-                        <Text style={styles.distributionLabel}>
-                          Level {level}
-                        </Text>
+                        Level {level}
+                      </Text>
 
-                        <Text style={styles.distributionCount}>
-                          {count} reviews
-                        </Text>
-                      </View>
-                    )
-                  )
+                      <Text
+                        style={styles.distributionCount}
+                      >
+                        {count} reviews
+                      </Text>
+                    </View>
+                  ))
                 )}
               </View>
 
               {/* Description */}
+
               <View style={styles.statisticsSection}>
                 <Text style={styles.sectionTitle}>
                   About This Dish
                 </Text>
 
                 <Text style={styles.description}>
-                  {data.description ||
+                  {detailDish.description ||
                     "Description unavailable"}
                 </Text>
               </View>
 
               {/* Favorite and Wheel Actions */}
-              <View style={styles.dishActionRow}>
 
+              <View style={styles.dishActionRow}>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Add dish to Want to Try"
                   disabled={
                     typeof onToggleDishFavorite !== "function" ||
-                    Boolean(isDishFavoriteLoading?.(data.id))
+                    Boolean(
+                      isDishFavoriteLoading?.(
+                        detailDish.id
+                      )
+                    )
                   }
                   onPress={() =>
-                    onToggleDishFavorite?.(data)
+                    onToggleDishFavorite?.(detailDish)
                   }
                   style={styles.dishActionButton}
                 >
                   <Text style={styles.dishActionText}>
-                    {isDishFavorite?.(data.id)
+                    {isDishFavorite?.(detailDish.id)
                       ? "♥ Saved"
                       : "♡ Want to Try"}
                   </Text>
@@ -680,7 +749,7 @@ export default function DishBrowserScreen({
                     typeof onAddDishToWheel !== "function"
                   }
                   onPress={() =>
-                    onAddDishToWheel?.(data)
+                    onAddDishToWheel?.(detailDish)
                   }
                   style={styles.dishActionButton}
                 >
@@ -688,16 +757,15 @@ export default function DishBrowserScreen({
                     Add to Wheel
                   </Text>
                 </Pressable>
-
               </View>
-
             </View>
 
             {reviewContent}
           </>
         ) : (
           <>
-            {/* Dish list introduction */}
+            {/* Dish List Introduction */}
+
             <View style={styles.intro}>
               <Text style={styles.title}>
                 Explore Dishes
@@ -709,6 +777,7 @@ export default function DishBrowserScreen({
             </View>
 
             {/* Sorting */}
+
             <View style={styles.sortRow}>
               {SORT_OPTIONS.map(([value, label]) => {
                 const selected = dishSort === value;
@@ -739,13 +808,16 @@ export default function DishBrowserScreen({
               })}
             </View>
 
-            {/* Dish cards */}
+            {/* Dish Cards */}
+
             <View style={styles.menuSection}>
               <Text style={styles.sectionTitle}>
                 Menu
               </Text>
 
-              <SpicinessCompatibilityNote dishes={data} />
+              <SpicinessCompatibilityNote
+                dishes={data}
+              />
 
               {data.length === 0 ? (
                 <EmptyState
@@ -761,11 +833,16 @@ export default function DishBrowserScreen({
                     accessibilityRole="button"
                     accessibilityLabel={[
                       `View ${dish.name}`,
-                      describeSpicinessCompatibility(dish),
-                    ].filter(Boolean).join(". ")}
-                    onPress={() =>
-                      setDishId(dish.id)
-                    }
+                      describeSpicinessCompatibility(
+                        dish
+                      ),
+                    ]
+                      .filter(Boolean)
+                      .join(". ")}
+                    onPress={() => {
+                      setDishId(dish.id);
+                      setRatingUpdate(null);
+                    }}
                   >
                     <View style={styles.thumbnail}>
                       <DishImage
@@ -794,7 +871,9 @@ export default function DishBrowserScreen({
                         {getRatingText(dish)}
                       </Text>
 
-                      <SpicinessCompatibility dish={dish} />
+                      <SpicinessCompatibility
+                        dish={dish}
+                      />
                     </View>
 
                     <Text style={styles.arrow}>

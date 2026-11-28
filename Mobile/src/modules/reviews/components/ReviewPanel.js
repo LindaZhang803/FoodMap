@@ -28,32 +28,18 @@ import {
 import AppIcon from "../../../shared/components/AppIcon";
 
 // =====================================================
-// Rating Distribution
+// Spiciness Distribution
 // =====================================================
 
-function RatingDistribution({ statistics }) {
-  const distribution = statistics?.ratingDistribution;
+function SpicinessDistribution({ statistics }) {
+  const distribution = statistics?.spicinessDistribution;
 
-  const hasDistribution =
-    distribution &&
-    typeof distribution === "object" &&
-    !Array.isArray(distribution);
-
-  const ratings = [5, 4, 3, 2, 1].map((stars) => {
-    const raw = hasDistribution
-      ? distribution[stars]
-      : undefined;
-
-    const count = Number(raw);
+  const ratings = [5, 4, 3, 2, 1].map((level) => {
+    const raw = distribution?.[`level${level}`];
 
     return {
-      stars,
-      count,
-      valid:
-        raw !== undefined &&
-        raw !== null &&
-        Number.isInteger(count) &&
-        count >= 0,
+      level,
+      count: Number(raw ?? 0),
     };
   });
 
@@ -62,53 +48,61 @@ function RatingDistribution({ statistics }) {
     0
   );
 
-  const valid =
-    hasDistribution &&
-    ratings.every((item) => item.valid) &&
-    total === Number(statistics?.reviewCount);
+  const reportedCount = Number(
+    statistics?.spicinessRatingCount ?? 0
+  );
 
-  if (!valid) {
+  const valid =
+    distribution != null &&
+    typeof distribution === "object" &&
+    !Array.isArray(distribution) &&
+    ratings.every(
+      (item) =>
+        Number.isInteger(item.count) &&
+        item.count >= 0
+    ) &&
+    total === reportedCount;
+
+  if (!valid || reportedCount === 0) {
     return (
       <View style={styles.ratingDistribution}>
         <Text style={styles.distributionTitle}>
-          Rating Distribution
+          Spiciness Distribution
         </Text>
 
         <Text style={styles.distributionEmpty}>
-          Rating distribution unavailable
+          No spiciness ratings yet
         </Text>
       </View>
     );
   }
 
+  const median = statistics?.medianSpiciness;
+
   return (
     <View style={styles.ratingDistribution}>
       <Text style={styles.distributionTitle}>
-        Rating Distribution
+        Spiciness Distribution
       </Text>
 
-      {ratings.map(({ stars, count }) => {
+      {ratings.map(({ level, count }) => {
         const percentage =
-          total > 0
-            ? (count / total) * 100
-            : 0;
+          total > 0 ? (count / total) * 100 : 0;
 
         return (
           <View
-            key={stars}
+            key={level}
             style={styles.distributionRow}
           >
             <Text style={styles.distributionStars}>
-              {stars} ★
+              {level} ★
             </Text>
 
             <View style={styles.distributionTrack}>
               <View
                 style={[
                   styles.distributionFill,
-                  {
-                    width: `${percentage}%`,
-                  },
+                  { width: `${percentage}%` },
                 ]}
               />
             </View>
@@ -119,9 +113,24 @@ function RatingDistribution({ statistics }) {
           </View>
         );
       })}
+
+      <Text style={styles.medianText}>
+        Median Spiciness:{" "}
+        {median == null
+          ? "Unavailable"
+          : `${Number(median).toFixed(1)} / 5`}
+      </Text>
+
+      <Text style={styles.distributionDescription}>
+        Based on {reportedCount} spiciness ratings
+      </Text>
     </View>
   );
 }
+
+// =====================================================
+// Review Stars (Overall Rating Only)
+// =====================================================
 
 function ReviewStars({ rating, size = 18 }) {
   const value = Math.max(
@@ -142,6 +151,10 @@ function ReviewStars({ rating, size = 18 }) {
     </View>
   );
 }
+
+// =====================================================
+// Review Panel
+// =====================================================
 
 export default function ReviewPanel({
   restaurantId,
@@ -201,16 +214,16 @@ export default function ReviewPanel({
     sort,
   ].join(":");
 
-  // Real review writes require a signed-in session.
-  // The demo flag alone must never grant write permissions.
   const canWriteReview =
     typeof token === "string" &&
     token.trim().length > 0;
 
   const effectiveToken = canWriteReview ? token : null;
 
-  // Preserve fixture reads for isolated development,
-  // without allowing demo-only review writes.
+  // =====================================================
+  // Load Reviews
+  // =====================================================
+
   useEffect(() => {
     let active = true;
     setError(null);
@@ -261,15 +274,17 @@ export default function ReviewPanel({
       ? result.data
       : null;
 
+  // =====================================================
+  // Form
+  // =====================================================
+
   function resetForm() {
     setEditingId(null);
     setDeleteId(null);
-
     setTitle("");
     setRating(0);
     setSpicinessRating(null);
     setComment("");
-
     setPhotos([]);
     setFormError(null);
     setNotice("");
@@ -301,6 +316,7 @@ export default function ReviewPanel({
     }
 
     if (
+      type === "dish" &&
       spicinessRating !== null &&
       (
         !Number.isInteger(spicinessRating) ||
@@ -322,6 +338,10 @@ export default function ReviewPanel({
     return null;
   }
 
+  // =====================================================
+  // Submit Review
+  // =====================================================
+
   async function submit() {
     if (busy.current || !canWriteReview) return;
 
@@ -338,14 +358,23 @@ export default function ReviewPanel({
     setNotice("");
 
     try {
+      // FIX:
+      // rating and spicinessRating are separate fields.
       const input = {
         rating,
         comment,
         photoUrls: photos.map((photo) => photo.url),
+        ...(type === "dish"
+          ? { spicinessRating }
+          : {}),
       };
 
       const created = editingId
-        ? await repository.edit(editingId, input, effectiveToken)
+        ? await repository.edit(
+            editingId,
+            input,
+            effectiveToken
+          )
         : await repository.create(
             { ...target, ...input },
             effectiveToken
@@ -353,10 +382,7 @@ export default function ReviewPanel({
 
       if (!mounted.current) return;
 
-      setRating(0);
-      setComment("");
-      setPhotos([]);
-      setEditingId(null);
+      resetForm();
       setPage(1);
       setRefresh((value) => value + 1);
 
@@ -369,13 +395,21 @@ export default function ReviewPanel({
       onCreated?.(target, created.statistics);
     } catch (err) {
       if (mounted.current) {
-        setFormError(err.message);
+        setFormError(
+          err instanceof Error
+            ? err.message
+            : "Unable to save review."
+        );
       }
     } finally {
       busy.current = false;
       if (mounted.current) setSaving(false);
     }
   }
+
+  // =====================================================
+  // Photo Upload
+  // =====================================================
 
   async function selectPhoto() {
     if (
@@ -443,6 +477,10 @@ export default function ReviewPanel({
     }
   }
 
+  // =====================================================
+  // Delete / Like
+  // =====================================================
+
   async function changeReview(review, action) {
     if (busy.current || !canWriteReview) return;
 
@@ -460,11 +498,7 @@ export default function ReviewPanel({
 
         if (!mounted.current) return;
 
-        setDeleteId(null);
-        setEditingId(null);
-        setRating(0);
-        setComment("");
-        setPhotos([]);
+        resetForm();
         setPage(1);
 
         onCreated?.(target, changed.statistics);
@@ -490,11 +524,21 @@ export default function ReviewPanel({
     }
   }
 
+  // =====================================================
+  // Edit Review
+  // =====================================================
+
   function startEditing(review) {
     setEditingId(review.id);
     setDeleteId(null);
+
     setRating(review.rating);
+    setSpicinessRating(
+      review.spicinessRating ?? null
+    );
+
     setComment(review.comment);
+    setTitle(review.title || "My Review");
 
     setPhotos(
       (review.photoUrls || []).map((url) => ({
@@ -509,6 +553,10 @@ export default function ReviewPanel({
     setNotice("");
   }
 
+  // =====================================================
+  // Render
+  // =====================================================
+
   return (
     <View style={styles.panel}>
       <View style={styles.sectionHeading}>
@@ -519,6 +567,8 @@ export default function ReviewPanel({
         />
         <Text style={styles.heading}>Reviews</Text>
       </View>
+
+      {/* Review Type */}
 
       <View style={styles.row}>
         {[
@@ -558,6 +608,8 @@ export default function ReviewPanel({
         })}
       </View>
 
+      {/* Sort */}
+
       <View style={styles.row}>
         {[
           ["mostRecent", "Most Recent"],
@@ -593,16 +645,22 @@ export default function ReviewPanel({
         })}
       </View>
 
+      {/* Review Results */}
+
       {error ? (
         <ErrorState
           title="Unable to load reviews"
           message={error}
-          onRetry={() => setRefresh((value) => value + 1)}
+          onRetry={() =>
+            setRefresh((value) => value + 1)
+          }
         />
       ) : !data ? (
         <LoadingState message="Loading reviews..." />
       ) : (
         <>
+          {/* Overall Rating Summary */}
+
           <View style={styles.summary}>
             {data.statistics.averageRating != null && (
               <AppIcon
@@ -625,11 +683,13 @@ export default function ReviewPanel({
             </Text>
           </View>
 
-          {/* Rating Distribution */}
+          {/* Spiciness Distribution — Dish Only */}
 
-          <RatingDistribution
-            statistics={data.statistics}
-          />
+          {type === "dish" && (
+            <SpicinessDistribution
+              statistics={data.statistics}
+            />
+          )}
 
           {data.reviews.length === 0 && (
             <EmptyState
@@ -639,9 +699,12 @@ export default function ReviewPanel({
             />
           )}
 
+          {/* Individual Reviews */}
+
           {data.reviews.map((review) => (
             <View key={review.id} style={styles.reviewCard}>
               <View style={styles.reviewHeader}>
+                {/* Always show Overall Rating */}
                 <ReviewStars rating={review.rating} />
 
                 {review.isOwner && (
@@ -650,6 +713,15 @@ export default function ReviewPanel({
                   </Text>
                 )}
               </View>
+
+              {/* Optional individual spiciness */}
+
+              {type === "dish" &&
+                review.spicinessRating != null && (
+                  <Text style={styles.reviewSpiciness}>
+                    Spiciness: {review.spicinessRating} / 5
+                  </Text>
+                )}
 
               <Text style={styles.reviewComment}>
                 {review.comment}
@@ -678,7 +750,9 @@ export default function ReviewPanel({
                     `review ${review.id}`
                   }
                   disabled={saving || !canWriteReview}
-                  onPress={() => changeReview(review, "like")}
+                  onPress={() =>
+                    changeReview(review, "like")
+                  }
                   style={[
                     styles.actionButton,
                     (saving || !canWriteReview) &&
@@ -686,7 +760,11 @@ export default function ReviewPanel({
                   ]}
                 >
                   <AppIcon
-                    name={review.likedByMe ? "favoriteFilled" : "like"}
+                    name={
+                      review.likedByMe
+                        ? "favoriteFilled"
+                        : "like"
+                    }
                     size={19}
                     color={
                       review.likedByMe
@@ -694,6 +772,7 @@ export default function ReviewPanel({
                         : colors.textSecondary
                     }
                   />
+
                   <Text
                     style={[
                       styles.actionText,
@@ -717,21 +796,27 @@ export default function ReviewPanel({
                         size={18}
                         color={colors.textSecondary}
                       />
-                      <Text style={styles.actionText}>Edit</Text>
+                      <Text style={styles.actionText}>
+                        Edit
+                      </Text>
                     </Pressable>
 
                     <Pressable
                       accessibilityRole="button"
                       disabled={saving}
                       style={styles.actionButton}
-                      onPress={() => setDeleteId(review.id)}
+                      onPress={() =>
+                        setDeleteId(review.id)
+                      }
                     >
                       <AppIcon
                         name="delete"
                         size={18}
                         color={colors.error}
                       />
-                      <Text style={styles.deleteText}>Delete</Text>
+                      <Text style={styles.deleteText}>
+                        Delete
+                      </Text>
                     </Pressable>
                   </>
                 )}
@@ -759,7 +844,9 @@ export default function ReviewPanel({
                       title="Cancel"
                       variant="secondary"
                       disabled={saving}
-                      onPress={() => setDeleteId(null)}
+                      onPress={() =>
+                        setDeleteId(null)
+                      }
                       style={styles.confirmButton}
                     />
                   </View>
@@ -768,13 +855,17 @@ export default function ReviewPanel({
             </View>
           ))}
 
+          {/* Pagination */}
+
           <View style={styles.pagination}>
             {page > 1 && (
               <AppButton
                 title="Previous"
                 icon="chevronBack"
                 variant="outline"
-                onPress={() => setPage((value) => value - 1)}
+                onPress={() =>
+                  setPage((value) => value - 1)
+                }
                 style={styles.pageButton}
               />
             )}
@@ -785,13 +876,17 @@ export default function ReviewPanel({
                 title="Next"
                 icon="chevronForward"
                 variant="outline"
-                onPress={() => setPage((value) => value + 1)}
+                onPress={() =>
+                  setPage((value) => value + 1)
+                }
                 style={styles.pageButton}
               />
             )}
           </View>
         </>
       )}
+
+      {/* Form */}
 
       {canWriteReview ? (
         <View style={styles.formSection}>
@@ -811,28 +906,28 @@ export default function ReviewPanel({
             editable={!saving}
           />
 
-          <Text style={styles.fieldLabel}>Overall Rating (Required)</Text>
+          {/* FIX 1: Overall Rating */}
+
+          <Text style={styles.fieldLabel}>
+            Overall Rating (Required)
+          </Text>
 
           <View style={styles.starRow}>
             {[1, 2, 3, 4, 5].map((value) => (
               <Pressable
                 key={value}
                 accessibilityRole="button"
-                accessibilityLabel={`${value} spiciness`}
+                accessibilityLabel={`${value} stars`}
                 accessibilityState={{
-                  selected: spicinessRating === value,
+                  selected: rating === value,
                 }}
                 disabled={saving}
-                onPress={() => {
-                  setSpicinessRating(
-                    spicinessRating === value ? null : value
-                  );
-                }}
+                onPress={() => setRating(value)}
                 style={styles.starButton}
               >
                 <AppIcon
                   name={
-                    value <= (spicinessRating ?? 0)
+                    value <= rating
                       ? "starFilled"
                       : "star"
                   }
@@ -843,40 +938,63 @@ export default function ReviewPanel({
             ))}
           </View>
 
-          <Text style={styles.fieldLabel}>
-            Spiciness Rating (Optional)
-          </Text>
+          {/* FIX 2: Spiciness Rating */}
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Clear spiciness rating"
-            disabled={saving || spicinessRating === null}
-            onPress={() => setSpicinessRating(null)}
-          >
-            <Text style={styles.clearRatingText}>
-              Clear Spiciness Rating
-            </Text>
-          </Pressable>
+          {type === "dish" && (
+            <>
+              <Text style={styles.fieldLabel}>
+                Spiciness Rating (Optional)
+              </Text>
 
-          <View style={styles.starRow}>
-            {[1, 2, 3, 4, 5].map((value) => (
+              <View style={styles.starRow}>
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <Pressable
+                    key={value}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${value} spiciness`}
+                    accessibilityState={{
+                      selected:
+                        spicinessRating === value,
+                    }}
+                    disabled={saving}
+                    onPress={() => {
+                      setSpicinessRating(
+                        spicinessRating === value
+                          ? null
+                          : value
+                      );
+                    }}
+                    style={styles.starButton}
+                  >
+                    <AppIcon
+                      name={
+                        value <= (spicinessRating ?? 0)
+                          ? "starFilled"
+                          : "star"
+                      }
+                      size={32}
+                      color={colors.primary}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+
               <Pressable
-                key={value}
                 accessibilityRole="button"
-                accessibilityLabel={`${value} stars`}
-                accessibilityState={{ selected: rating === value }}
-                disabled={saving}
-                onPress={() => setRating(value)}
-                style={styles.starButton}
+                accessibilityLabel="Clear spiciness rating"
+                disabled={
+                  saving || spicinessRating === null
+                }
+                onPress={() =>
+                  setSpicinessRating(null)
+                }
               >
-                <AppIcon
-                  name={value <= rating ? "starFilled" : "star"}
-                  size={32}
-                  color={colors.primary}
-                />
+                <Text style={styles.clearRatingText}>
+                  Clear Spiciness Rating
+                </Text>
               </Pressable>
-            ))}
-          </View>
+            </>
+          )}
 
           <AppInput
             label="Your Review"
@@ -894,6 +1012,8 @@ export default function ReviewPanel({
           <Text style={styles.characterCount}>
             {comment.length}/2000
           </Text>
+
+          {/* Photos */}
 
           <View style={styles.photoRow}>
             {photos.map((photo, index) => (
@@ -913,7 +1033,9 @@ export default function ReviewPanel({
                   disabled={saving}
                   onPress={() =>
                     setPhotos((current) =>
-                      current.filter((_, i) => i !== index)
+                      current.filter(
+                        (_, i) => i !== index
+                      )
                     )
                   }
                   style={styles.removePhotoButton}
@@ -923,7 +1045,9 @@ export default function ReviewPanel({
                     size={15}
                     color={colors.error}
                   />
-                  <Text style={styles.removePhoto}>Remove</Text>
+                  <Text style={styles.removePhoto}>
+                    Remove
+                  </Text>
                 </Pressable>
               </View>
             ))}
@@ -933,7 +1057,9 @@ export default function ReviewPanel({
             title={`Add Photo (${photos.length}/5)`}
             icon="camera"
             variant="outline"
-            disabled={saving || photos.length >= 5}
+            disabled={
+              saving || photos.length >= 5
+            }
             onPress={selectPhoto}
             style={styles.photoButton}
           />
@@ -948,7 +1074,11 @@ export default function ReviewPanel({
           )}
 
           <AppButton
-            title={editingId ? "Save Changes" : "Submit Review"}
+            title={
+              editingId
+                ? "Save Changes"
+                : "Submit Review"
+            }
             icon="check"
             loading={saving}
             disabled={saving}
@@ -1007,20 +1137,27 @@ export default function ReviewPanel({
   );
 }
 
+// =====================================================
+// Styles
+// =====================================================
+
 const styles = StyleSheet.create({
   panel: {
     backgroundColor: colors.surface,
   },
+
   sectionHeading: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     marginBottom: spacing.lg,
   },
+
   heading: {
     ...typography.section,
     color: colors.text,
   },
+
   row: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1028,23 +1165,28 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.md,
   },
+
   chip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.pill,
     backgroundColor: colors.surfaceSecondary,
   },
+
   activeChip: {
     backgroundColor: colors.primary,
   },
+
   chipText: {
     fontSize: 12,
     fontWeight: "600",
     color: colors.textSecondary,
   },
+
   activeChipText: {
     color: colors.white,
   },
+
   sortChip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -1052,18 +1194,17 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.pill,
   },
+
   activeSortChip: {
     borderColor: colors.primary,
     backgroundColor: colors.primaryLight,
   },
+
   sortText: {
     ...typography.caption,
     color: colors.textSecondary,
   },
-  activeSortText: {
-    color: colors.primary,
-    fontWeight: "700",
-  },
+
   summary: {
     flexDirection: "row",
     alignItems: "center",
@@ -1071,31 +1212,37 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginVertical: spacing.lg,
   },
+
   summaryRating: {
     fontSize: 18,
     fontWeight: "800",
     color: colors.primary,
   },
+
   summaryCount: {
     ...typography.caption,
     color: colors.textSecondary,
   },
+
   reviewCard: {
     backgroundColor: colors.surface,
     paddingVertical: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
   },
+
   reviewHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: spacing.sm,
   },
+
   stars: {
     flexDirection: "row",
     gap: 2,
   },
+
   ownerBadge: {
     fontSize: 11,
     fontWeight: "700",
@@ -1105,29 +1252,40 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: radius.pill,
   },
+
+  reviewSpiciness: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+
   reviewComment: {
     ...typography.body,
     color: colors.text,
     marginBottom: spacing.md,
   },
+
   photoRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
     marginBottom: spacing.sm,
   },
+
   photo: {
     width: 110,
     height: 90,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceSecondary,
   },
+
   actionRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
     gap: spacing.md,
   },
+
   actionButton: {
     minHeight: 40,
     flexDirection: "row",
@@ -1136,71 +1294,87 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingRight: spacing.md,
   },
+
   actionText: {
     fontSize: 13,
     color: colors.textSecondary,
     fontWeight: "600",
   },
+
   likedText: {
     color: colors.primary,
   },
+
   deleteText: {
     fontSize: 13,
     color: colors.error,
     fontWeight: "600",
   },
+
   disabled: {
     opacity: 0.5,
   },
+
   deleteConfirm: {
     padding: spacing.md,
     marginTop: spacing.md,
     borderRadius: radius.md,
     backgroundColor: colors.errorLight,
   },
+
   confirmText: {
     ...typography.body,
     color: colors.text,
     marginBottom: spacing.md,
   },
+
   confirmButton: {
     flexGrow: 1,
   },
+
   pagination: {
     flexDirection: "row",
     justifyContent: "space-between",
     gap: spacing.md,
     marginTop: spacing.lg,
   },
+
   pageButton: {
     flexGrow: 1,
   },
+
   emptyState: {
     minHeight: 160,
   },
+
   formSection: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
     marginTop: spacing.xl,
     paddingTop: spacing.xl,
   },
+
   fieldLabel: {
     ...typography.caption,
     color: colors.textSecondary,
     fontWeight: "600",
     marginBottom: spacing.sm,
   },
+
   starRow: {
     flexDirection: "row",
     gap: spacing.xs,
     marginBottom: spacing.lg,
   },
+
   starButton: {
     padding: spacing.xs,
   },
+
   commentInput: {
     minHeight: 120,
   },
+
   characterCount: {
     textAlign: "right",
     fontSize: 11,
@@ -1208,39 +1382,48 @@ const styles = StyleSheet.create({
     marginTop: -spacing.sm,
     marginBottom: spacing.lg,
   },
+
   selectedPhoto: {
     alignItems: "center",
   },
+
   removePhotoButton: {
     minHeight: 36,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
   },
+
   removePhoto: {
     color: colors.error,
     fontSize: 12,
   },
+
   photoButton: {
     marginTop: spacing.sm,
   },
+
   submitButton: {
     marginTop: spacing.lg,
   },
+
   cancelEditButton: {
     marginTop: spacing.sm,
   },
+
   formError: {
     ...typography.caption,
     color: colors.error,
     marginTop: spacing.md,
   },
+
   notice: {
     ...typography.caption,
     color: colors.success,
     marginTop: spacing.md,
     textAlign: "center",
   },
+
   loginRequired: {
     backgroundColor: colors.primaryLight,
     borderRadius: radius.lg,
@@ -1249,16 +1432,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
   },
+
   loginTitle: {
     ...typography.section,
     color: colors.text,
     textAlign: "center",
   },
+
   loginDescription: {
     ...typography.body,
     color: colors.textSecondary,
     textAlign: "center",
   },
+
   loginButton: {
     marginTop: spacing.lg,
     alignSelf: "stretch",
@@ -1272,7 +1458,7 @@ const styles = StyleSheet.create({
   },
 
   // =====================================================
-  // Rating Distribution Styles
+  // Spiciness Distribution Styles
   // =====================================================
 
   ratingDistribution: {
@@ -1326,5 +1512,18 @@ const styles = StyleSheet.create({
   distributionEmpty: {
     ...typography.body,
     color: colors.textMuted,
+  },
+
+  medianText: {
+    ...typography.body,
+    color: colors.text,
+    fontWeight: "700",
+    marginTop: spacing.md,
+  },
+
+  distributionDescription: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
 });
